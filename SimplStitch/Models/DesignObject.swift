@@ -27,6 +27,11 @@ final class DesignObject {
     var zIndex: Int = 0
     var isVisible: Bool = true
     var isLocked: Bool = false
+    /// Objekte mit derselben (nicht-nil) `groupID` bilden eine Gruppe (Issue #16) — keine eigene
+    /// Group-@Model-Klasse, um dem flachen `kind`-Discriminator-Ansatz dieser Klasse treu zu
+    /// bleiben. Verschachtelte Gruppen (Gruppe einer Gruppe) sind bewusst nicht unterstützt: erneutes
+    /// Gruppieren von bereits gruppierten Objekten löst sie aus ihrer alten Gruppe und weist die neue zu.
+    var groupID: UUID?
 
     // Transform — dieselben Handles für alle Objekte (skalieren, drehen, verzerren, runden).
     var positionX: Double = 0

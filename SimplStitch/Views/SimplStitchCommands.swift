@@ -46,7 +46,7 @@ struct SimplStitchCommands: Commands {
                 Text("menu.edit.delete")
             }
             .keyboardShortcut(.delete, modifiers: [])
-            .disabled(canvasStore?.selectedObject == nil)
+            .disabled(canvasStore?.selectedObjectIDs.isEmpty ?? true)
         }
 
         CommandMenu("menu.tool.title") {
@@ -61,6 +61,24 @@ struct SimplStitchCommands: Commands {
         }
 
         CommandMenu("menu.object.title") {
+            Button {
+                canvasStore?.groupSelectedObjects()
+            } label: {
+                Text("menu.object.group")
+            }
+            .keyboardShortcut("g", modifiers: .command)
+            .disabled((canvasStore?.selectedObjectIDs.count ?? 0) < 2)
+
+            Button {
+                canvasStore?.ungroupSelectedObjects()
+            } label: {
+                Text("menu.object.ungroup")
+            }
+            .keyboardShortcut("g", modifiers: [.command, .shift])
+            .disabled(canvasStore?.selectedGroupID == nil)
+
+            Divider()
+
             Button {
                 if let id = canvasStore?.selectedObjectID {
                     canvasStore?.moveObject(id, .toFront)

@@ -11,6 +11,10 @@ import Foundation
 
 struct DocumentPackageManagerTests {
 
+    /// Feste ID statt `UUID()` pro Aufruf — `makeSampleProject()` wird von mehreren Tests
+    /// aufgerufen, die dieselbe Gruppen-ID nach dem Roundtrip wiedererkennen müssen (Issue #16).
+    private static let sampleGroupID = UUID()
+
     private func makeTempPackageURL() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
@@ -24,6 +28,7 @@ struct DocumentPackageManagerTests {
         rectangle.cornerRadius = 4
         rectangle.zIndex = 0
         rectangle.fillColorHex = "#FF0000"
+        rectangle.groupID = Self.sampleGroupID
         // Real InkStitch kennt für Tatami nur ein An/Aus-Bool (kein Typ) — jeder Nicht-.none-Wert
         // wird beim Roundtrip auf .centerWalk normalisiert (siehe SVGDesignSerializer, Phase 6c).
         rectangle.stitchSettings = StitchSettings(stitchType: .tatami, density: 0.4, angleDegrees: 45, underlayType: .centerWalk)
@@ -89,6 +94,7 @@ struct DocumentPackageManagerTests {
         #expect(abs(rectangle.height - 20) < 0.001)
         #expect(abs(rectangle.cornerRadius - 4) < 0.001)
         #expect(rectangle.fillColorHex == "#FF0000")
+        #expect(rectangle.groupID == Self.sampleGroupID)
         let rectangleSettings = try #require(rectangle.stitchSettings)
         #expect(rectangleSettings.stitchType == .tatami)
         #expect(rectangleSettings.underlayType == .centerWalk)

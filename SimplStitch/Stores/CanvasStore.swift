@@ -163,7 +163,7 @@ final class CanvasStore {
     func selectTool(_ tool: CanvasTool) {
         currentTool = tool
         if tool != .select {
-            selectedObjectID = nil
+            selectedObjectIDs = []
         }
     }
 
@@ -233,7 +233,7 @@ final class CanvasStore {
             objects.append(newObject)
         }
         currentTool = .select
-        selectedObjectID = newObject?.id
+        selectedObjectIDs = newObject.map { [$0.id] } ?? []
         if newObject?.kind == .text {
             editingTextObjectID = newObject?.id
         }
@@ -341,18 +341,202 @@ final class CanvasStore {
         String(format: "%.4f", value)
     }
 
-    // MARK: Selektion & Handles (5c)
+    // MARK: Selektion & Handles (5c, Mehrfachauswahl & Gruppierung: Issue #16)
 
-    private(set) var selectedObjectID: UUID?
+    /// Alle aktuell selektierten Objekte — Quelle der Wahrheit für die Selektion. Mehrfachauswahl
+    /// entsteht per Shift-Klick/Gummiband-Auswahl auf dem Canvas oder Cmd/Shift-Klick im Ebenen-
+    /// Panel (natives `List(selection:)`-Verhalten). Klick auf ein Gruppenmitglied selektiert immer
+    /// die ganze Gruppe (siehe `toggleSelection`/`beginTransformDrag`) — die Selektion besteht daher
+    /// stets aus vollständigen Gruppen und/oder einzelnen ungruppierten Objekten, nie einem Teil einer Gruppe.
+    private(set) var selectedObjectIDs: Set<UUID> = []
 
+    var selectedObjects: [DesignObject] {
+        objects.filter { selectedObjectIDs.contains($0.id) }
+    }
+
+    /// Nicht-nil nur bei einer Einzelauswahl (ein ungruppiertes Objekt) — von Objekt-Inspektor,
+    /// Sticheinstellungen, Z-Order-Buttons etc. genutzt, die pro Definition nur für genau ein
+    /// Objekt sinnvoll sind. Bei Gruppen-/Mehrfachauswahl bewusst nil (siehe `selectedGroupID`
+    /// für den Gruppen-Fall).
     var selectedObject: DesignObject? {
-        guard let id = selectedObjectID else { return nil }
+        guard selectedObjectIDs.count == 1, let id = selectedObjectIDs.first else { return nil }
         return objects.first { $0.id == id }
     }
 
+    var selectedObjectID: UUID? { selectedObject?.id }
+
+    /// Nicht-nil nur, wenn die aktuelle Selektion exakt aus allen Mitgliedern EINER Gruppe besteht
+    /// (nicht bei Einzelselektion eines Mitglieds oder einer Mehrfachauswahl über Gruppengrenzen
+    /// hinweg — beides kommt über die Panel-Mehrfachauswahl theoretisch vor, zeigt dann aber
+    /// bewusst weder Gruppen- noch Einzelobjekt-Handles).
+    var selectedGroupID: UUID? {
+        let selected = selectedObjects
+        guard selected.count > 1 else { return nil }
+        let groupIDs = Set(selected.compactMap(\.groupID))
+        guard groupIDs.count == 1, let groupID = groupIDs.first else { return nil }
+        guard objects.filter({ $0.groupID == groupID }).count == selected.count else { return nil }
+        return groupID
+    }
+
+    /// Achsenparalleler Rahmen um alle Mitglieder der aktuell selektierten Gruppe, inkl. deren
+    /// individueller Rotation (umschliesst die gedrehten Eckpunkte jedes Mitglieds) — wie der
+    /// Gruppenrahmen in PowerPoint/Illustrator, der selbst nicht mitrotiert, auch wenn einzelne
+    /// Mitglieder gedreht sind.
+    var selectedGroupBounds: CGRect? {
+        guard let groupID = selectedGroupID else { return nil }
+        return Self.groupBounds(of: objects.filter { $0.groupID == groupID })
+    }
+
+    static func groupBounds(of members: [DesignObject]) -> CGRect {
+        var minX = Double.infinity, minY = Double.infinity
+        var maxX = -Double.infinity, maxY = -Double.infinity
+        for member in members {
+            for corner in rotatedCorners(of: member) {
+                minX = min(minX, corner.x)
+                minY = min(minY, corner.y)
+                maxX = max(maxX, corner.x)
+                maxY = max(maxY, corner.y)
+            }
+        }
+        guard minX.isFinite else { return .zero }
+        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+    }
+
+    private static func rotatedCorners(of object: DesignObject) -> [CGPoint] {
+        let objectCenter = center(of: object)
+        let halfW = object.width / 2
+        let halfH = object.height / 2
+        let localCorners = [
+            CGPoint(x: -halfW, y: -halfH), CGPoint(x: halfW, y: -halfH),
+            CGPoint(x: halfW, y: halfH), CGPoint(x: -halfW, y: halfH),
+        ]
+        return localCorners.map { local in
+            let rotated = rotatedVector(local, byDegrees: object.rotationDegrees)
+            return CGPoint(x: objectCenter.x + rotated.x, y: objectCenter.y + rotated.y)
+        }
+    }
+
     func selectObject(_ id: UUID?) {
-        selectedObjectID = id
+        selectedObjectIDs = id.map { [$0] } ?? []
         refreshStitchPreview()
+    }
+
+    /// Ersetzt die Selektion vollständig — genutzt vom Ebenen-Panel, das über `List(selection:)`
+    /// eine eigene (Cmd/Shift-Klick-fähige) Mehrfachauswahl mitbringt und deren Row-Tags
+    /// (Objekt-IDs bzw. Gruppen-IDs) selbst in konkrete Mitglieds-IDs übersetzt.
+    func replaceSelection(_ ids: Set<UUID>) {
+        selectedObjectIDs = ids
+        refreshStitchPreview()
+    }
+
+    /// Shift-Klick auf dem Canvas: schaltet ein Objekt (bzw. bei einem Gruppenmitglied die ganze
+    /// Gruppe) in der Selektion um, statt sie zu ersetzen.
+    func toggleSelection(of id: UUID) {
+        guard let object = objects.first(where: { $0.id == id }) else { return }
+        let idsToToggle: Set<UUID>
+        if let groupID = object.groupID {
+            idsToToggle = Set(objects.filter { $0.groupID == groupID }.map(\.id))
+        } else {
+            idsToToggle = [id]
+        }
+        if idsToToggle.isSubset(of: selectedObjectIDs) {
+            selectedObjectIDs.subtract(idsToToggle)
+        } else {
+            selectedObjectIDs.formUnion(idsToToggle)
+        }
+        refreshStitchPreview()
+    }
+
+    // MARK: Gummiband-Auswahl (Marquee)
+
+    /// Rechteck der laufenden Gummiband-Auswahl in Design-Koordinaten, während eines Shift-Drags
+    /// über leere Canvas-Fläche — nil ausserhalb einer solchen Geste.
+    private(set) var marqueeRect: CGRect?
+    private var marqueeStartPoint: CGPoint?
+
+    func beginMarqueeSelection(atDesignPoint point: CGPoint) {
+        marqueeStartPoint = point
+        marqueeRect = CGRect(origin: point, size: .zero)
+    }
+
+    func updateMarqueeSelection(toDesignPoint point: CGPoint) {
+        guard let start = marqueeStartPoint else { return }
+        marqueeRect = CGRect(
+            x: min(start.x, point.x), y: min(start.y, point.y),
+            width: abs(point.x - start.x), height: abs(point.y - start.y)
+        )
+    }
+
+    /// Fügt alle Objekte, deren (unrotierte) Bounding-Box das Gummiband-Rechteck schneidet, zur
+    /// Selektion hinzu — bei Treffern auf ein Gruppenmitglied wird die ganze Gruppe ergänzt.
+    /// Vereinfachung: unrotierte Bounding-Box, wie beim übrigen Hit-Testing (5c) — reicht für die
+    /// Grobauswahl per Gummiband.
+    func endMarqueeSelection() {
+        defer { marqueeRect = nil; marqueeStartPoint = nil }
+        guard let rect = marqueeRect else { return }
+        var idsToAdd: Set<UUID> = []
+        for object in objects where object.isVisible {
+            let bounds = CGRect(x: object.positionX, y: object.positionY, width: object.width, height: object.height)
+            guard bounds.intersects(rect) else { continue }
+            if let groupID = object.groupID {
+                idsToAdd.formUnion(objects.filter { $0.groupID == groupID }.map(\.id))
+            } else {
+                idsToAdd.insert(object.id)
+            }
+        }
+        selectedObjectIDs.formUnion(idsToAdd)
+        refreshStitchPreview()
+    }
+
+    // MARK: Gruppierung
+
+    /// Fasst die aktuell selektierten Objekte (mind. 2) zu einer neuen Gruppe zusammen. Objekte,
+    /// die bereits einer anderen Gruppe angehören, werden daraus gelöst — verschachtelte Gruppen
+    /// sind bewusst nicht unterstützt (siehe `DesignObject.groupID`-Kommentar). Die zIndex-Werte
+    /// der Mitglieder werden zusammenhängend gemacht, damit die Gruppe im Ebenen-Panel als ein
+    /// Block dargestellt werden kann (siehe `LayersPanelView`).
+    func groupSelectedObjects() {
+        let members = selectedObjects
+        guard members.count > 1 else { return }
+        let groupID = UUID()
+        for member in members {
+            member.groupID = groupID
+        }
+        makeContiguous(members)
+    }
+
+    /// Löst die Gruppierung der aktuell selektierten Objekte auf (Selektion bleibt erhalten).
+    func ungroupSelectedObjects() {
+        for object in selectedObjects {
+            object.groupID = nil
+        }
+    }
+
+    /// Löst eine bestimmte Gruppe auf, unabhängig von der aktuellen Selektion — genutzt vom
+    /// Ebenen-Panel für die "Gruppierung aufheben"-Aktion auf einer (evtl. nicht selektierten) Gruppenzeile.
+    func ungroup(groupID: UUID) {
+        for object in objects where object.groupID == groupID {
+            object.groupID = nil
+        }
+    }
+
+    /// Ordnet die zIndex-Werte so um, dass `members` als zusammenhängender Block an der vordersten
+    /// aktuellen Position der Gruppe liegen (relative Reihenfolge der Mitglieder untereinander bleibt erhalten).
+    private func makeContiguous(_ members: [DesignObject]) {
+        let memberIDs = Set(members.map(\.id))
+        var ordered = objectsFrontToBack
+        let memberFrontToBack = ordered.filter { memberIDs.contains($0.id) }
+        let insertIndex = ordered.firstIndex { memberIDs.contains($0.id) } ?? 0
+        ordered.removeAll { memberIDs.contains($0.id) }
+        ordered.insert(contentsOf: memberFrontToBack, at: min(insertIndex, ordered.count))
+        reassignZIndices(frontToBack: ordered)
+    }
+
+    /// Übernimmt eine vollständige, neu geordnete vorne-nach-hinten-Liste (z.B. nach Drag im
+    /// Ebenen-Panel, wo eine Gruppen-Zeile als zusammenhängender Block bewegt wird) und vergibt
+    /// die zIndex-Werte neu.
+    func applyFrontToBackOrder(_ ordered: [DesignObject]) {
+        reassignZIndices(frontToBack: ordered)
     }
 
     /// Oberstes sichtbares Objekt unter dem gegebenen Punkt (Design-Koordinaten), oder nil.
@@ -429,59 +613,206 @@ final class CanvasStore {
         var height: Double
         var rotationDegrees: Double
         var cornerRadius: Double
+
+        init(object: DesignObject) {
+            positionX = object.positionX
+            positionY = object.positionY
+            width = object.width
+            height = object.height
+            rotationDegrees = object.rotationDegrees
+            cornerRadius = object.cornerRadius
+        }
     }
 
-    private var activeObjectID: UUID?
+    /// Snapshot für eine Gruppen-Transformation: der achsenparallele Gruppenrahmen zu Beginn des
+    /// Drags (Pivot für Skalieren/Drehen) plus je ein `TransformSnapshot` pro Mitglied.
+    private struct GroupTransformSnapshot {
+        var bounds: CGRect
+        var memberSnapshots: [UUID: TransformSnapshot]
+    }
+
+    private enum ActiveTransform {
+        case single(objectID: UUID, snapshot: TransformSnapshot)
+        case group(GroupTransformSnapshot)
+    }
+
+    private var activeTransform: ActiveTransform?
     private var activeHandle: CanvasHandleKind?
     private var transformDragStartPoint: CGPoint?
-    private var transformDragSnapshot: TransformSnapshot?
 
-    /// Startet das Verschieben (handle == nil) oder einen Griff-Drag am gegebenen Punkt (Design-Koordinaten).
-    /// Selektiert das Objekt gleich mit. Gesperrte Objekte (`isLocked`) lassen sich selektieren, aber nicht verändern.
+    /// Startet das Verschieben (handle == nil) oder einen Griff-Drag am gegebenen Punkt (Design-
+    /// Koordinaten). Gehört das Objekt zu einer Gruppe, wird die ganze Gruppe selektiert und als
+    /// Einheit transformiert (PowerPoint/Illustrator-Verhalten) — sonst nur das einzelne Objekt.
+    /// Gesperrte Objekte (`isLocked`) lassen sich selektieren, aber nicht verändern; bei einer
+    /// Gruppe blockiert bereits ein einziges gesperrtes Mitglied die gesamte Gruppen-Transformation.
     func beginTransformDrag(object: DesignObject, handle: CanvasHandleKind?, atDesignPoint point: CGPoint) {
-        selectedObjectID = object.id
+        if let groupID = object.groupID {
+            selectedObjectIDs = Set(objects.filter { $0.groupID == groupID }.map(\.id))
+            beginGroupTransformDrag(handle: handle, atDesignPoint: point)
+            return
+        }
+        selectedObjectIDs = [object.id]
         guard !object.isLocked else { return }
-        activeObjectID = object.id
         activeHandle = handle
         transformDragStartPoint = point
-        transformDragSnapshot = TransformSnapshot(
-            positionX: object.positionX,
-            positionY: object.positionY,
-            width: object.width,
-            height: object.height,
-            rotationDegrees: object.rotationDegrees,
-            cornerRadius: object.cornerRadius
-        )
+        activeTransform = .single(objectID: object.id, snapshot: TransformSnapshot(object: object))
+    }
+
+    /// Startet einen Griff-Drag auf dem Gruppenrahmen der aktuell selektierten Gruppe
+    /// (`selectedGroupBounds`) — `handle == nil` bedeutet Verschieben der ganzen Gruppe.
+    func beginGroupTransformDrag(handle: CanvasHandleKind?, atDesignPoint point: CGPoint) {
+        let members = selectedObjects
+        guard !members.isEmpty, !members.contains(where: \.isLocked) else { return }
+        activeHandle = handle
+        transformDragStartPoint = point
+        let snapshots = Dictionary(uniqueKeysWithValues: members.map { ($0.id, TransformSnapshot(object: $0)) })
+        activeTransform = .group(GroupTransformSnapshot(bounds: Self.groupBounds(of: members), memberSnapshots: snapshots))
     }
 
     func updateTransformDrag(toDesignPoint point: CGPoint) {
-        guard let objectID = activeObjectID,
-              let object = objects.first(where: { $0.id == objectID }),
-              let start = transformDragStartPoint,
-              let snapshot = transformDragSnapshot else { return }
+        guard let start = transformDragStartPoint, let transform = activeTransform else { return }
 
-        guard let handle = activeHandle else {
-            object.positionX = snapshot.positionX + (point.x - start.x)
-            object.positionY = snapshot.positionY + (point.y - start.y)
-            return
-        }
-
-        switch handle {
-        case .rotate:
-            applyRotation(to: object, snapshot: snapshot, dragPoint: point)
-        case .cornerRadius:
-            applyCornerRadius(to: object, snapshot: snapshot, dragPoint: point)
-        default:
-            applyResize(to: object, handle: handle, snapshot: snapshot, dragPoint: point)
+        switch transform {
+        case .single(let objectID, let snapshot):
+            guard let object = objects.first(where: { $0.id == objectID }) else { return }
+            guard let handle = activeHandle else {
+                object.positionX = snapshot.positionX + (point.x - start.x)
+                object.positionY = snapshot.positionY + (point.y - start.y)
+                return
+            }
+            switch handle {
+            case .rotate:
+                applyRotation(to: object, snapshot: snapshot, dragPoint: point)
+            case .cornerRadius:
+                applyCornerRadius(to: object, snapshot: snapshot, dragPoint: point)
+            default:
+                applyResize(to: object, handle: handle, snapshot: snapshot, dragPoint: point)
+            }
+        case .group(let snapshot):
+            guard let handle = activeHandle else {
+                applyGroupMove(snapshot: snapshot, start: start, dragPoint: point)
+                return
+            }
+            switch handle {
+            case .rotate:
+                applyGroupRotation(snapshot: snapshot, dragPoint: point)
+            case .cornerRadius:
+                break // Gruppen haben keinen Eckenradius-Griff.
+            default:
+                applyGroupResize(handle: handle, snapshot: snapshot, dragPoint: point)
+            }
         }
     }
 
     func endTransformDrag() {
-        activeObjectID = nil
+        activeTransform = nil
         activeHandle = nil
         transformDragStartPoint = nil
-        transformDragSnapshot = nil
         refreshStitchPreview()
+    }
+
+    private func applyGroupMove(snapshot: GroupTransformSnapshot, start: CGPoint, dragPoint: CGPoint) {
+        let dx = dragPoint.x - start.x
+        let dy = dragPoint.y - start.y
+        for (id, memberSnapshot) in snapshot.memberSnapshots {
+            guard let member = objects.first(where: { $0.id == id }) else { continue }
+            member.positionX = memberSnapshot.positionX + dx
+            member.positionY = memberSnapshot.positionY + dy
+        }
+    }
+
+    /// Skaliert jedes Mitglied relativ zum fixen Anker-Eck-/Kantenpunkt des Gruppenrahmens.
+    /// Vereinfachung: skaliert Position-Offset und Grösse jedes Mitglieds unabhängig von dessen
+    /// eigener Rotation (kein Scher-/Verzerrungs-Anteil für bereits gedrehte Mitglieder, das würde
+    /// echte Skew-Unterstützung brauchen — siehe Issue #9). Reicht für den überwiegenden Fall
+    /// unrotierter oder gleichmässig skalierter Gruppenmitglieder.
+    private func applyGroupResize(handle: CanvasHandleKind, snapshot: GroupTransformSnapshot, dragPoint: CGPoint) {
+        guard let sign = handle.resizeSign else { return }
+        let bounds = snapshot.bounds
+        let halfW = bounds.width / 2
+        let halfH = bounds.height / 2
+        let center = CGPoint(x: bounds.midX, y: bounds.midY)
+
+        var scaleX = 1.0
+        if sign.x != 0, halfW > 0 {
+            let anchorX = -sign.x * halfW
+            let newWidth = max(Self.minimumShapeSize, abs((dragPoint.x - center.x) - anchorX))
+            scaleX = newWidth / bounds.width
+        }
+        var scaleY = 1.0
+        if sign.y != 0, halfH > 0 {
+            let anchorY = -sign.y * halfH
+            let newHeight = max(Self.minimumShapeSize, abs((dragPoint.y - center.y) - anchorY))
+            scaleY = newHeight / bounds.height
+        }
+
+        let anchorPoint = CGPoint(x: center.x - sign.x * halfW, y: center.y - sign.y * halfH)
+
+        for (id, memberSnapshot) in snapshot.memberSnapshots {
+            guard let member = objects.first(where: { $0.id == id }) else { continue }
+            let oldCenter = CGPoint(x: memberSnapshot.positionX + memberSnapshot.width / 2, y: memberSnapshot.positionY + memberSnapshot.height / 2)
+            let newCenter = CGPoint(
+                x: anchorPoint.x + (oldCenter.x - anchorPoint.x) * scaleX,
+                y: anchorPoint.y + (oldCenter.y - anchorPoint.y) * scaleY
+            )
+            let newWidth = max(Self.minimumShapeSize, memberSnapshot.width * scaleX)
+            let newHeight = max(Self.minimumShapeSize, memberSnapshot.height * scaleY)
+            member.width = newWidth
+            member.height = newHeight
+            member.positionX = newCenter.x - newWidth / 2
+            member.positionY = newCenter.y - newHeight / 2
+        }
+    }
+
+    /// Dreht die ganze Gruppe als starren Körper um den Mittelpunkt des Gruppenrahmens: jedes
+    /// Mitglied bekommt denselben Rotations-Delta addiert UND wandert auf seiner Kreisbahn um das
+    /// Gruppenzentrum mit — exakt (kein Vereinfachungs-Kompromiss wie beim Skalieren), da reine
+    /// Rotation keine Scherung erzeugt.
+    private func applyGroupRotation(snapshot: GroupTransformSnapshot, dragPoint: CGPoint) {
+        let center = CGPoint(x: snapshot.bounds.midX, y: snapshot.bounds.midY)
+        let vector = CGPoint(x: dragPoint.x - center.x, y: dragPoint.y - center.y)
+        guard vector.x != 0 || vector.y != 0 else { return }
+        let angleDegrees = atan2(vector.y, vector.x) * 180 / .pi
+        // Der Gruppen-Rotationsgriff steht immer am oberen Rand des (achsenparallelen)
+        // Gruppenrahmens, also bei Winkel -90° — derselbe Baseline-Trick wie bei einem Einzelobjekt.
+        let delta = angleDegrees + 90
+
+        for (id, memberSnapshot) in snapshot.memberSnapshots {
+            guard let member = objects.first(where: { $0.id == id }) else { continue }
+            let oldCenter = CGPoint(x: memberSnapshot.positionX + memberSnapshot.width / 2, y: memberSnapshot.positionY + memberSnapshot.height / 2)
+            let rotated = Self.rotatedVector(CGPoint(x: oldCenter.x - center.x, y: oldCenter.y - center.y), byDegrees: delta)
+            let newCenter = CGPoint(x: center.x + rotated.x, y: center.y + rotated.y)
+            member.positionX = newCenter.x - memberSnapshot.width / 2
+            member.positionY = newCenter.y - memberSnapshot.height / 2
+            member.rotationDegrees = memberSnapshot.rotationDegrees + delta
+        }
+    }
+
+    /// Positionen der acht Skalier-Griffe + Rotations-Griff für einen achsenparallelen Gruppenrahmen
+    /// (kein Eckenradius-Griff, kein Rotations-Offset durch Mitglieder — der Rahmen selbst rotiert nie).
+    func groupHandlePositions(for bounds: CGRect) -> [CanvasHandleKind: CGPoint] {
+        let halfW = bounds.width / 2
+        let halfH = bounds.height / 2
+        let center = CGPoint(x: bounds.midX, y: bounds.midY)
+        var result: [CanvasHandleKind: CGPoint] = [:]
+        for kind in CanvasHandleKind.resizeCases {
+            guard let sign = kind.resizeSign else { continue }
+            result[kind] = CGPoint(x: center.x + sign.x * halfW, y: center.y + sign.y * halfH)
+        }
+        result[.rotate] = CGPoint(x: center.x, y: bounds.minY - Self.rotationHandleOffset)
+        return result
+    }
+
+    func handle(atDesignPoint point: CGPoint, forGroupBounds bounds: CGRect) -> CanvasHandleKind? {
+        let tolerance = Self.handleHitRadiusPoints / zoomScale
+        for (kind, handlePoint) in groupHandlePositions(for: bounds) {
+            let dx = point.x - handlePoint.x
+            let dy = point.y - handlePoint.y
+            if (dx * dx + dy * dy).squareRoot() <= tolerance {
+                return kind
+            }
+        }
+        return nil
     }
 
     private func applyResize(to object: DesignObject, handle: CanvasHandleKind, snapshot: TransformSnapshot, dragPoint: CGPoint) {
@@ -571,7 +902,7 @@ final class CanvasStore {
     /// Startet die Inline-Bearbeitung eines Text-Objekts (z.B. per Doppelklick, siehe CanvasView).
     func beginEditingText(_ id: UUID) {
         guard let object = objects.first(where: { $0.id == id }), object.kind == .text, !object.isLocked else { return }
-        selectedObjectID = id
+        selectedObjectIDs = [id]
         editingTextObjectID = id
     }
 
@@ -583,9 +914,7 @@ final class CanvasStore {
         guard let object = objects.first(where: { $0.id == id }) else { return }
         if (object.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             objects.removeAll { $0.id == id }
-            if selectedObjectID == id {
-                selectedObjectID = nil
-            }
+            selectedObjectIDs.remove(id)
         }
     }
 
@@ -649,27 +978,34 @@ final class CanvasStore {
     /// (Sperre verhindert nur Verschieben/Skalieren/Drehen, siehe 5c/5e-Konvention).
     func deleteObject(_ id: UUID) {
         objects.removeAll { $0.id == id }
-        if selectedObjectID == id {
-            selectedObjectID = nil
+        if selectedObjectIDs.remove(id) != nil {
             stitchPreview = nil
             stitchPreviewError = nil
         }
         if editingTextObjectID == id {
             editingTextObjectID = nil
         }
-        if activeObjectID == id {
-            activeObjectID = nil
+        if isPartOfActiveTransform(id) {
+            activeTransform = nil
             activeHandle = nil
             transformDragStartPoint = nil
-            transformDragSnapshot = nil
         }
     }
 
-    /// Löscht das aktuell selektierte Objekt, falls vorhanden — Komfort-Methode für Menü/Toolbar,
-    /// die keine explizite ID kennen (anders als das Ebenen-Panel, das pro Zeile eine ID hat).
+    private func isPartOfActiveTransform(_ id: UUID) -> Bool {
+        switch activeTransform {
+        case .single(let objectID, _): return objectID == id
+        case .group(let snapshot): return snapshot.memberSnapshots[id] != nil
+        case nil: return false
+        }
+    }
+
+    /// Löscht alle aktuell selektierten Objekte — Komfort-Methode für Menü/Toolbar/Tastenkürzel,
+    /// die keine expliziten IDs kennen (anders als das Ebenen-Panel, das pro Zeile eine ID hat).
     func deleteSelectedObject() {
-        guard let id = selectedObjectID else { return }
-        deleteObject(id)
+        for id in selectedObjectIDs {
+            deleteObject(id)
+        }
     }
 
     // MARK: Garnfarben-Zuweisung (8e)

@@ -52,6 +52,8 @@ struct CanvasInspectorView: View {
             case .object:
                 if let object = store.selectedObject {
                     ObjectInspectorView(object: object, store: store)
+                } else if let groupID = store.selectedGroupID {
+                    GroupInspectorView(groupID: groupID, memberCount: store.selectedObjects.count, store: store)
                 } else {
                     ContentUnavailableView(
                         "inspector.object.empty",
@@ -63,8 +65,8 @@ struct CanvasInspectorView: View {
                 ThreadPalettesPanelView()
             }
         }
-        .onChange(of: store.selectedObjectID) { _, newValue in
-            if newValue != nil {
+        .onChange(of: store.selectedObjectIDs) { _, newValue in
+            if !newValue.isEmpty {
                 selectedTab = .object
             }
         }

@@ -17,7 +17,18 @@
 //  legt sich eine `TextField`-Overlay über die Box; sie verliert den Fokus
 //  (und committet/verwirft damit) sobald der Nutzer wegklickt oder Return drückt.
 //
+//  Mehrfachauswahl & Gruppierung (Issue #16): Shift ist der Modifier, der die
+//  sonst feste Klick-Drag-auf-leerer-Fläche-ist-immer-Pan-Konvention (5a/5c)
+//  überlagert — Shift+Klick auf ein Objekt schaltet es (bzw. bei einem
+//  Gruppenmitglied die ganze Gruppe) in der Selektion um, Shift+Drag über
+//  leere Fläche zieht ein Gummiband auf. Ohne Shift bleibt alles wie zuvor.
+//  Ist eine ganze Gruppe selektiert, zeigt CanvasView einen einzigen,
+//  achsenparallelen Rahmen mit Griffen um `CanvasStore.selectedGroupBounds`
+//  statt der Einzelobjekt-Griffe — CanvasStore transformiert dann alle
+//  Mitglieder gemeinsam (PowerPoint/Illustrator-Verhalten).
+//
 
+import AppKit
 import SwiftUI
 
 struct CanvasView: View {
@@ -51,6 +62,7 @@ struct CanvasView: View {
                     drawSelectionOutline(in: &context)
                     drawHandles(in: &context)
                     drawStitchPreviewError(in: &context)
+                    drawMarqueeRect(in: &context)
                 }
                 .background(Color(nsColor: .underPageBackgroundColor))
                 .gesture(store.currentTool == .select ? AnyGesture(selectionGesture) : AnyGesture(drawGesture))
@@ -139,8 +151,9 @@ struct CanvasView: View {
             }
     }
 
-    /// Auswahl-Werkzeug: eine Geste für Pan (leerer Bereich), Verschieben (Objektkörper) und
-    /// Griff-Drag (Skalieren/Drehen/Runden) — die Verzweigung passiert beim ersten `onChanged`-Aufruf
+    /// Auswahl-Werkzeug: eine Geste für Pan (leerer Bereich), Verschieben (Objekt-/Gruppenkörper),
+    /// Griff-Drag (Skalieren/Drehen/Runden, einzeln oder als Gruppe) und Gummiband-Auswahl
+    /// (Shift+Drag über leere Fläche) — die Verzweigung passiert beim ersten `onChanged`-Aufruf
     /// über `beginSelectionInteraction`, das Ergebnis steckt bis `onEnded` in `selectionDrag`.
     private var selectionGesture: some Gesture<DragGesture.Value> {
         DragGesture(minimumDistance: 0)
@@ -156,6 +169,8 @@ struct CanvasView: View {
                 switch selectionDrag.mode {
                 case .moveObject, .handle:
                     store.updateTransformDrag(toDesignPoint: store.designPoint(fromView: value.location))
+                case .marquee:
+                    store.updateMarqueeSelection(toDesignPoint: store.designPoint(fromView: value.location))
                 case .pan, .inert, .none:
                     break
                 }
@@ -166,6 +181,8 @@ struct CanvasView: View {
                     store.pan(by: value.translation)
                 case .moveObject, .handle:
                     store.endTransformDrag()
+                case .marquee:
+                    store.endMarqueeSelection()
                 case .inert, .none:
                     break
                 }
@@ -175,19 +192,31 @@ struct CanvasView: View {
 
     /// Entscheidet anhand des Trefferpunkts (View-Koordinaten) beim Gestenstart, was die laufende
     /// Geste bewirken soll — inkl. der dafür nötigen Store-Seiteneffekte (Selektieren, Drag starten).
+    /// Shift ist der Modifier für Mehrfachauswahl (Objekt-Toggle bzw. Gummiband, siehe Klassenkommentar).
     private func beginSelectionInteraction(atViewPoint viewPoint: CGPoint) -> SelectionDragState.Mode {
         if store.editingTextObject != nil {
             store.endEditingText()
         }
         let designPoint = store.designPoint(fromView: viewPoint)
+        let shiftHeld = NSEvent.modifierFlags.contains(.shift)
 
-        if let selected = store.selectedObject, !selected.isLocked,
+        if !shiftHeld, let groupBounds = store.selectedGroupBounds,
+           let handle = store.handle(atDesignPoint: designPoint, forGroupBounds: groupBounds) {
+            store.beginGroupTransformDrag(handle: handle, atDesignPoint: designPoint)
+            return .handle(handle)
+        }
+
+        if !shiftHeld, let selected = store.selectedObject, !selected.isLocked,
            let handle = store.handle(atDesignPoint: designPoint, for: selected) {
             store.beginTransformDrag(object: selected, handle: handle, atDesignPoint: designPoint)
             return .handle(handle)
         }
 
         if let hitObject = store.object(atDesignPoint: designPoint) {
+            if shiftHeld {
+                store.toggleSelection(of: hitObject.id)
+                return .inert
+            }
             if hitObject.isLocked {
                 store.selectObject(hitObject.id)
                 return .inert
@@ -196,6 +225,10 @@ struct CanvasView: View {
             return .moveObject
         }
 
+        if shiftHeld {
+            store.beginMarqueeSelection(atDesignPoint: designPoint)
+            return .marquee
+        }
         store.selectObject(nil)
         return .pan
     }
@@ -359,12 +392,47 @@ struct CanvasView: View {
     // MARK: Selektion & Handles (5c)
 
     private func drawSelectionOutline(in context: inout GraphicsContext) {
-        guard let selected = store.selectedObject, selected.isVisible else { return }
         var outlineContext = context
         outlineContext.transform = designToViewTransform
+        let style = StrokeStyle(lineWidth: 0.4, dash: [1.2, 0.8])
+
+        if let groupBounds = store.selectedGroupBounds {
+            // Gruppenrahmen (achsenparallel) plus dünne Konturen je Mitglied — wie in Illustrator/
+            // PowerPoint, wo eine Gruppenselektion beides gleichzeitig zeigt.
+            for member in store.selectedObjects where member.isVisible {
+                let memberBounds = CGRect(x: member.positionX, y: member.positionY, width: member.width, height: member.height)
+                let memberPath = Path(memberBounds).applying(member.rotationTransform)
+                outlineContext.stroke(memberPath, with: .color(.accentColor.opacity(0.5)), style: StrokeStyle(lineWidth: 0.25, dash: [0.8, 0.6]))
+            }
+            outlineContext.stroke(Path(groupBounds), with: .color(.accentColor), style: style)
+            return
+        }
+
+        if store.selectedObjectIDs.count > 1 {
+            // Mehrfachauswahl über Gruppengrenzen hinweg (kommt nur über die Panel-Mehrfachauswahl
+            // vor) — Vereinfachung: nur Einzelkonturen, keine gemeinsamen Griffe (siehe CanvasStore).
+            for object in store.selectedObjects where object.isVisible {
+                let bounds = CGRect(x: object.positionX, y: object.positionY, width: object.width, height: object.height)
+                let path = Path(bounds).applying(object.rotationTransform)
+                outlineContext.stroke(path, with: .color(.accentColor), style: style)
+            }
+            return
+        }
+
+        guard let selected = store.selectedObject, selected.isVisible else { return }
         let bounds = CGRect(x: selected.positionX, y: selected.positionY, width: selected.width, height: selected.height)
         let path = Path(bounds).applying(selected.rotationTransform)
-        outlineContext.stroke(path, with: .color(.accentColor), style: StrokeStyle(lineWidth: 0.4, dash: [1.2, 0.8]))
+        outlineContext.stroke(path, with: .color(.accentColor), style: style)
+    }
+
+    /// Gummiband-Rechteck während einer Shift-Drag-Auswahl über leere Canvas-Fläche.
+    private func drawMarqueeRect(in context: inout GraphicsContext) {
+        guard let rect = store.marqueeRect else { return }
+        var marqueeContext = context
+        marqueeContext.transform = designToViewTransform
+        let path = Path(rect)
+        marqueeContext.fill(path, with: .color(.accentColor.opacity(0.12)))
+        marqueeContext.stroke(path, with: .color(.accentColor), style: StrokeStyle(lineWidth: 0.4, dash: [1.2, 0.8]))
     }
 
     /// Zeigt einen Fehler der letzten Stichgenerierung (6f) als kleine Inline-Meldung nahe der
@@ -394,11 +462,19 @@ struct CanvasView: View {
     }
 
     private func drawHandles(in context: inout GraphicsContext) {
-        guard let selected = store.selectedObject, selected.isVisible else { return }
-        let positions = store.handlePositions(for: selected)
         let markerSize: CGFloat = 7
-        let color: Color = selected.isLocked ? .secondary : .accentColor
 
+        if let groupBounds = store.selectedGroupBounds {
+            drawHandleSet(store.groupHandlePositions(for: groupBounds), markerSize: markerSize, color: .accentColor, in: &context)
+            return
+        }
+
+        guard let selected = store.selectedObject, selected.isVisible else { return }
+        let color: Color = selected.isLocked ? .secondary : .accentColor
+        drawHandleSet(store.handlePositions(for: selected), markerSize: markerSize, color: color, in: &context)
+    }
+
+    private func drawHandleSet(_ positions: [CanvasHandleKind: CGPoint], markerSize: CGFloat, color: Color, in context: inout GraphicsContext) {
         if let top = positions[.top], let rotate = positions[.rotate] {
             var linePath = Path()
             linePath.move(to: store.viewPoint(fromDesign: top))
@@ -442,7 +518,10 @@ final class SelectionDragState {
         case pan
         case moveObject
         case handle(CanvasHandleKind)
-        /// Getroffen, aber ohne Wirkung (z.B. gesperrtes Objekt) — verhindert versehentliches Pannen.
+        /// Gummiband-Auswahl (Shift+Drag über leere Fläche, siehe CanvasView-Klassenkommentar).
+        case marquee
+        /// Getroffen, aber ohne Wirkung (z.B. gesperrtes Objekt oder Shift-Klick-Toggle) —
+        /// verhindert versehentliches Pannen.
         case inert
     }
 

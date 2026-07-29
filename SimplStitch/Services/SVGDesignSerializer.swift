@@ -106,6 +106,9 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             "data-ss-skew-y=\"\(fmt(object.skewYDegrees))\"",
             "fill=\"\(object.fillColorHex)\"",
         ]
+        if let groupID = object.groupID {
+            attrs.append("data-ss-group=\"\(groupID.uuidString)\"")
+        }
         if let settings = object.stitchSettings {
             attrs.append(contentsOf: stitchAttributes(for: settings))
         }
@@ -257,6 +260,9 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             object.skewXDegrees = parseDouble(attrs["data-ss-skew-x"]) ?? 0
             object.skewYDegrees = parseDouble(attrs["data-ss-skew-y"]) ?? 0
             object.fillColorHex = attrs["fill"] ?? object.fillColorHex
+            if let groupIDString = attrs["data-ss-group"], let groupID = UUID(uuidString: groupIDString) {
+                object.groupID = groupID
+            }
 
             if let settings = Self.stitchSettings(from: attrs) {
                 settings.designObject = object

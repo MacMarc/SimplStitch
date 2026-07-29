@@ -686,4 +686,199 @@ struct CanvasStoreTests {
         #expect(store.stitchPreview == nil)
         #expect(store.stitchPreviewError == "Stichgenerierung fehlgeschlagen: Testfehler")
     }
+
+    // MARK: Mehrfachauswahl & Gruppierung (Issue #16)
+
+    /// Zwei Rechtecke bei (0,0)-(10,10) und (20,0)-(30,10), gruppiert — Gruppenrahmen ist damit
+    /// exakt (0,0,30,10), Gruppenzentrum (15,5). Von den Rotations-/Skalierungstests unten genutzt,
+    /// die auf diesen konkreten Zahlen aufbauen.
+    @discardableResult
+    private func makeGroupOfTwoRectangles(in store: CanvasStore) -> (DesignObject, DesignObject) {
+        let a = makeRectangle(in: store, from: CGPoint(x: 0, y: 0), to: CGPoint(x: 10, y: 10))
+        let b = makeRectangle(in: store, from: CGPoint(x: 20, y: 0), to: CGPoint(x: 30, y: 10))
+        store.replaceSelection([a.id, b.id])
+        store.groupSelectedObjects()
+        return (a, b)
+    }
+
+    @Test func groupingFewerThanTwoObjectsDoesNothing() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let a = makeRectangle(in: store)
+        store.replaceSelection([a.id])
+        store.groupSelectedObjects()
+        #expect(a.groupID == nil)
+    }
+
+    @Test func groupSelectedObjectsAssignsSharedGroupIDAndExposesGroupBounds() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let (a, b) = makeGroupOfTwoRectangles(in: store)
+
+        #expect(a.groupID != nil)
+        #expect(a.groupID == b.groupID)
+        #expect(store.selectedGroupID == a.groupID)
+        #expect(store.selectedGroupBounds == CGRect(x: 0, y: 0, width: 30, height: 10))
+    }
+
+    @Test func groupingMakesMemberZIndicesContiguous() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let a = makeRectangle(in: store, from: CGPoint(x: 0, y: 0), to: CGPoint(x: 10, y: 10))
+        makeRectangle(in: store, from: CGPoint(x: 40, y: 40), to: CGPoint(x: 50, y: 50)) // liegt dazwischen
+        let b = makeRectangle(in: store, from: CGPoint(x: 20, y: 0), to: CGPoint(x: 30, y: 10))
+        store.replaceSelection([a.id, b.id])
+        store.groupSelectedObjects()
+
+        let indices = store.objectsFrontToBack.enumerated().compactMap { index, object in
+            (object.id == a.id || object.id == b.id) ? index : nil
+        }
+        #expect(indices.count == 2)
+        #expect(abs(indices[0] - indices[1]) == 1)
+    }
+
+    @Test func ungroupSelectedObjectsClearsGroupIDButKeepsSelection() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let (a, b) = makeGroupOfTwoRectangles(in: store)
+        store.ungroupSelectedObjects()
+
+        #expect(a.groupID == nil)
+        #expect(b.groupID == nil)
+        #expect(store.selectedObjectIDs == Set([a.id, b.id]))
+        #expect(store.selectedGroupID == nil)
+    }
+
+    @Test func ungroupByIDWorksIndependentOfCurrentSelection() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let (a, b) = makeGroupOfTwoRectangles(in: store)
+        let groupID = a.groupID!
+        store.selectObject(nil)
+
+        store.ungroup(groupID: groupID)
+
+        #expect(a.groupID == nil)
+        #expect(b.groupID == nil)
+    }
+
+    @Test func clickingGroupMemberSelectsWholeGroup() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let (a, b) = makeGroupOfTwoRectangles(in: store)
+        store.selectObject(nil)
+
+        store.beginTransformDrag(object: a, handle: nil, atDesignPoint: CGPoint(x: 5, y: 5))
+
+        #expect(store.selectedObjectIDs == Set([a.id, b.id]))
+    }
+
+    @Test func toggleSelectionOnGroupMemberTogglesWholeGroup() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let (a, b) = makeGroupOfTwoRectangles(in: store)
+        store.selectObject(nil)
+
+        store.toggleSelection(of: a.id)
+        #expect(store.selectedObjectIDs == Set([a.id, b.id]))
+
+        store.toggleSelection(of: b.id)
+        #expect(store.selectedObjectIDs.isEmpty)
+    }
+
+    @Test func partialGroupSelectionExposesNeitherGroupNorSingleObjectAmbiguity() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let (a, _) = makeGroupOfTwoRectangles(in: store)
+        store.replaceSelection([a.id])
+
+        #expect(store.selectedGroupID == nil)
+        #expect(store.selectedGroupBounds == nil)
+        #expect(store.selectedObject?.id == a.id) // Einzelauswahl-Ansicht bleibt für dieses eine Mitglied nutzbar.
+    }
+
+    @Test func marqueeSelectionAddsIntersectingObjectsAndExpandsHitGroupsToFullMembership() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let (a, b) = makeGroupOfTwoRectangles(in: store)
+        let lone = makeRectangle(in: store, from: CGPoint(x: 50, y: 50), to: CGPoint(x: 60, y: 60))
+        store.selectObject(nil)
+
+        store.beginMarqueeSelection(atDesignPoint: CGPoint(x: -5, y: -5))
+        store.updateMarqueeSelection(toDesignPoint: CGPoint(x: 12, y: 12)) // schneidet nur `a`, nicht `b`
+        store.endMarqueeSelection()
+
+        #expect(store.selectedObjectIDs == Set([a.id, b.id])) // Treffer auf ein Mitglied erweitert auf die ganze Gruppe.
+        #expect(!store.selectedObjectIDs.contains(lone.id))
+        #expect(store.marqueeRect == nil) // zurückgesetzt nach Abschluss.
+    }
+
+    @Test func deleteSelectedObjectRemovesEveryObjectInMultiSelection() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let a = makeRectangle(in: store, from: CGPoint(x: 0, y: 0), to: CGPoint(x: 10, y: 10))
+        let b = makeRectangle(in: store, from: CGPoint(x: 20, y: 0), to: CGPoint(x: 30, y: 10))
+        store.replaceSelection([a.id, b.id])
+
+        store.deleteSelectedObject()
+
+        #expect(store.objects.isEmpty)
+        #expect(store.selectedObjectIDs.isEmpty)
+    }
+
+    @Test func groupMoveTranslatesAllMembersByTheSameDelta() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let (a, b) = makeGroupOfTwoRectangles(in: store)
+
+        store.beginGroupTransformDrag(handle: nil, atDesignPoint: CGPoint(x: 15, y: 5))
+        store.updateTransformDrag(toDesignPoint: CGPoint(x: 25, y: 15))
+        store.endTransformDrag()
+
+        #expect(abs(a.positionX - 10) < 0.001)
+        #expect(abs(a.positionY - 10) < 0.001)
+        #expect(abs(b.positionX - 30) < 0.001)
+        #expect(abs(b.positionY - 10) < 0.001)
+    }
+
+    /// Dreht die Gruppe (Rahmen (0,0,30,10), Zentrum (15,5)) um 90° — starrer Körper: beide
+    /// Mitglieder behalten ihren Abstand zum Gruppenzentrum, wandern aber auf der Kreisbahn mit,
+    /// und `rotationDegrees` jedes Mitglieds erhöht sich um denselben Delta-Winkel.
+    @Test func groupRotationRotatesMembersRigidlyAroundGroupCenter() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let (a, b) = makeGroupOfTwoRectangles(in: store)
+
+        store.beginGroupTransformDrag(handle: .rotate, atDesignPoint: CGPoint(x: 15, y: -8))
+        store.updateTransformDrag(toDesignPoint: CGPoint(x: 100, y: 5)) // Winkel 0° -> Delta 90°
+        store.endTransformDrag()
+
+        #expect(abs(a.positionX - 10) < 0.001)
+        #expect(abs(a.positionY - (-10)) < 0.001)
+        #expect(abs(a.rotationDegrees - 90) < 0.001)
+
+        #expect(abs(b.positionX - 10) < 0.001)
+        #expect(abs(b.positionY - 10) < 0.001)
+        #expect(abs(b.rotationDegrees - 90) < 0.001)
+    }
+
+    /// Skaliert die Gruppe über den unten-rechts-Griff (Anker oben-links, (0,0)) — Breite ×2,
+    /// Höhe ×0.5. Beide Mitglieder behalten ihre Grösse relativ zum Anker skaliert.
+    @Test func groupResizeScalesMembersRelativeToFixedAnchor() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 200, height: 200))
+        let (a, b) = makeGroupOfTwoRectangles(in: store)
+
+        store.beginGroupTransformDrag(handle: .bottomRight, atDesignPoint: CGPoint(x: 30, y: 10))
+        store.updateTransformDrag(toDesignPoint: CGPoint(x: 60, y: 5))
+        store.endTransformDrag()
+
+        #expect(abs(a.positionX - 0) < 0.001)
+        #expect(abs(a.positionY - 0) < 0.001)
+        #expect(abs(a.width - 20) < 0.001)
+        #expect(abs(a.height - 5) < 0.001)
+
+        #expect(abs(b.positionX - 40) < 0.001)
+        #expect(abs(b.positionY - 0) < 0.001)
+        #expect(abs(b.width - 20) < 0.001)
+        #expect(abs(b.height - 5) < 0.001)
+    }
+
+    @Test func groupTransformDragIsBlockedIfAnyMemberIsLocked() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let (a, b) = makeGroupOfTwoRectangles(in: store)
+        b.isLocked = true
+
+        store.beginGroupTransformDrag(handle: nil, atDesignPoint: CGPoint(x: 15, y: 5))
+        store.updateTransformDrag(toDesignPoint: CGPoint(x: 25, y: 15))
+
+        #expect(a.positionX == 0) // Drag wurde gar nicht erst gestartet.
+    }
 }

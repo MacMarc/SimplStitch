@@ -12,7 +12,7 @@ struct ContentView: View {
     @ObservedObject var document: StitchDesignDocument
 
     @State private var canvasStore: CanvasStore
-    @State private var isLayersPanelPresented = true
+    @State private var isInspectorPresented = true
     @State private var isExportDialogPresented = false
     // Eigener Subprocess statt canvasStores internem — der ist private (siehe CanvasStore-Kommentar
     // zu "ein PythonBridge-Subprocess pro CanvasStore reicht"). Einmalig hier gehalten (nicht pro
@@ -32,13 +32,7 @@ struct ContentView: View {
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
         } detail: {
-            VStack(spacing: 0) {
-                if let selected = canvasStore.selectedObject {
-                    StitchDevPanelView(object: selected, store: canvasStore)
-                }
-
-                CanvasView(store: canvasStore)
-            }
+            CanvasView(store: canvasStore)
             .toolbar {
                 // Werkzeugauswahl (8c) — dieselben 6 CanvasTool-Fälle wie das Werkzeug-Menü (8b),
                 // Icon+Text erzwungen (.labelStyle(.titleAndIcon)) statt der macOS-Standardregel zu
@@ -52,9 +46,9 @@ struct ContentView: View {
 
                 ToolbarItem {
                     Button {
-                        isLayersPanelPresented.toggle()
+                        isInspectorPresented.toggle()
                     } label: {
-                        Label("layers.panel.toggle", systemImage: "square.3.layers.3d")
+                        Label("inspector.toggle", systemImage: "sidebar.trailing")
                             .labelStyle(.titleAndIcon)
                     }
                 }
@@ -67,9 +61,9 @@ struct ContentView: View {
                     }
                 }
             }
-            .inspector(isPresented: $isLayersPanelPresented) {
-                LayersPanelView(store: canvasStore)
-                    .inspectorColumnWidth(min: 200, ideal: 240)
+            .inspector(isPresented: $isInspectorPresented) {
+                CanvasInspectorView(store: canvasStore)
+                    .inspectorColumnWidth(min: 240, ideal: 280)
             }
             .sheet(isPresented: $isExportDialogPresented) {
                 ExportDialogView(
@@ -83,7 +77,7 @@ struct ContentView: View {
             // auf pro-Fenster-Zustand.
             .focusedSceneValue(\.canvasStore, canvasStore)
             .focusedSceneValue(\.isExportDialogPresented, $isExportDialogPresented)
-            .focusedSceneValue(\.isLayersPanelPresented, $isLayersPanelPresented)
+            .focusedSceneValue(\.isInspectorPresented, $isInspectorPresented)
         }
     }
 

@@ -25,7 +25,7 @@ import SwiftUI
 struct SimplStitchCommands: Commands {
     @FocusedValue(\.canvasStore) private var canvasStore
     @FocusedValue(\.isExportDialogPresented) private var isExportDialogPresented
-    @FocusedValue(\.isLayersPanelPresented) private var isLayersPanelPresented
+    @FocusedValue(\.isInspectorPresented) private var isInspectorPresented
     @FocusedValue(\.zoomToFitAction) private var zoomToFitAction
 
     var body: some Commands {
@@ -158,11 +158,11 @@ struct SimplStitchCommands: Commands {
             Divider()
 
             Button {
-                isLayersPanelPresented?.wrappedValue.toggle()
+                isInspectorPresented?.wrappedValue.toggle()
             } label: {
-                Text("layers.panel.toggle")
+                Text("inspector.toggle")
             }
-            .disabled(isLayersPanelPresented == nil)
+            .disabled(isInspectorPresented == nil)
         }
     }
 }

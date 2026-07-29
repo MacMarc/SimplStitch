@@ -19,7 +19,7 @@ private struct ExportDialogPresentedFocusedValueKey: FocusedValueKey {
     typealias Value = Binding<Bool>
 }
 
-private struct LayersPanelPresentedFocusedValueKey: FocusedValueKey {
+private struct InspectorPresentedFocusedValueKey: FocusedValueKey {
     typealias Value = Binding<Bool>
 }
 
@@ -41,9 +41,9 @@ extension FocusedValues {
         set { self[ExportDialogPresentedFocusedValueKey.self] = newValue }
     }
 
-    var isLayersPanelPresented: Binding<Bool>? {
-        get { self[LayersPanelPresentedFocusedValueKey.self] }
-        set { self[LayersPanelPresentedFocusedValueKey.self] = newValue }
+    var isInspectorPresented: Binding<Bool>? {
+        get { self[InspectorPresentedFocusedValueKey.self] }
+        set { self[InspectorPresentedFocusedValueKey.self] = newValue }
     }
 
     var zoomToFitAction: (() -> Void)? {

@@ -11,9 +11,8 @@ import SwiftData
 @main
 struct SimplStitchApp: App {
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
+        // SwiftData Models werden in Phase 3 ergänzt (StitchProject, DesignObject, ThreadPalette, AppSettings …)
+        let schema = Schema([])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {

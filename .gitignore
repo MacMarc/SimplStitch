@@ -1,0 +1,25 @@
+# Xcode
+build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# CocoaPods (falls je genutzt)
+Pods/
+
+# macOS
+.DS_Store
+
+# Python-Runtime (Phase 2, wird per Build-Skript gebündelt statt eingecheckt)
+SimplStitch/Resources/python/
+
+# Notarisierung / lokale Signierartefakte
+*.p12
+*.mobileprovision

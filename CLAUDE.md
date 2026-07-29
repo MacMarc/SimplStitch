@@ -1,0 +1,162 @@
+# SimplStitch — CLAUDE.md
+
+Dieses Dokument beschreibt die Architektur, Konventionen und den aktuellen Stand von SimplStitch. Lies es vollständig bevor du Code schreibst.
+
+---
+
+## Was ist SimplStitch?
+
+**SimplStitch** ist eine macOS-App zum Erstellen von Stichdateien für Heim-Stickmaschinen.
+Kernbotschaft: „Du malst. Es wird eine Stichdatei." — kein Nutzer soll je über Stiche nachdenken müssen.
+
+Maskottchen: **Bobbi the Twister** (kleines Bobbin-Männchen, dreht Faden).
+
+---
+
+## Tech Stack
+
+- **Sprache:** Swift, SwiftUI, SwiftData
+- **Platform:** macOS 26+, Apple Silicon only (kein Intel)
+- **Lizenz:** GPL-3.0 (Open Source, GitHub)
+- **Lokalisierung:** Deutsch + Englisch von Tag 1 — `Localizable.xcstrings`, nie hardcodierte Strings
+- **Python-Backend:** CPython gebündelt in `App.app/Contents/Resources/python/` — kein System-Python
+- **Vertrieb:** GitHub Releases (DMG), Apple-notarisiert — kein App Store (GPL-3.0 inkompatibel)
+
+---
+
+## Architektur: Layered Architecture mit @Observable Stores
+
+**Kein MVVM.** SwiftData's `@Query` lässt Views Daten direkt beobachten — kein ViewModel dazwischen.
+
+### Die vier Schichten
+
+```
+Views (SwiftUI)
+  └── @Query direkt für Datenzugriff, kein Business Logic
+
+Stores / Feature Controllers (@Observable)
+  ├── CanvasStore        — Zeichenfläche, Selektion, Handles
+  ├── ProjectStore       — aktives Projekt, Speichern/Laden
+  └── ThreadPaletteStore — Garnlisten-Verwaltung
+
+Services (Business Logic, hinter Protocols)
+  ├── StitchGenerationService  — Bridge zu InkStitch
+  ├── FileExportService        — VP3, PES, JEF, EXP, VIP, SVG
+  ├── FileImportService        — alle Stickdatei-Formate + SVG
+  └── ImageTraceService        — KI: Vision + Foundation Models
+
+SwiftData Models (@Model)
+  └── Reine Persistenz, kein Logic
+```
+
+### Swift ↔ Python Kommunikation
+- Python läuft als Subprocess im Hintergrund
+- Kommunikation via stdin/stdout (JSON)
+- Einstiegspunkt Python-seitig: `bridge.py`
+- Einstiegspunkt Swift-seitig: `PythonBridge.swift`
+
+---
+
+## Python-Backend
+
+Zwei Bibliotheken, eine Python-Umgebung:
+
+| Bibliothek | Zweck | Lizenz |
+|---|---|---|
+| InkStitch | Stichgenerierung (Vektorpfad → Stichkoordinaten) | GPL-3.0 |
+| pyembroidery | Format I/O: liest 46, schreibt 20 Formate inkl. VP3 | MIT |
+
+Python-Runtime gebündelt in `App.app/Contents/Resources/python/`.
+
+---
+
+## SwiftData Models
+
+- `StitchProject` — Wrapper für `.stitchdesign` Document Package
+- `DesignObject` — Basisklasse für alle Canvas-Elemente (Formen, Text)
+- `StitchSettings` — Stichtyp, Dichte, Winkel, Unterlagentyp pro Objekt
+- `ThreadColor` — Garnfarbe mit RGB + Herstellerinfo
+- `ThreadPalette` — Garnlisten-Bibliothek
+- `AppSettings` — Preferences, zuletzt geöffnete Projekte
+
+---
+
+## Projektformat: `.stitchdesign`
+
+macOS Document Package (Ordner der wie eine Datei aussieht):
+
+```
+MeinDesign.stitchdesign/
+├── content.svg     ← Design (InkStitch-Namespace-Attribute)
+├── preview.png     ← Finder-Vorschau via QuickLook
+└── assets/         ← Hintergrundbilder (kein base64-Bloat)
+```
+
+SVG nutzt InkStitch-kompatible Namespace-Attribute:
+```xml
+<path inkstitch:fill_method="tatami" inkstitch:angle="45" … />
+```
+
+Text bleibt als `<text>`-Element im SVG erhalten (editierbar). Konvertierung zu Pfaden nur beim Export/Stichberechnung.
+
+---
+
+## Import / Export
+
+**Export:** VP3 (Pfaff, absolutes Muss), PES (Brother), JEF (Janome), EXP (Bernina/Melco), VIP (Singer), DST, SVG
+**Import:** 46 Formate via pyembroidery + SVG
+**Garnlisten:** `.gpl` Format (GIMP Palette, kompatibel mit InkStitch/Inkscape)
+
+---
+
+## Canvas & Objekte
+
+- Alle Objekte (Formen + Text) haben dieselben Handles: skalieren, drehen, verzerren, runden
+- Handles wie PowerPoint-Rechteck-Handles
+- Sticharten pro Objekt zuweisbar: Laufstich, Satinstich, Füllung (Tatami)
+- Live-Vorschau der Stiche als Overlay auf dem Canvas
+
+---
+
+## UI-Anforderungen
+
+- Jede Funktion erreichbar über: macOS Menüleiste UND Toolbar
+- Toolbar: Icon + Text-Label (kein "Icon-Raten")
+- Live-Stichvorschau
+
+---
+
+## KI-Funktion: Bild → Stichdatei
+
+1. `VNDetectContoursRequest` (Vision Framework) → `CGPath` aus Foto
+2. Foundation Models Framework (multimodal, WWDC26) → Stichtyp-Vorschläge pro Bereich
+3. Vollständig on-device, kein Internet, keine API
+
+---
+
+## Konventionen
+
+- Keine hardcodierten Strings — immer `String(localized:)` oder `LocalizedStringKey`
+- Alle Services hinter Protocol (→ Testbarkeit, Mock-Implementierungen)
+- `@Query` direkt in Views, kein ViewModel
+- Nicht re-lesen was gerade editiert wurde
+- Haiku für Boilerplate, Sonnet für Implementation, Opus nur bei echten Blockern
+
+---
+
+## Aktueller Stand
+
+- [x] Xcode-Projekt angelegt (macOS 26+, arm64-only, SwiftUI + SwiftData)
+  - Ordnerstruktur: `SimplStitch/{App,Models,Stores,Services,Bridge,Views}` (Xcode File-System-Synchronized-Groups, keine manuelle pbxproj-Pflege nötig)
+  - Lokalisierung DE+EN aktiv (`Localizable.xcstrings`, `knownRegions` inkl. `de`)
+  - GPL-3.0 `COPYING`, `.gitignore`, shared Scheme `SimplStitch`, GitHub-Actions-Gerüst (`.github/workflows/build.yml`) — lokaler Build via `xcodebuild` verifiziert
+  - Offen: GitHub-Remote noch nicht angelegt/gepusht
+- [ ] Python-Backend gebündelt
+- [ ] SwiftData Models
+- [ ] Projektformat `.stitchdesign`
+- [ ] Canvas-Engine
+- [ ] Stichgenerierung
+- [ ] Import/Export
+- [ ] UI (Toolbar + Menü)
+- [ ] Apple Intelligence Integration
+- [ ] Release-Pipeline (Notarisierung, GitHub Actions)

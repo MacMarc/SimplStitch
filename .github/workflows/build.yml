@@ -1,0 +1,34 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-26 # ggf. anpassen sobald GitHub den Runner mit Xcode 26 / macOS 26 SDK bereitstellt
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -switch /Applications/Xcode.app
+
+      - name: Build
+        run: |
+          xcodebuild build \
+            -project SimplStitch.xcodeproj \
+            -scheme SimplStitch \
+            -destination "platform=macOS,arch=arm64" \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Test
+        run: |
+          xcodebuild test \
+            -project SimplStitch.xcodeproj \
+            -scheme SimplStitch \
+            -destination "platform=macOS,arch=arm64" \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO

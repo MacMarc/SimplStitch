@@ -93,6 +93,7 @@ struct CanvasStoreTests {
         #expect(created?.width == 30)
         #expect(created?.height == 30)
         #expect(store.objects.count == 1)
+        #expect(created?.stitchSettings?.stitchType == .tatami)
     }
 
     @Test func draggingInAnyDirectionNormalizesToPositiveRect() {
@@ -118,6 +119,7 @@ struct CanvasStoreTests {
 
         #expect(created?.kind == .star)
         #expect(created?.starPointCount == 5)
+        #expect(created?.stitchSettings?.stitchType == .tatami)
     }
 
     @Test func draggingBelowMinimumSizeCreatesNoObject() {
@@ -145,6 +147,7 @@ struct CanvasStoreTests {
         #expect(created?.width == 10)
         #expect(created?.height == 10)
         #expect(created?.pathData == "M0.0000,0.0000 L10.0000,0.0000 L10.0000,10.0000")
+        #expect(created?.stitchSettings?.stitchType == .straight)
     }
 
     @Test func singleClickWithPathToolCreatesNoObject() {
@@ -365,6 +368,9 @@ struct CanvasStoreTests {
         #expect(created?.text == "")
         #expect(store.selectedObjectID == created?.id)
         #expect(store.editingTextObjectID == created?.id)
+        // Text bekommt bewusst keine Default-Sticheinstellungen — die Text-zu-Stich-Konvertierung
+        // ist noch nicht implementiert (siehe CLAUDE.md Phase 5d), anders als bei Formen/Pfaden.
+        #expect(created?.stitchSettings == nil)
     }
 
     @Test func clickingTextToolCreatesDefaultSizedBox() {

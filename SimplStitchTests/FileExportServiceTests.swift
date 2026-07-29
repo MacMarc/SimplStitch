@@ -148,4 +148,37 @@ struct FileExportServiceTests {
 
         await bridge.stop()
     }
+
+    /// Regressionstest für GitHub-Issue #16: Formen, die ganz normal über CanvasStore
+    /// gezeichnet werden (kein manueller Besuch im Objekt-Inspektor), müssen ohne weiteres
+    /// Zutun exportierbar sein. Vor dem Fix bekamen frisch gezeichnete Objekte keine
+    /// Default-Sticheinstellungen, wurden von `stitchableObjects` stillschweigend
+    /// herausgefiltert und der Export enthielt am Ende nur eine statt mehrerer Farben.
+    @Test @MainActor func realBridgeExportsShapesDrawnViaCanvasStoreWithoutManualInspectorVisit() async throws {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 50, height: 50))
+
+        store.selectTool(.rectangle)
+        store.beginDraft(atDesignPoint: CGPoint(x: 0, y: 0))
+        store.updateDraft(toDesignPoint: CGPoint(x: 20, y: 15))
+        let red = try #require(store.commitDraft())
+        red.fillColorHex = "#FF0000"
+
+        store.selectTool(.circle)
+        store.beginDraft(atDesignPoint: CGPoint(x: 25, y: 0))
+        store.updateDraft(toDesignPoint: CGPoint(x: 40, y: 15))
+        let green = try #require(store.commitDraft())
+        green.fillColorHex = "#00FF00"
+
+        let bridge = PythonBridge()
+        let service = FileExportService(bridge: bridge)
+        let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("vp3")
+        defer { try? FileManager.default.removeItem(at: outputURL) }
+
+        let summary = try await service.export(objects: store.objects, canvasSize: store.canvasSizeMillimeters, to: outputURL, format: .vp3)
+
+        #expect(summary.stitchCount > 0)
+        #expect(summary.colorCount == 2)
+
+        await bridge.stop()
+    }
 }

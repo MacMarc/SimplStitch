@@ -258,7 +258,18 @@ final class CanvasStore {
         if kind == .star {
             object.starPointCount = 5
         }
+        assignDefaultStitchSettings(to: object, stitchType: .tatami)
         return object
+    }
+
+    /// Formen ohne Sticheinstellungen wurden bislang beim Export stillschweigend übersprungen
+    /// (`FileExportService.stitchableObjects` filtert auf `stitchSettings != nil`) — ohne einen
+    /// Besuch im Objekt-Inspektor blieb eine frisch gezeichnete Form dauerhaft unstickbar. Neue
+    /// Objekte bekommen daher sofort sinnvolle Default-Einstellungen (überschreibbar im Inspector).
+    private func assignDefaultStitchSettings(to object: DesignObject, stitchType: StitchType) {
+        let settings = StitchSettings(stitchType: stitchType)
+        settings.designObject = object
+        object.stitchSettings = settings
     }
 
     private func makePathObject() -> DesignObject? {
@@ -280,6 +291,7 @@ final class CanvasStore {
         )
         object.zIndex = objects.count
         object.pathData = Self.pathData(from: draftPathPoints)
+        assignDefaultStitchSettings(to: object, stitchType: .straight)
         return object
     }
 

@@ -131,8 +131,11 @@ final class FileExportService: FileExportServicing {
         var threads: [[String: Any]] = []
 
         for object in stitchableObjects {
-            let stitches = try await stitchGenerationService.generateStitches(for: object, canvasSize: canvasSize)
-            guard !stitches.isEmpty else { continue }
+            // Ein einzelnes Objekt mit fehlerhafter Geometrie/Sticheinstellung soll nicht den
+            // gesamten Export zum Absturz bringen — übersprungen statt den kompletten Export
+            // abzubrechen (analog zum bereits bestehenden Überspringen leerer Stichfolgen unten).
+            guard let stitches = try? await stitchGenerationService.generateStitches(for: object, canvasSize: canvasSize),
+                  !stitches.isEmpty else { continue }
 
             if let last = combinedStitches.last {
                 combinedStitches.append(StitchPoint(x: last.x, y: last.y, command: .colorChange))

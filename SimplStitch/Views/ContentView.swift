@@ -9,6 +9,9 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
+    // Platzhalter-Canvasgrösse, bis Phase 8 ein echtes Projekt via DocumentGroup öffnet.
+    @State private var canvasStore = CanvasStore(canvasSizeMillimeters: CGSize(width: 130, height: 180))
+
     var body: some View {
         NavigationSplitView {
             List {
@@ -16,7 +19,7 @@ struct ContentView: View {
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
         } detail: {
-            Text("detail.selectProject")
+            CanvasView(store: canvasStore)
         }
     }
 }

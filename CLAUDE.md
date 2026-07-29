@@ -173,7 +173,18 @@ Text bleibt als `<text>`-Element im SVG erhalten (editierbar). Konvertierung zu 
   - `DocumentPackageManager` (Protocol `DocumentPackageManaging`): reiner I/O-Service, erzeugt/liest `content.svg` + `preview.png` + `assets/<Hintergrundbild>`. Bewusst **kein** SwiftUI `DocumentGroup`/`FileDocument` und keine UTType-Registrierung fürs Finder-Package-Icon — das ist Phase 8 (UI). Reconciliation mit bereits im ModelContext existierenden `StitchProject`-Einträgen (z.B. "zuletzt geöffnet") ist Aufgabe eines künftigen `ProjectStore`
   - `StitchProject.backgroundImageFileName` ergänzt (nur Dateiname, nicht Pfad) für die Asset-Referenz
   - Tests `SimplStitchTests/DocumentPackageManagerTests.swift`: vollständiger Save/Reopen-Roundtrip mit allen 5 Objektarten (inkl. StitchSettings, Rotation/Skew, Sichtbarkeit/Sperre, Umlauten im Text), Hintergrundbild-Kopie nach `assets/`, `preview.png` ist valides PNG — grün
-- [ ] Canvas-Engine
+- [ ] Canvas-Engine (Phase 5, in Unteraufgaben)
+  - [x] 5a Basis-Canvas
+    - `CanvasStore` (`SimplStitch/Stores/`, `@Observable @MainActor`): Zoom (0.1×–8×, geklemmt), Pan, `zoomToFit`, Konvertierung Design-Koordinaten (mm, Ursprung oben-links — wie `content.svg`) ↔ View-Koordinaten (Punkte)
+    - `CanvasView` (`SimplStitch/Views/Canvas/`): SwiftUI `Canvas`, zeichnet weisses Stickflächen-Rechteck + 10mm-Raster; Zoom per `MagnificationGesture` (Trackpad-Pinch), Pan per `DragGesture` (Klick-Drag) — beides mit Live-Feedback während der Geste, committed erst bei `onEnded`
+    - **Scope-Hinweis:** Zweifinger-Scroll-Pan (bräuchte AppKit-`NSViewRepresentable` für `scrollWheel`) bewusst weggelassen — Klick-Drag ist eine vollständige, funktionierende Pan-Lösung; kann bei Bedarf später ergänzt werden
+    - `ContentView` zeigt `CanvasView` bereits im Detail-Bereich (mit Platzhalter-Canvasgrösse 130×180mm, bis Phase 8 echte Projekte via `DocumentGroup` öffnet)
+    - Tests `SimplStitchTests/CanvasStoreTests.swift`: Zoom-Clamping, Pan-Akkumulation, Koordinaten-Roundtrip, `zoomToFit` — grün
+    - App gebaut, gestartet, läuft ohne Crash (Prozess + Log geprüft) — **kein** visueller Screenshot möglich (Sandbox ohne Bildschirmaufnahme-/Bedienungshilfen-Berechtigung), daher Canvas-Rendering/Gesten nicht visuell verifiziert
+  - [ ] 5b Formen (Kreis, Rechteck, Stern, Freihand-Pfad als DesignObject)
+  - [ ] 5c Selektion & Handles
+  - [ ] 5d Text-Objekt
+  - [ ] 5e Ebenen & Z-Order
 - [ ] Stichgenerierung
 - [ ] Import/Export
 - [ ] UI (Toolbar + Menü)

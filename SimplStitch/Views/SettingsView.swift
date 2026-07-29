@@ -7,6 +7,12 @@
 //  Singleton in der Praxis (genau eine Zeile) — `ensureSettingsExist()` legt sie beim
 //  ersten Öffnen an, falls noch keine existiert.
 //
+//  Issue #21: ursprünglich ein einziges `Form` mit `.fixedSize(vertical: true)` — bei den
+//  74 mitgelieferten Garnlisten (Issue #20) wuchs das Fenster über den Bildschirm hinaus statt
+//  zu scrollen. Jetzt zwei Bereiche wie in den macOS-Systemeinstellungen (`TabView` mit
+//  `.sidebarAdaptable`, feste Fenstergrösse): "Allgemein" (kurzes Form, passt immer) und
+//  "Garnlisten" (eigenständige `List`, scrollt intern statt das Fenster zu strecken).
+//
 
 import SwiftData
 import SwiftUI
@@ -27,15 +33,18 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        Form {
-            if let settings = settingsList.first {
-                settingsForm(settings)
+        TabView {
+            Tab("settings.tab.general", systemImage: "gearshape") {
+                if let settings = settingsList.first {
+                    generalForm(settings)
+                }
             }
-            paletteManagementSection()
+            Tab("settings.tab.palettes", systemImage: "swatchpalette") {
+                palettesPane
+            }
         }
-        .formStyle(.grouped)
-        .frame(width: 380)
-        .fixedSize(horizontal: false, vertical: true)
+        .tabViewStyle(.sidebarAdaptable)
+        .frame(width: 520, height: 420)
         .onAppear(perform: ensureSettingsExist)
         .fileImporter(
             isPresented: $isImporterPresented,
@@ -54,81 +63,96 @@ struct SettingsView: View {
     }
 
     @ViewBuilder
-    private func settingsForm(_ settings: AppSettings) -> some View {
-        Section("settings.section.units") {
-            Picker(
-                "settings.measurementUnit",
-                selection: Binding(
-                    get: { settings.preferredMeasurementUnit },
-                    set: { settings.preferredMeasurementUnit = $0 }
-                )
-            ) {
-                Text("settings.unit.millimeters").tag(MeasurementUnit.millimeters)
-                Text("settings.unit.inches").tag(MeasurementUnit.inches)
+    private func generalForm(_ settings: AppSettings) -> some View {
+        Form {
+            Section("settings.section.units") {
+                Picker(
+                    "settings.measurementUnit",
+                    selection: Binding(
+                        get: { settings.preferredMeasurementUnit },
+                        set: { settings.preferredMeasurementUnit = $0 }
+                    )
+                ) {
+                    Text("settings.unit.millimeters").tag(MeasurementUnit.millimeters)
+                    Text("settings.unit.inches").tag(MeasurementUnit.inches)
+                }
             }
-        }
 
-        Section("settings.section.projects") {
-            Stepper(
-                value: Binding(
-                    get: { settings.maxRecentProjects },
-                    set: { settings.maxRecentProjects = $0 }
-                ),
-                in: 1...50
-            ) {
-                HStack {
-                    Text("settings.maxRecentProjects")
-                    Spacer()
-                    Text(settings.maxRecentProjects, format: .number)
-                        .foregroundStyle(.secondary)
+            Section("settings.section.projects") {
+                Stepper(
+                    value: Binding(
+                        get: { settings.maxRecentProjects },
+                        set: { settings.maxRecentProjects = $0 }
+                    ),
+                    in: 1...50
+                ) {
+                    HStack {
+                        Text("settings.maxRecentProjects")
+                        Spacer()
+                        Text(settings.maxRecentProjects, format: .number)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Section("settings.section.threads") {
+                Picker(
+                    "settings.defaultPalette",
+                    selection: Binding(
+                        get: { settings.defaultThreadPaletteID },
+                        set: { settings.defaultThreadPaletteID = $0 }
+                    )
+                ) {
+                    Text("settings.defaultPalette.none").tag(UUID?.none)
+                    ForEach(palettes) { palette in
+                        Text(palette.name).tag(Optional(palette.id))
+                    }
                 }
             }
         }
-
-        Section("settings.section.threads") {
-            Picker(
-                "settings.defaultPalette",
-                selection: Binding(
-                    get: { settings.defaultThreadPaletteID },
-                    set: { settings.defaultThreadPaletteID = $0 }
-                )
-            ) {
-                Text("settings.defaultPalette.none").tag(UUID?.none)
-                ForEach(palettes) { palette in
-                    Text(palette.name).tag(Optional(palette.id))
-                }
-            }
-        }
+        .formStyle(.grouped)
     }
 
     /// Issue #20: Garnlisten aktivieren/deaktivieren (deaktivierte Paletten werden im
     /// Projekt-Eigenschaften-Tab beim Hinzufügen neuer Garnfarben ausgeblendet) sowie
     /// Import/Löschen — appweite Palettenverwaltung gehört hierhin, nicht ins projektbezogene
     /// Inspector-Panel (ProjectInspectorView).
+    /// Issue #21: eigene `List` statt `Form`-`Section` — scrollt bei vielen Paletten intern,
+    /// statt das Fenster (das jetzt eine feste Grösse hat) zu sprengen.
     @ViewBuilder
-    private func paletteManagementSection() -> some View {
-        Section("settings.section.palettes") {
+    private var palettesPane: some View {
+        VStack(spacing: 0) {
             if palettes.isEmpty {
-                Text("settings.palettes.empty")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
+                ContentUnavailableView(
+                    "settings.section.palettes",
+                    systemImage: "swatchpalette",
+                    description: Text("settings.palettes.empty")
+                )
             } else {
-                ForEach(palettes) { palette in
-                    Toggle(
-                        palette.name,
-                        isOn: Binding(
-                            get: { palette.isEnabled },
-                            set: { palette.isEnabled = $0 }
+                List {
+                    ForEach(palettes) { palette in
+                        Toggle(
+                            palette.name,
+                            isOn: Binding(
+                                get: { palette.isEnabled },
+                                set: { palette.isEnabled = $0 }
+                            )
                         )
-                    )
+                    }
+                    .onDelete(perform: deletePalettes)
                 }
-                .onDelete(perform: deletePalettes)
             }
 
-            Button {
-                isImporterPresented = true
-            } label: {
-                Label("threads.import.button", systemImage: "square.and.arrow.down")
+            Divider()
+
+            HStack {
+                Spacer()
+                Button {
+                    isImporterPresented = true
+                } label: {
+                    Label("threads.import.button", systemImage: "square.and.arrow.down")
+                }
+                .padding(12)
             }
         }
     }

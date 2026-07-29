@@ -8,9 +8,14 @@
 //  gezeichnet. Sobald Phase 5 einen Canvas-Renderer hat, sollte dieser
 //  hier wiederverwendet statt dupliziert werden.
 //
+//  Text (5d): läuft direkt über CoreText (CTLine), nicht über den
+//  SwiftUI-GraphicsContext des Canvas-Renderers — dieser Service arbeitet mit
+//  einem rohen CGContext, daher kein gemeinsamer Code mit CanvasView.drawText.
+//
 
 import Foundation
 import CoreGraphics
+import CoreText
 import ImageIO
 import UniformTypeIdentifiers
 
@@ -77,12 +82,36 @@ final class PreviewImageRenderer: PreviewImageRendering {
         case .star, .path:
             context.stroke(rect, width: max(scale * 0.2, 1))
         case .text:
-            context.stroke(rect, width: max(scale * 0.1, 1))
+            drawText(object, in: context, scale: scale, canvasHeightPixels: canvasHeightPixels, color: color)
         }
+    }
+
+    private func drawText(_ object: DesignObject, in context: CGContext, scale: CGFloat, canvasHeightPixels: CGFloat, color: CGColor) {
+        guard let string = object.text, !string.isEmpty else { return }
+        let fontSize = (object.fontSize ?? 12) * Double(scale)
+        let font = CTFontCreateWithName((object.fontName ?? "Helvetica") as CFString, fontSize, nil)
+        let attributedString = CFAttributedStringCreate(
+            nil,
+            string as CFString,
+            [kCTFontAttributeName: font, kCTForegroundColorAttributeName: color] as CFDictionary
+        )
+        let line = CTLineCreateWithAttributedString(attributedString!)
+
+        // SVG-Koordinaten: Ursprung oben-links, positionY ist die Textbox-Oberkante.
+        // CGContext-Textzeichnen läuft über die Baseline, nicht die Oberkante — daher um fontSize nach unten versetzen.
+        let originX = object.positionX * Double(scale)
+        let baselineY = Double(canvasHeightPixels) - object.positionY * Double(scale) - fontSize
+
+        context.saveGState()
+        context.textMatrix = .identity
+        context.translateBy(x: originX, y: baselineY)
+        CTLineDraw(line, context)
+        context.restoreGState()
     }
 }
 
-private extension CGColor {
+// Nicht `private` — wird auch vom Canvas-Rendering (Phase 5) wiederverwendet.
+extension CGColor {
     static func fromHex(_ hex: String) -> CGColor? {
         let cleaned = hex.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "#", with: "")
         guard cleaned.count == 6, let value = UInt32(cleaned, radix: 16) else { return nil }

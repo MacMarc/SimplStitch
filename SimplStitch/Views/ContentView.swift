@@ -19,7 +19,22 @@ struct ContentView: View {
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
         } detail: {
-            CanvasView(store: canvasStore)
+            VStack(spacing: 0) {
+                // Platzhalter-Werkzeugleiste, bis Phase 8 die echte Toolbar (Menü + Symbolleiste) bringt.
+                Picker("canvas.toolPicker.label", selection: Binding(
+                    get: { canvasStore.currentTool },
+                    set: { canvasStore.selectTool($0) }
+                )) {
+                    ForEach(CanvasTool.allCases) { tool in
+                        Text(tool.displayName).tag(tool)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .padding(8)
+
+                CanvasView(store: canvasStore)
+            }
         }
     }
 }

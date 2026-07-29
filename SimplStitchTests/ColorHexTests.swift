@@ -2,8 +2,9 @@
 //  ColorHexTests.swift
 //  SimplStitchTests
 //
-//  Phase 8d: Color(hex:)/Color.hexString fürs Farbe-Feld im Objekt-Inspektor
-//  (ObjectInspectorView) — reine Konvertierungslogik, unabhängig von der UI testbar.
+//  `Color(hex:)` fürs read-only Farb-Swatch im Objekt-Inspektor — reine
+//  Konvertierungslogik, unabhängig von der UI testbar. Die Rückrichtung
+//  (`Color.hexString`) wurde mit Issue #13 entfernt (siehe Color+Hex.swift).
 //
 
 import Testing
@@ -12,24 +13,13 @@ import SwiftUI
 
 struct ColorHexTests {
 
-    @Test func hexStringRoundtripsThroughColor() throws {
+    @Test func hexInitProducesResolvableColor() throws {
         let color = try #require(Color(hex: "#FF00AA"))
-        #expect(color.hexString == "#FF00AA")
-    }
-
-    @Test func hexStringNormalizesCase() throws {
-        let color = try #require(Color(hex: "#00ff00"))
-        #expect(color.hexString == "#00FF00")
+        let components = try #require(color.cgColor?.components)
+        #expect(components.count >= 3)
     }
 
     @Test func invalidHexReturnsNil() {
         #expect(Color(hex: "not-a-color") == nil)
-    }
-
-    @Test func hexStringFallsBackToBlackForUnresolvableColor() {
-        // Ein Color-Wert, der nie über Color(hex:) entstanden ist (hier eine semantische
-        // Systemfarbe) hat ggf. keine über `cgColor` direkt auflösbaren RGB-Komponenten in allen
-        // Farbräumen — der Fallback greift, statt zu crashen.
-        #expect(Color.black.hexString == "#000000")
     }
 }

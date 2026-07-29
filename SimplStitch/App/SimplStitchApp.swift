@@ -22,7 +22,12 @@ struct SimplStitchApp: App {
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            let container = try ModelContainer(for: schema, configurations: [modelConfiguration])
+            // Issue #13: Standard-Garnlisten müssen vor der ersten View existieren (Objekt-
+            // Inspektor greift sofort per @Query darauf zu) — eigener ModelContext statt
+            // `container.mainContext`, das ist @MainActor-isoliert und hier noch nicht garantiert.
+            BuiltInThreadPaletteBootstrapper().bootstrapIfNeeded(context: ModelContext(container))
+            return container
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }

@@ -13,12 +13,25 @@
 //  (Scope-Hinweis seit 5c), ein Zahlenfeld ohne sichtbare Wirkung wäre
 //  irreführend.
 //
+//  Farbe (Issue #13): kein freier ColorPicker mehr — gestickt werden kann nur, was als Garn in
+//  einer Garnliste vorhanden ist. Die Sektion ist daher ein zweistufiger Picker (Garnliste, dann
+//  Garnfarbe innerhalb dieser Liste), der wie das bestehende Drag&Drop (`CanvasStore.assignColor`,
+//  Phase 8e) direkt aus RGB-Werten setzt statt über SwiftUI `Color`/Hex zu gehen — das war
+//  vermutlich ohnehin die Ursache des alten "Füllfarbe bleibt schwarz"-Bugs (`Color.cgColor` ist
+//  für manche vom System-Farbwähler gelieferte `Color`-Werte nicht zuverlässig auf konkrete RGB-
+//  Komponenten auflösbar, `Color.hexString`s Schwarz-Fallback griff dann lautlos).
+//
 
+import SwiftData
 import SwiftUI
 
 struct ObjectInspectorView: View {
     let object: DesignObject
     let store: CanvasStore
+
+    @Query(sort: \ThreadPalette.name) private var palettes: [ThreadPalette]
+    @State private var selectedPaletteID: UUID?
+    @State private var selectedThreadColor: ThreadColor?
 
     var body: some View {
         Form {
@@ -52,7 +65,45 @@ struct ObjectInspectorView: View {
             }
 
             Section("inspector.section.color") {
-                ColorPicker("inspector.color.fill", selection: colorBinding)
+                LabeledContent("inspector.color.current") {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(Color(hex: object.fillColorHex) ?? .black)
+                            .frame(width: 18, height: 18)
+                            .overlay(Circle().strokeBorder(Color.secondary.opacity(0.3)))
+                        Text(object.threadColor?.name.isEmpty == false ? object.threadColor!.name : object.fillColorHex)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if palettes.isEmpty {
+                    Text("inspector.color.noPalettes")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                } else {
+                    Picker("inspector.color.palette", selection: paletteBinding) {
+                        ForEach(palettes) { palette in
+                            Text(palette.name).tag(Optional(palette.id))
+                        }
+                    }
+                    Picker("inspector.color.thread", selection: $selectedThreadColor) {
+                        Text("inspector.color.pickPlaceholder").tag(ThreadColor?.none)
+                        ForEach(currentPaletteColors) { color in
+                            threadColorLabel(color).tag(ThreadColor?.some(color))
+                        }
+                    }
+                    .onChange(of: selectedThreadColor) { _, newValue in
+                        guard let newValue else { return }
+                        store.assignColor(
+                            name: newValue.name,
+                            red: newValue.red,
+                            green: newValue.green,
+                            blue: newValue.blue,
+                            catalogNumber: newValue.catalogNumber,
+                            to: object.id
+                        )
+                    }
+                }
             }
 
             Section("inspector.section.stitch") {
@@ -119,11 +170,24 @@ struct ObjectInspectorView: View {
 
     // MARK: Farbe
 
-    private var colorBinding: Binding<Color> {
-        Binding(
-            get: { Color(hex: object.fillColorHex) ?? .black },
-            set: { object.fillColorHex = $0.hexString }
+    private var effectivePaletteID: UUID? {
+        selectedPaletteID ?? palettes.first?.id
+    }
+
+    private var paletteBinding: Binding<UUID?> {
+        Binding(get: { effectivePaletteID }, set: { selectedPaletteID = $0 })
+    }
+
+    private var currentPaletteColors: [ThreadColor] {
+        palettes.first { $0.id == effectivePaletteID }?.colors ?? []
+    }
+
+    private func threadColorLabel(_ color: ThreadColor) -> some View {
+        Label(
+            color.name.isEmpty ? "#\(color.red),\(color.green),\(color.blue)" : color.name,
+            systemImage: "circle.fill"
         )
+        .foregroundStyle(Color(red: Double(color.red) / 255, green: Double(color.green) / 255, blue: Double(color.blue) / 255))
     }
 
     // MARK: Sticheinstellungen

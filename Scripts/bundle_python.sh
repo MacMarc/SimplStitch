@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Lädt eine minimale, in sich geschlossene CPython-Runtime (python-build-standalone)
 # für Apple Silicon, installiert die Python-Abhängigkeiten, kopiert die vendored
-# InkStitch-Bibliothek dazu und legt alles am übergebenen Zielpfad ab.
+# InkStitch-Bibliothek sowie die vendorten InkStitch-Garnlisten (.gpl, Issue #13)
+# dazu und legt alles am übergebenen Zielpfad ab.
 #
 # Wichtig: Das Ziel darf NICHT unter SimplStitch/ liegen. Xcodes File-System-
 # Synchronized-Groups würden sonst jede einzelne Datei der Runtime (mehrere
@@ -73,5 +74,15 @@ rm -rf "${INKSTITCH_LIB_DEST}"
 mkdir -p "$(dirname "${INKSTITCH_LIB_DEST}")"
 cp -R "${INKSTITCH_LIB_SRC}" "${INKSTITCH_LIB_DEST}"
 find "${INKSTITCH_LIB_DEST}" -type d -name "__pycache__" -prune -exec rm -rf {} +
+
+# Vendored InkStitch-Garnlisten (.gpl, Issue #13) — Contents/Resources/thread_palettes/*.gpl,
+# ebenfalls Geschwisterordner von python/. Reines Swift liest sie zur Laufzeit
+# (BuiltInThreadPaletteBootstrapper.swift, GPLPaletteImporter), kein Python-Bezug.
+PALETTES_SRC="${REPO_ROOT}/Vendor/inkstitch_palettes/palettes"
+PALETTES_DEST="${RESOURCES_DIR}/thread_palettes"
+echo "bundle_python.sh: kopiere vendored InkStitch-Garnlisten nach ${PALETTES_DEST} ..."
+rm -rf "${PALETTES_DEST}"
+mkdir -p "${PALETTES_DEST}"
+cp -R "${PALETTES_SRC}/." "${PALETTES_DEST}/"
 
 echo "bundle_python.sh: fertig. Runtime unter ${DEST}"

@@ -21,6 +21,10 @@ import CoreGraphics
 protocol SVGDesignSerializing {
     func encode(objects: [DesignObject], canvasSize: CGSize, backgroundImageFileName: String?) -> String
     func decode(svg: String) throws -> SVGDecodedDesign
+    /// Markup für ein einzelnes Objekt (dasselbe Fragment, das `encode` pro Objekt in `content.svg`
+    /// schreibt) — von `StitchGenerationService` wiederverwendet, um InkStitch dieselben
+    /// `inkstitch:*`-Attribute zu übergeben, die auch im gespeicherten Projekt landen.
+    func element(for object: DesignObject) -> String
 }
 
 struct SVGDecodedDesign {
@@ -66,7 +70,7 @@ final class SVGDesignSerializer: SVGDesignSerializing {
         return svg
     }
 
-    private func element(for object: DesignObject) -> String {
+    func element(for object: DesignObject) -> String {
         let common = commonAttributes(for: object)
         switch object.kind {
         case .rectangle:
@@ -103,12 +107,49 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             "fill=\"\(object.fillColorHex)\"",
         ]
         if let settings = object.stitchSettings {
-            attrs.append("inkstitch:fill_method=\"\(settings.stitchType.rawValue)\"")
-            attrs.append("inkstitch:angle=\"\(fmt(settings.angleDegrees))\"")
-            attrs.append("inkstitch:row_spacing_mm=\"\(fmt(settings.density))\"")
-            attrs.append("inkstitch:underlay=\"\(settings.underlayType.rawValue)\"")
+            attrs.append(contentsOf: stitchAttributes(for: settings))
         }
         return attrs.joined(separator: " ")
+    }
+
+    /// `inkstitch:*`-Attribute passend zu echtem InkStitch (siehe Phase 6c) — jeder Stichtyp
+    /// hat dort ein eigenes, nicht überlappendes Attribut-Set (kein gemeinsames `fill_method`/
+    /// `angle`/`underlay` über alle Typen hinweg wie in der ursprünglichen, unverifizierten
+    /// Phase-4-Fassung). `density` wird je Typ auf das jeweils passende reale Attribut gemappt.
+    private func stitchAttributes(for settings: StitchSettings) -> [String] {
+        switch settings.stitchType {
+        case .tatami:
+            var attrs = [
+                "inkstitch:fill_method=\"tatami_fill\"",
+                "inkstitch:angle=\"\(fmt(settings.angleDegrees))\"",
+                "inkstitch:row_spacing_mm=\"\(fmt(settings.density))\"",
+            ]
+            // Real InkStitch kennt nur ein Bool (An/Aus), keine Typwahl — jeder Nicht-.none-Wert
+            // schaltet die Unterlage ein (siehe Phase-6c-Kontext im Implementierungsplan).
+            if settings.underlayType != .none {
+                attrs.append("inkstitch:fill_underlay=\"true\"")
+            }
+            return attrs
+        case .straight:
+            // Laufstich kennt weder Winkel noch Unterlage — `density` wird zur Stichlänge.
+            return ["inkstitch:running_stitch_length_mm=\"\(fmt(settings.density))\""]
+        case .satin:
+            // Satin kennt keinen Winkel (folgt der Pfadrichtung) und drei unabhängige,
+            // kombinierbare Unterlage-Bools statt eines einzelnen Typs — unser `UnderlayType`
+            // kann nur einen davon gleichzeitig ausdrücken (siehe Decode-Seite).
+            var attrs = ["inkstitch:zigzag_spacing_mm=\"\(fmt(settings.density))\""]
+            switch settings.underlayType {
+            case .none:
+                break
+            case .centerWalk:
+                attrs.append("inkstitch:center_walk_underlay=\"true\"")
+            case .edgeWalk:
+                attrs.append("inkstitch:contour_underlay=\"true\"")
+            case .zigzagNet:
+                attrs.append("inkstitch:zigzag_underlay=\"true\"")
+            }
+            return attrs
+        }
     }
 
     static func starPathData(x: Double, y: Double, width: Double, height: Double, pointCount: Int) -> String {
@@ -217,16 +258,46 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             object.skewYDegrees = parseDouble(attrs["data-ss-skew-y"]) ?? 0
             object.fillColorHex = attrs["fill"] ?? object.fillColorHex
 
-            if let fillMethod = attrs["inkstitch:fill_method"], let stitchType = StitchType(rawValue: fillMethod) {
-                let settings = StitchSettings(
-                    stitchType: stitchType,
-                    density: parseDouble(attrs["inkstitch:row_spacing_mm"]) ?? 0.4,
-                    angleDegrees: parseDouble(attrs["inkstitch:angle"]) ?? 0,
-                    underlayType: UnderlayType(rawValue: attrs["inkstitch:underlay"] ?? "") ?? .centerWalk
-                )
+            if let settings = Self.stitchSettings(from: attrs) {
                 settings.designObject = object
                 object.stitchSettings = settings
             }
+        }
+
+        /// Erkennt den Stichtyp anhand dessen, welches (nicht überlappende) reale InkStitch-
+        /// Attribut vorhanden ist — es gibt kein gemeinsames Typ-Attribut mehr über alle drei
+        /// Stichtypen hinweg (siehe `stitchAttributes(for:)` auf der Encode-Seite, Phase 6c).
+        private static func stitchSettings(from attrs: [String: String]) -> StitchSettings? {
+            if attrs["inkstitch:fill_method"] != nil {
+                return StitchSettings(
+                    stitchType: .tatami,
+                    density: parseDouble(attrs["inkstitch:row_spacing_mm"]) ?? 0.4,
+                    angleDegrees: parseDouble(attrs["inkstitch:angle"]) ?? 0,
+                    underlayType: attrs["inkstitch:fill_underlay"] == "true" ? .centerWalk : .none
+                )
+            }
+            if attrs["inkstitch:zigzag_spacing_mm"] != nil {
+                let underlayType: UnderlayType
+                if attrs["inkstitch:center_walk_underlay"] == "true" {
+                    underlayType = .centerWalk
+                } else if attrs["inkstitch:contour_underlay"] == "true" {
+                    underlayType = .edgeWalk
+                } else if attrs["inkstitch:zigzag_underlay"] == "true" {
+                    underlayType = .zigzagNet
+                } else {
+                    underlayType = .none
+                }
+                return StitchSettings(
+                    stitchType: .satin,
+                    density: parseDouble(attrs["inkstitch:zigzag_spacing_mm"]) ?? 0.4,
+                    angleDegrees: 0,
+                    underlayType: underlayType
+                )
+            }
+            if let length = attrs["inkstitch:running_stitch_length_mm"] {
+                return StitchSettings(stitchType: .straight, density: parseDouble(length) ?? 0.4, angleDegrees: 0, underlayType: .none)
+            }
+            return nil
         }
 
         private static func makeRectangle(_ attrs: [String: String]) -> DesignObject {

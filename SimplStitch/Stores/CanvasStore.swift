@@ -22,6 +22,12 @@
 //  sobald das Interaktionsmodell dafür (z.B. Modifier-Taste auf einem
 //  Skalier-Griff) entschieden ist.
 //
+//  Live-Stichvorschau (6e): `stitchPreview` hält die zuletzt generierten Stiche
+//  für das selektierte Objekt, `refreshStitchPreview()` stösst eine debouncte,
+//  abbrechbare Neugenerierung über StitchGenerationService an. Ruft die
+//  echte Python-Bridge auf — ein neuer PythonBridge-Subprocess pro CanvasStore
+//  ist für den aktuellen Scope (eine Zeichenfläche gleichzeitig) ausreichend.
+//
 
 import Foundation
 import Observation
@@ -37,10 +43,18 @@ final class CanvasStore {
     private(set) var panOffset: CGSize
     var canvasSizeMillimeters: CGSize
 
-    init(canvasSizeMillimeters: CGSize, zoomScale: CGFloat = 1, panOffset: CGSize = .zero) {
+    private let stitchGenerationService: StitchGenerationServicing
+
+    init(
+        canvasSizeMillimeters: CGSize,
+        zoomScale: CGFloat = 1,
+        panOffset: CGSize = .zero,
+        stitchGenerationService: StitchGenerationServicing = StitchGenerationService(bridge: PythonBridge())
+    ) {
         self.canvasSizeMillimeters = canvasSizeMillimeters
         self.zoomScale = min(max(zoomScale, Self.minZoomScale), Self.maxZoomScale)
         self.panOffset = panOffset
+        self.stitchGenerationService = stitchGenerationService
     }
 
     func setZoomScale(_ newValue: CGFloat) {
@@ -189,6 +203,7 @@ final class CanvasStore {
         if newObject?.kind == .text {
             editingTextObjectID = newObject?.id
         }
+        refreshStitchPreview()
         return newObject
     }
 
@@ -291,6 +306,7 @@ final class CanvasStore {
 
     func selectObject(_ id: UUID?) {
         selectedObjectID = id
+        refreshStitchPreview()
     }
 
     /// Oberstes sichtbares Objekt unter dem gegebenen Punkt (Design-Koordinaten), oder nil.
@@ -419,6 +435,7 @@ final class CanvasStore {
         activeHandle = nil
         transformDragStartPoint = nil
         transformDragSnapshot = nil
+        refreshStitchPreview()
     }
 
     private func applyResize(to object: DesignObject, handle: CanvasHandleKind, snapshot: TransformSnapshot, dragPoint: CGPoint) {
@@ -578,5 +595,49 @@ final class CanvasStore {
 
     func toggleLock(of id: UUID) {
         objects.first { $0.id == id }?.isLocked.toggle()
+    }
+
+    // MARK: Live-Stichvorschau (6e)
+
+    static let stitchPreviewDebounce: Duration = .milliseconds(250)
+
+    private(set) var stitchPreview: [StitchPoint]?
+    /// Menschenlesbare Fehlermeldung der letzten fehlgeschlagenen Stichgenerierung (z.B. Satin
+    /// auf einer für Satin ungeeigneten Geometrie, siehe 6f) — nil solange keine vorliegt.
+    private(set) var stitchPreviewError: String?
+
+    private var stitchPreviewTask: Task<Void, Never>?
+
+    /// Stösst eine debouncte, abbrechbare Neugenerierung der Stichvorschau für das aktuell
+    /// selektierte Objekt an. Aufgerufen bei Selektionswechsel, nach Transform-Drags (Geometrie
+    /// geändert) und von aussen nach Sticheinstellungs-Änderungen (siehe ContentView-Dev-Panel,
+    /// solange es noch keinen echten Settings-Inspector gibt, Phase 8).
+    func refreshStitchPreview() {
+        stitchPreviewTask?.cancel()
+
+        guard let object = selectedObject, object.stitchSettings != nil else {
+            stitchPreviewTask = nil
+            stitchPreview = nil
+            stitchPreviewError = nil
+            return
+        }
+
+        let objectID = object.id
+        let canvasSize = canvasSizeMillimeters
+        stitchPreviewTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.stitchPreviewDebounce)
+            guard let self, !Task.isCancelled, self.selectedObjectID == objectID else { return }
+
+            do {
+                let stitches = try await self.stitchGenerationService.generateStitches(for: object, canvasSize: canvasSize)
+                guard !Task.isCancelled, self.selectedObjectID == objectID else { return }
+                self.stitchPreview = stitches
+                self.stitchPreviewError = nil
+            } catch {
+                guard !Task.isCancelled, self.selectedObjectID == objectID else { return }
+                self.stitchPreview = nil
+                self.stitchPreviewError = error.localizedDescription
+            }
+        }
     }
 }

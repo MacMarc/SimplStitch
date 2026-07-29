@@ -1,342 +1,474 @@
 {
-  "sourceLanguage": "en",
-  "strings": {
-    "detail.selectProject": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wähle ein Projekt aus"
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+
+    },
+    "canvas.tool.circle" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kreis"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Select a project"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Circle"
           }
         }
       }
     },
-    "sidebar.noProjects": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Noch keine Projekte"
+    "canvas.tool.path" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Freihand"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No projects yet"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Freehand"
           }
         }
       }
     },
-    "canvas.tool.select": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Auswählen"
+    "canvas.tool.rectangle" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rechteck"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Select"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rectangle"
           }
         }
       }
     },
-    "canvas.tool.rectangle": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rechteck"
+    "canvas.tool.select" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auswählen"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rectangle"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select"
           }
         }
       }
     },
-    "canvas.tool.circle": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kreis"
+    "canvas.tool.star" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stern"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Circle"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Star"
           }
         }
       }
     },
-    "canvas.tool.star": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stern"
+    "canvas.tool.text" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Star"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text"
           }
         }
       }
     },
-    "canvas.tool.path": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Freihand"
+    "canvas.toolPicker.label" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Werkzeug"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Freehand"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tool"
           }
         }
       }
     },
-    "canvas.tool.text": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Text"
+    "detail.selectProject" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wähle ein Projekt aus"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Text"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select a project"
           }
         }
       }
     },
-    "canvas.toolPicker.label": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Werkzeug"
+    "layers.hide" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausblenden"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tool"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide"
           }
         }
       }
     },
-    "layers.panel.title": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ebenen"
+    "layers.lock" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sperren"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Layers"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lock"
           }
         }
       }
     },
-    "layers.panel.toggle": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ebenen-Panel"
+    "layers.moveBackward" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine Ebene nach hinten"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Layers Panel"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send Backward"
           }
         }
       }
     },
-    "layers.panel.empty": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Noch keine Ebenen"
+    "layers.moveForward" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine Ebene nach vorne"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No layers yet"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bring Forward"
           }
         }
       }
     },
-    "layers.panel.empty.description": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zeichne eine Form oder einen Text, um eine Ebene zu erstellen."
+    "layers.moveToBack" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In den Hintergrund"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Draw a shape or text to create a layer."
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send to Back"
           }
         }
       }
     },
-    "layers.moveToFront": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "In den Vordergrund"
+    "layers.moveToFront" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In den Vordergrund"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bring to Front"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bring to Front"
           }
         }
       }
     },
-    "layers.moveForward": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Eine Ebene nach vorne"
+    "layers.panel.empty" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Ebenen"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bring Forward"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No layers yet"
           }
         }
       }
     },
-    "layers.moveBackward": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Eine Ebene nach hinten"
+    "layers.panel.empty.description" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeichne eine Form oder einen Text, um eine Ebene zu erstellen."
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Send Backward"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Draw a shape or text to create a layer."
           }
         }
       }
     },
-    "layers.moveToBack": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "In den Hintergrund"
+    "layers.panel.title" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ebenen"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Send to Back"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Layers"
           }
         }
       }
     },
-    "layers.show": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Einblenden"
+    "layers.panel.toggle" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ebenen-Panel"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Layers Panel"
           }
         }
       }
     },
-    "layers.hide": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ausblenden"
+    "layers.show" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einblenden"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hide"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show"
           }
         }
       }
     },
-    "layers.lock": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sperren"
+    "layers.unlock" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entsperren"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lock"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock"
           }
         }
       }
     },
-    "layers.unlock": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Entsperren"
+    "sidebar.noProjects" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Projekte"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Unlock"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No projects yet"
+          }
+        }
+      }
+    },
+    "stitch.dev.angle.label" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Winkel (°)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Angle (°)"
+          }
+        }
+      }
+    },
+    "stitch.dev.density.label" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dichte (mm)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Density (mm)"
+          }
+        }
+      }
+    },
+    "stitch.dev.panel.title" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stichvorschau (Dev)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stitch Preview (Dev)"
+          }
+        }
+      }
+    },
+    "stitch.dev.type.label" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stichtyp"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stitch Type"
+          }
+        }
+      }
+    },
+    "stitch.dev.type.none" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
+          }
+        }
+      }
+    },
+    "stitch.dev.type.satin" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Satin"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Satin"
+          }
+        }
+      }
+    },
+    "stitch.dev.type.straight" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laufstich"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Running Stitch"
+          }
+        }
+      }
+    },
+    "stitch.dev.type.tatami" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Füllung"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fill"
           }
         }
       }
     }
   },
-  "version": "1.0"
+  "version" : "1.0"
 }

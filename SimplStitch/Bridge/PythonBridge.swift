@@ -29,7 +29,14 @@ enum PythonBridgeError: Error, LocalizedError {
     }
 }
 
-actor PythonBridge {
+/// Erlaubt Services (z.B. StitchGenerationService), gegen einen Test-Double statt den echten
+/// Python-Subprocess zu testen — PythonBridge selbst ist die einzige reale Implementierung.
+protocol PythonBridging {
+    @discardableResult
+    func send(command: String, payload: [String: Any]) async throws -> [String: Any]
+}
+
+actor PythonBridge: PythonBridging {
     private var process: Process?
     private var stdinHandle: FileHandle?
     private var stdoutHandle: FileHandle?

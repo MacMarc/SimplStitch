@@ -34,6 +34,10 @@ struct ContentView: View {
                 .labelsHidden()
                 .padding(8)
 
+                if let selected = canvasStore.selectedObject {
+                    StitchDevPanelView(object: selected, store: canvasStore)
+                }
+
                 CanvasView(store: canvasStore)
             }
             .toolbar {

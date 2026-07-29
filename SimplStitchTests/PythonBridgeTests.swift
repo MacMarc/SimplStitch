@@ -57,4 +57,43 @@ struct PythonBridgeTests {
 
         await bridge.stop()
     }
+
+    // Phase 6a/6b: echte InkStitch-Stichgenerierung (vendored, siehe Vendor/inkstitch_lib/)
+    // über den generate_stitches-Befehl. Testet ein Rechteck mit Tatami-Füllung.
+    @Test func generateStitchesTatamiFill() async throws {
+        let bridge = PythonBridge()
+
+        let objectSvg = """
+        <rect x="10" y="10" width="30" height="20" \
+        inkstitch:fill_method="tatami_fill" inkstitch:angle="45" inkstitch:row_spacing_mm="0.4" />
+        """
+
+        let result = try await bridge.send(
+            command: "generate_stitches",
+            payload: ["canvasWidthMm": 50, "canvasHeightMm": 50, "objectSvg": objectSvg, "stitchType": "tatami"]
+        )
+        let stitches = try #require(result["stitches"] as? [[Double]])
+
+        #expect(!stitches.isEmpty)
+        for stitch in stitches {
+            #expect(stitch.count == 3)
+            // Stiche sollten (mit etwas Toleranz für die Stichlänge über den Formrand hinaus)
+            // innerhalb der 50x50mm-Zeichenfläche liegen.
+            #expect(stitch[0] >= -5 && stitch[0] <= 55)
+            #expect(stitch[1] >= -5 && stitch[1] <= 55)
+        }
+
+        await bridge.stop()
+    }
+
+    @Test func generateStitchesUnknownTypeThrows() async throws {
+        let bridge = PythonBridge()
+        await #expect(throws: PythonBridgeError.self) {
+            try await bridge.send(
+                command: "generate_stitches",
+                payload: ["canvasWidthMm": 50, "canvasHeightMm": 50, "objectSvg": "<rect x=\"0\" y=\"0\" width=\"5\" height=\"5\" />", "stitchType": "unknown"]
+            )
+        }
+        await bridge.stop()
+    }
 }

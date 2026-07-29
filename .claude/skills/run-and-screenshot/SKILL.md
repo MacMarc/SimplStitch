@@ -60,14 +60,29 @@ Bildschirmaufnahme erteilt sein. Ohne diese Berechtigung liefert `screencapture`
 oder schwarzes Bild statt eines Fehlers — das lässt sich nur durch Anschauen des Ergebnisses
 erkennen, nicht am Exit-Code.
 
-## Bekannte Grenzen
+## Klick-Interaktion
 
-- **Klick-Interaktion über AppleScript/System Events schlägt fehl:** Zugriffe wie
-  `click button "Rechteck" of window 1` liefern Fehler -1728 ("kann nicht gelesen werden").
-  SwiftUI-Buttons sind über die klassische Accessibility-Bridge nicht zuverlässig ansprechbar.
-  Für reine visuelle Verifikation (Screenshot anschauen) reicht das obige Vorgehen. Für
-  automatisierte Klick-Interaktion wäre ein anderes Tool nötig (z.B. `cliclick`, aktuell nicht
-  installiert) oder ein UI-Test-Target (`SimplStitchUITests`) über `xcodebuild test`.
+- **Element-basierter Zugriff schlägt fehl:** `click button "Rechteck" of window 1` liefert
+  Fehler -1728 ("kann nicht gelesen werden") — SwiftUI-Buttons sind über die klassische
+  AXUIElement-Bridge (Element per Name/Rolle auflösen) nicht zuverlässig ansprechbar.
+  Element-Introspektion (`get bounds of window 1 of application process "SimplStitch"` o.ä.)
+  scheitert aus demselben Grund.
+- **Koordinaten-basierter Klick funktioniert:** `tell application "System Events" to click at
+  {x, y}` (Bildschirmpunkte, nicht Pixel — siehe unten) simuliert einen echten Mausklick an
+  einer Position, ohne ein Element namentlich auflösen zu müssen. Damit lassen sich z.B.
+  SwiftUI-Segmented-Picker-Optionen zuverlässig anklicken (verifiziert: Werkzeugauswahl im
+  Dev-Toolbar-Picker). Vor dem Klick `tell application "SimplStitch" to activate` + kurze
+  `delay`, sonst trifft der Klick das noch aktive Terminal-Fenster.
+- **Pixel→Punkt-Umrechnung:** `screencapture` liefert physische Pixel (bei Retina 2× die
+  Bildschirmpunkte), `click at` erwartet Bildschirmpunkte. Punkt-Auflösung ermitteln mit
+  `osascript -e 'tell application "Finder" to get bounds of window of desktop'` (liefert
+  `0, 0, <Breite>, <Höhe>` in Punkten) und den Skalierungsfaktor (i.d.R. 2) daraus ableiten,
+  statt zu raten — Koordinaten aus dem Screenshot durch diesen Faktor teilen.
+- **Kein Drag:** `click at` ist ein reiner Klick (Down+Up am selben Punkt), kein Drag — Formen
+  auf dem Canvas per Klick-Ziehen erzeugen (Rechteck/Kreis/… -Werkzeug) geht damit nicht.
+  Dafür bräuchte es ein echtes Event-Posting (z.B. `cliclick`, aktuell nicht installiert, oder
+  Python `Quartz.CGEvent...`, auf dieser Maschine ebenfalls nicht verfügbar) oder ein
+  UI-Test-Target (`SimplStitchUITests`) über `xcodebuild test`.
 - **Kein Multi-Window/Multi-Space-Handling über die Fenstergeometrie hinaus getestet** — bei
   mehreren SimplStitch-Fenstern gleichzeitig ggf. zusätzlich per `System Events` das
   gewünschte Fenster in den Vordergrund holen.

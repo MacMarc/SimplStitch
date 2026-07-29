@@ -542,4 +542,63 @@ struct CanvasStoreTests {
         store.toggleLock(of: object.id)
         #expect(!object.isLocked)
     }
+
+    // MARK: Live-Stichvorschau (6e)
+
+    @Test func selectingObjectWithStitchSettingsPopulatesStitchPreview() async throws {
+        let mockStitches = [StitchPoint(x: 0, y: 0, command: .stitch), StitchPoint(x: 5, y: 0, command: .stitch)]
+        let mockService = MockStitchGenerationService(stitchesToReturn: mockStitches)
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100), stitchGenerationService: mockService)
+        let object = makeRectangle(in: store)
+        object.stitchSettings = StitchSettings(stitchType: .tatami, density: 0.4, angleDegrees: 0, underlayType: .none)
+
+        store.selectObject(nil) // Auswahl aufheben, damit der nächste Aufruf tatsächlich einen Wechsel auslöst
+        #expect(store.stitchPreview == nil)
+
+        store.selectObject(object.id)
+        // Debounce (CanvasStore.stitchPreviewDebounce) abwarten, bevor die Vorschau gesetzt wird.
+        try await Task.sleep(for: .milliseconds(400))
+
+        #expect(store.stitchPreview == mockStitches)
+    }
+
+    @Test func deselectingObjectClearsStitchPreview() {
+        let mockService = MockStitchGenerationService(stitchesToReturn: [StitchPoint(x: 0, y: 0, command: .stitch)])
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100), stitchGenerationService: mockService)
+        let object = makeRectangle(in: store)
+        object.stitchSettings = StitchSettings(stitchType: .tatami, density: 0.4, angleDegrees: 0, underlayType: .none)
+
+        store.selectObject(object.id)
+        store.selectObject(nil)
+
+        #expect(store.stitchPreview == nil)
+    }
+
+    @Test func selectingObjectWithoutStitchSettingsClearsStitchPreview() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100), stitchGenerationService: MockStitchGenerationService())
+        let object = makeRectangle(in: store)
+
+        store.selectObject(object.id)
+
+        #expect(store.stitchPreview == nil)
+    }
+
+    // MARK: Fehlersichtbarkeit (6f)
+
+    @Test func failedGenerationSurfacesErrorAndClearsPreview() async throws {
+        struct DummyError: LocalizedError {
+            var errorDescription: String? { "Stichgenerierung fehlgeschlagen: Testfehler" }
+        }
+        let mockService = MockStitchGenerationService(errorToThrow: DummyError())
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100), stitchGenerationService: mockService)
+        let object = makeRectangle(in: store)
+        object.stitchSettings = StitchSettings(stitchType: .satin, density: 0.4, angleDegrees: 0, underlayType: .none)
+
+        store.selectObject(nil)
+        store.selectObject(object.id)
+        try await Task.sleep(for: .milliseconds(400))
+
+        #expect(store.stitchPreview == nil)
+        #expect(store.stitchPreviewError == "Stichgenerierung fehlgeschlagen: Testfehler")
+    }
 }

@@ -1,5 +1,28 @@
 # pyembroidery: Format-I/O (liest 46, schreibt 20 Stickformate inkl. VP3). MIT-Lizenz.
 pyembroidery
 
-# InkStitch (Stichgenerierung, GPL-3.0) ist kein pip-Paket und wird in Phase 6
-# als Vendored-Library unter SimplStitch/Bridge/inkstitch_lib/ ergänzt.
+# InkStitch selbst (Stichgenerierung, GPL-3.0) ist kein pip-Paket und liegt vendored
+# unter Vendor/inkstitch_lib/ (Repo-Root, nicht unter SimplStitch/ — siehe Kommentar in
+# Scripts/bundle_python.sh und Vendor/inkstitch_lib/VENDOR_PATCHES.md). Die folgenden
+# Pakete sind seine echten Laufzeit-Abhängigkeiten (bundle_python.sh installiert `inkex`
+# selbst separat mit --no-deps, siehe Kommentar dort — deshalb hier ohne inkex).
+shapely>=2.0
+networkx
+lxml<6.0.0,>=4.5.0
+numpy
+platformdirs
+diskcache
+trimesh
+colormath2
+pystitch
+
+# inkex-Laufzeit-Abhängigkeiten (inkex selbst wird separat mit --no-deps installiert,
+# siehe bundle_python.sh — sein eigenes PyGObject/GTK-Requirement ist auf einer sauberen
+# macOS-Maschine nicht baubar und wird im hier genutzten Codepfad nie importiert).
+Pillow
+cssselect
+packaging
+pyserial
+pyparsing
+scour<0.38,>=0.37
+tinycss2

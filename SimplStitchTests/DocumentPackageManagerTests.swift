@@ -24,7 +24,9 @@ struct DocumentPackageManagerTests {
         rectangle.cornerRadius = 4
         rectangle.zIndex = 0
         rectangle.fillColorHex = "#FF0000"
-        rectangle.stitchSettings = StitchSettings(stitchType: .tatami, density: 0.4, angleDegrees: 45, underlayType: .zigzagNet)
+        // Real InkStitch kennt für Tatami nur ein An/Aus-Bool (kein Typ) — jeder Nicht-.none-Wert
+        // wird beim Roundtrip auf .centerWalk normalisiert (siehe SVGDesignSerializer, Phase 6c).
+        rectangle.stitchSettings = StitchSettings(stitchType: .tatami, density: 0.4, angleDegrees: 45, underlayType: .centerWalk)
 
         let circle = DesignObject(name: "Kreis", kind: .circle, positionX: 60, positionY: 10, width: 30, height: 30)
         circle.zIndex = 1
@@ -89,7 +91,7 @@ struct DocumentPackageManagerTests {
         #expect(rectangle.fillColorHex == "#FF0000")
         let rectangleSettings = try #require(rectangle.stitchSettings)
         #expect(rectangleSettings.stitchType == .tatami)
-        #expect(rectangleSettings.underlayType == .zigzagNet)
+        #expect(rectangleSettings.underlayType == .centerWalk)
         #expect(abs(rectangleSettings.angleDegrees - 45) < 0.001)
         #expect(abs(rectangleSettings.density - 0.4) < 0.001)
 
@@ -97,7 +99,12 @@ struct DocumentPackageManagerTests {
         #expect(abs(circle.positionX - 60) < 0.001)
         #expect(abs(circle.width - 30) < 0.001)
         #expect(abs(circle.rotationDegrees - 15) < 0.001)
-        #expect(circle.stitchSettings?.stitchType == .satin)
+        let circleSettings = try #require(circle.stitchSettings)
+        #expect(circleSettings.stitchType == .satin)
+        // Satin kennt (anders als Tatami) drei unterscheidbare Unterlage-Typen — .edgeWalk
+        // (contour_underlay) roundtrippt daher verlustfrei.
+        #expect(circleSettings.underlayType == .edgeWalk)
+        #expect(abs(circleSettings.density - 0.3) < 0.001)
 
         let star = try #require(reopened.objects.first { $0.kind == .star })
         #expect(star.starPointCount == 6)

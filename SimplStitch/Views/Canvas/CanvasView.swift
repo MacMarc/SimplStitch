@@ -47,8 +47,10 @@ struct CanvasView: View {
                     drawGrid(in: &context)
                     drawObjects(in: &context)
                     drawDraftPreview(in: &context)
+                    drawStitchPreview(in: &context)
                     drawSelectionOutline(in: &context)
                     drawHandles(in: &context)
+                    drawStitchPreviewError(in: &context)
                 }
                 .background(Color(nsColor: .underPageBackgroundColor))
                 .gesture(store.currentTool == .select ? AnyGesture(selectionGesture) : AnyGesture(drawGesture))
@@ -292,6 +294,37 @@ struct CanvasView: View {
         previewContext.stroke(path, with: .color(.accentColor), style: style)
     }
 
+    /// Zeichnet die zuletzt generierte Stichvorschau (6e) für das selektierte Objekt als dünne
+    /// Polylinien — Segmente, die mit einem echten Stich enden, durchgezogen, alles andere
+    /// (JUMP/TRIM/STOP/COLOR_CHANGE, also Bewegung ohne Faden) gestrichelt. `store.stitchPreview`
+    /// ist nur gesetzt, solange sie zum aktuell selektierten Objekt gehört (siehe
+    /// CanvasStore.refreshStitchPreview), daher keine zusätzliche ID-Prüfung hier nötig.
+    private func drawStitchPreview(in context: inout GraphicsContext) {
+        guard let stitches = store.stitchPreview, stitches.count > 1 else { return }
+        var previewContext = context
+        previewContext.transform = designToViewTransform
+
+        var stitchPath = Path()
+        var movementPath = Path()
+        var previous = CGPoint(x: stitches[0].x, y: stitches[0].y)
+
+        for stitch in stitches.dropFirst() {
+            let point = CGPoint(x: stitch.x, y: stitch.y)
+            var segment = Path()
+            segment.move(to: previous)
+            segment.addLine(to: point)
+            if stitch.command == .stitch {
+                stitchPath.addPath(segment)
+            } else {
+                movementPath.addPath(segment)
+            }
+            previous = point
+        }
+
+        previewContext.stroke(stitchPath, with: .color(.black.opacity(0.7)), lineWidth: 0.12)
+        previewContext.stroke(movementPath, with: .color(.gray.opacity(0.6)), style: StrokeStyle(lineWidth: 0.1, dash: [0.6, 0.4]))
+    }
+
     private func polyline(through points: [CGPoint]) -> Path {
         var path = Path()
         guard let first = points.first else { return path }
@@ -311,6 +344,32 @@ struct CanvasView: View {
         let bounds = CGRect(x: selected.positionX, y: selected.positionY, width: selected.width, height: selected.height)
         let path = Path(bounds).applying(selected.rotationTransform)
         outlineContext.stroke(path, with: .color(.accentColor), style: StrokeStyle(lineWidth: 0.4, dash: [1.2, 0.8]))
+    }
+
+    /// Zeigt einen Fehler der letzten Stichgenerierung (6f) als kleine Inline-Meldung nahe der
+    /// Selektion an, statt lautlos nichts zu zeichnen (siehe CanvasStore.refreshStitchPreview).
+    /// Betrifft z.B. ungültige/entartete Geometrie, die InkStitch ablehnt — Satin ist dabei
+    /// KEIN Garant für einen Fehler: laut 6a-Test lieferte SatinColumn auf einem einfachen
+    /// Rechteck ohne Fehler 508 Stiche (InkStitch interpretiert den geschlossenen Pfad
+    /// offenbar als zwei Schienen), echte Fehler treten eher bei entarteten/zu kleinen Pfaden
+    /// auf. In View-Koordinaten (nicht design-transformiert), damit die Schrift bei jedem Zoom
+    /// lesbar bleibt.
+    private func drawStitchPreviewError(in context: inout GraphicsContext) {
+        guard let message = store.stitchPreviewError,
+              let selected = store.selectedObject, selected.isVisible else { return }
+
+        let topLeft = store.viewPoint(fromDesign: CGPoint(x: selected.positionX, y: selected.positionY))
+        let text = Text(message)
+            .font(.caption)
+            .foregroundColor(.white)
+        let resolved = context.resolve(text)
+        let padding: CGFloat = 4
+        let textSize = resolved.measure(in: CGSize(width: 260, height: CGFloat.infinity))
+        let origin = CGPoint(x: topLeft.x, y: topLeft.y - textSize.height - padding * 2 - 4)
+        let backgroundRect = CGRect(origin: origin, size: CGSize(width: textSize.width + padding * 2, height: textSize.height + padding * 2))
+
+        context.fill(Path(roundedRect: backgroundRect, cornerRadius: 4), with: .color(.red.opacity(0.85)))
+        context.draw(resolved, at: CGPoint(x: backgroundRect.minX + padding, y: backgroundRect.minY + padding), anchor: .topLeading)
     }
 
     private func drawHandles(in context: inout GraphicsContext) {

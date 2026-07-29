@@ -15,6 +15,7 @@ import SwiftUI
 private enum InspectorTab: String, CaseIterable, Identifiable {
     case layers
     case object
+    case threads
 
     var id: String { rawValue }
 
@@ -22,6 +23,7 @@ private enum InspectorTab: String, CaseIterable, Identifiable {
         switch self {
         case .layers: return String(localized: "inspector.tab.layers")
         case .object: return String(localized: "inspector.tab.object")
+        case .threads: return String(localized: "inspector.tab.threads")
         }
     }
 }
@@ -57,6 +59,8 @@ struct CanvasInspectorView: View {
                         description: Text("inspector.object.empty.description")
                     )
                 }
+            case .threads:
+                ThreadPalettesPanelView()
             }
         }
         .onChange(of: store.selectedObjectID) { _, newValue in

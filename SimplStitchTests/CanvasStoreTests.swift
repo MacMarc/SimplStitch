@@ -597,6 +597,31 @@ struct CanvasStoreTests {
         #expect(store.objects.isEmpty)
     }
 
+    // MARK: Garnfarben-Zuweisung (8e)
+
+    @Test func assignColorSetsThreadColorAndMatchingFillHex() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let object = makeRectangle(in: store)
+
+        store.assignColor(name: "Rot", red: 255, green: 0, blue: 0, catalogNumber: "R-1", to: object.id)
+
+        #expect(object.threadColor?.name == "Rot")
+        #expect(object.threadColor?.red == 255)
+        #expect(object.threadColor?.catalogNumber == "R-1")
+        #expect(object.fillColorHex == "#FF0000")
+    }
+
+    @Test func assignColorToUnknownIDDoesNothing() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let object = makeRectangle(in: store)
+        let originalHex = object.fillColorHex
+
+        store.assignColor(name: "Rot", red: 255, green: 0, blue: 0, catalogNumber: nil, to: UUID())
+
+        #expect(object.threadColor == nil)
+        #expect(object.fillColorHex == originalHex)
+    }
+
     // MARK: Live-Stichvorschau (6e)
 
     @Test func selectingObjectWithStitchSettingsPopulatesStitchPreview() async throws {

@@ -660,6 +660,20 @@ final class CanvasStore {
         deleteObject(id)
     }
 
+    // MARK: Garnfarben-Zuweisung (8e)
+
+    /// Weist einem Objekt eine Garnfarbe zu (Drag aus dem Garnlisten-Panel, siehe CanvasView-
+    /// Drop-Handler). Erzeugt bewusst ein neues, unabhängiges `ThreadColor` statt eine Relationship
+    /// zur Palette durchzureichen — der Drag-Vorgang transportiert nur Werte (`DraggedThreadColor`),
+    /// keine SwiftData-Objektreferenz über einen fremden ModelContext hinweg. `fillColorHex` wird
+    /// synchron gehalten, da das Canvas-Rendering weiterhin darüber läuft, nicht über `threadColor`.
+    func assignColor(name: String, red: Int, green: Int, blue: Int, catalogNumber: String?, to id: UUID) {
+        guard let object = objects.first(where: { $0.id == id }) else { return }
+        object.threadColor = ThreadColor(name: name, red: red, green: green, blue: blue, catalogNumber: catalogNumber)
+        object.fillColorHex = String(format: "#%02X%02X%02X", red, green, blue)
+        refreshStitchPreview()
+    }
+
     // MARK: Live-Stichvorschau (6e)
 
     static let stitchPreviewDebounce: Duration = .milliseconds(250)

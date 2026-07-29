@@ -201,7 +201,7 @@
 				};
 			};
 			buildConfigurationList = A0F2527F3019E3D200837D40 /* Build configuration list for PBXProject "SimplStitch" */;
-			developmentRegion = en;
+			developmentRegion = de;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,

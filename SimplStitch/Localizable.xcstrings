@@ -1,5 +1,5 @@
 {
-  "sourceLanguage": "en",
+  "sourceLanguage": "de",
   "strings": {
     "": {},
     "canvas.tool.circle": {
@@ -739,6 +739,22 @@
         }
       }
     },
+    "inspector.tab.threads": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garnlisten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Threads"
+          }
+        }
+      }
+    },
     "inspector.toggle": {
       "localizations": {
         "de": {
@@ -1135,6 +1151,102 @@
           "stringUnit": {
             "state": "translated",
             "value": "No projects yet"
+          }
+        }
+      }
+    },
+    "threads.import.button": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importieren…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import…"
+          }
+        }
+      }
+    },
+    "threads.import.error.dismiss": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
+    "threads.import.error.title": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import fehlgeschlagen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import Failed"
+          }
+        }
+      }
+    },
+    "threads.panel.empty": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch keine Garnlisten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Thread Palettes Yet"
+          }
+        }
+      }
+    },
+    "threads.panel.empty.description": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importiere eine .gpl-Garnliste, um Farben per Drag zuzuweisen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import a .gpl thread palette to assign colors by drag & drop."
+          }
+        }
+      }
+    },
+    "threads.panel.title": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garnlisten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thread Palettes"
           }
         }
       }

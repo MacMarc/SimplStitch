@@ -62,6 +62,24 @@ struct CanvasView: View {
                 .focusedSceneValue(\.zoomToFitAction) {
                     store.zoomToFit(viewportSize: proxy.size)
                 }
+                // Farbzuweisung per Drag aus dem Garnlisten-Panel (8e) — der Canvas rendert alle
+                // Objekte in einem einzigen `Canvas`, nicht als separate SwiftUI-Views, daher trifft
+                // der Drop-Handler das Zielobjekt über dieselbe Hit-Testing-Logik wie die Selektion
+                // (`object(atDesignPoint:)`), nicht über eine per-Objekt `.dropDestination`.
+                .dropDestination(for: DraggedThreadColor.self) { items, location in
+                    guard let dragged = items.first else { return false }
+                    let designPoint = store.designPoint(fromView: location)
+                    guard let object = store.object(atDesignPoint: designPoint) else { return false }
+                    store.assignColor(
+                        name: dragged.name,
+                        red: dragged.red,
+                        green: dragged.green,
+                        blue: dragged.blue,
+                        catalogNumber: dragged.catalogNumber,
+                        to: object.id
+                    )
+                    return true
+                }
 
                 if let editingObject = store.editingTextObject {
                     textEditorOverlay(for: editingObject)

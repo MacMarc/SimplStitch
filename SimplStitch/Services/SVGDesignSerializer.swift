@@ -1,0 +1,306 @@
+//
+//  SVGDesignSerializer.swift
+//  SimplStitch
+//
+//  Konvertiert [DesignObject] ↔ content.svg. SVG nutzt native Elemente
+//  (rect/ellipse/path/text) statt alles auf <path> zu reduzieren — bleibt
+//  so lesbar und in Inkscape/InkStitch direkt öffenbar. Objekt-Metadaten
+//  (Name, Z-Order, Rotation, Skew, Sperren/Sichtbarkeit) landen als
+//  `data-ss-*`-Attribute, Sticheinstellungen als `inkstitch:*`-Attribute.
+//
+//  Vereinfachung: Rotation/Skew werden NICHT in eine SVG-`transform`-Matrix
+//  gebacken, sondern roh als data-ss-Attribute mitgeführt. Für pixelgenaues
+//  Rendering (Canvas-Engine, Phase 5) und für den echten InkStitch-Aufruf
+//  (Phase 6) muss das ggf. in eine korrekte transform-Komposition überführt
+//  werden — hier zählt nur verlustfreier Roundtrip der Werte.
+//
+
+import Foundation
+import CoreGraphics
+
+protocol SVGDesignSerializing {
+    func encode(objects: [DesignObject], canvasSize: CGSize, backgroundImageFileName: String?) -> String
+    func decode(svg: String) throws -> SVGDecodedDesign
+}
+
+struct SVGDecodedDesign {
+    var canvasSize: CGSize
+    var objects: [DesignObject]
+    var backgroundImageFileName: String?
+}
+
+enum SVGDesignSerializerError: Error, LocalizedError {
+    case invalidEncoding
+    case parsingFailed(Error?)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidEncoding:
+            return "SVG-Daten sind kein gültiges UTF-8."
+        case .parsingFailed(let error):
+            return "SVG konnte nicht geparst werden: \(error?.localizedDescription ?? "unbekannter Fehler")"
+        }
+    }
+}
+
+final class SVGDesignSerializer: SVGDesignSerializing {
+
+    static let inkstitchNamespace = "http://inkstitch.org/namespace"
+
+    // MARK: Encode
+
+    func encode(objects: [DesignObject], canvasSize: CGSize, backgroundImageFileName: String?) -> String {
+        var svg = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <svg xmlns="http://www.w3.org/2000/svg" xmlns:inkstitch="\(Self.inkstitchNamespace)" width="\(fmt(canvasSize.width))mm" height="\(fmt(canvasSize.height))mm" viewBox="0 0 \(fmt(canvasSize.width)) \(fmt(canvasSize.height))" data-ss-version="1">\n
+        """
+
+        if let backgroundImageFileName {
+            svg += "  <image href=\"assets/\(xmlEscapeAttribute(backgroundImageFileName))\" x=\"0\" y=\"0\" width=\"\(fmt(canvasSize.width))\" height=\"\(fmt(canvasSize.height))\" data-ss-role=\"background\" />\n"
+        }
+
+        for object in objects.sorted(by: { $0.zIndex < $1.zIndex }) {
+            svg += "  " + element(for: object) + "\n"
+        }
+        svg += "</svg>\n"
+        return svg
+    }
+
+    private func element(for object: DesignObject) -> String {
+        let common = commonAttributes(for: object)
+        switch object.kind {
+        case .rectangle:
+            return "<rect x=\"\(fmt(object.positionX))\" y=\"\(fmt(object.positionY))\" width=\"\(fmt(object.width))\" height=\"\(fmt(object.height))\" rx=\"\(fmt(object.cornerRadius))\" ry=\"\(fmt(object.cornerRadius))\" \(common) />"
+        case .circle:
+            let rx = object.width / 2
+            let ry = object.height / 2
+            return "<ellipse cx=\"\(fmt(object.positionX + rx))\" cy=\"\(fmt(object.positionY + ry))\" rx=\"\(fmt(rx))\" ry=\"\(fmt(ry))\" \(common) />"
+        case .star:
+            let pointCount = object.starPointCount ?? 5
+            let d = Self.starPathData(x: object.positionX, y: object.positionY, width: object.width, height: object.height, pointCount: pointCount)
+            return "<path d=\"\(d)\" data-ss-x=\"\(fmt(object.positionX))\" data-ss-y=\"\(fmt(object.positionY))\" data-ss-w=\"\(fmt(object.width))\" data-ss-h=\"\(fmt(object.height))\" data-ss-star-points=\"\(pointCount)\" \(common) />"
+        case .path:
+            let d = object.pathData ?? ""
+            return "<path d=\"\(xmlEscapeAttribute(d))\" data-ss-x=\"\(fmt(object.positionX))\" data-ss-y=\"\(fmt(object.positionY))\" data-ss-w=\"\(fmt(object.width))\" data-ss-h=\"\(fmt(object.height))\" \(common) />"
+        case .text:
+            let fontFamily = object.fontName ?? "Helvetica"
+            let fontSize = object.fontSize ?? 12
+            let text = xmlEscapeText(object.text ?? "")
+            return "<text x=\"\(fmt(object.positionX))\" y=\"\(fmt(object.positionY))\" font-family=\"\(xmlEscapeAttribute(fontFamily))\" font-size=\"\(fmt(fontSize))\" data-ss-w=\"\(fmt(object.width))\" data-ss-h=\"\(fmt(object.height))\" \(common)>\(text)</text>"
+        }
+    }
+
+    private func commonAttributes(for object: DesignObject) -> String {
+        var attrs = [
+            "id=\"\(object.id.uuidString)\"",
+            "data-ss-name=\"\(xmlEscapeAttribute(object.name))\"",
+            "data-ss-z=\"\(object.zIndex)\"",
+            "data-ss-visible=\"\(object.isVisible)\"",
+            "data-ss-locked=\"\(object.isLocked)\"",
+            "data-ss-rotation=\"\(fmt(object.rotationDegrees))\"",
+            "data-ss-skew-x=\"\(fmt(object.skewXDegrees))\"",
+            "data-ss-skew-y=\"\(fmt(object.skewYDegrees))\"",
+            "fill=\"\(object.fillColorHex)\"",
+        ]
+        if let settings = object.stitchSettings {
+            attrs.append("inkstitch:fill_method=\"\(settings.stitchType.rawValue)\"")
+            attrs.append("inkstitch:angle=\"\(fmt(settings.angleDegrees))\"")
+            attrs.append("inkstitch:row_spacing_mm=\"\(fmt(settings.density))\"")
+            attrs.append("inkstitch:underlay=\"\(settings.underlayType.rawValue)\"")
+        }
+        return attrs.joined(separator: " ")
+    }
+
+    static func starPathData(x: Double, y: Double, width: Double, height: Double, pointCount: Int) -> String {
+        let cx = x + width / 2
+        let cy = y + height / 2
+        let outerRadius = min(width, height) / 2
+        let innerRadius = outerRadius * 0.5
+        let n = max(pointCount, 3)
+
+        var command = "M"
+        var path = ""
+        for i in 0..<(n * 2) {
+            let angle = (Double(i) * .pi / Double(n)) - (.pi / 2)
+            let radius = i % 2 == 0 ? outerRadius : innerRadius
+            let px = cx + radius * cos(angle)
+            let py = cy + radius * sin(angle)
+            path += "\(command)\(String(format: "%.4f", px)),\(String(format: "%.4f", py)) "
+            command = "L"
+        }
+        return path.trimmingCharacters(in: .whitespaces) + " Z"
+    }
+
+    // MARK: Decode
+
+    func decode(svg: String) throws -> SVGDecodedDesign {
+        guard let data = svg.data(using: .utf8) else {
+            throw SVGDesignSerializerError.invalidEncoding
+        }
+        let parser = XMLParser(data: data)
+        let delegate = ParserDelegate()
+        parser.delegate = delegate
+        guard parser.parse() else {
+            throw SVGDesignSerializerError.parsingFailed(parser.parserError)
+        }
+        return SVGDecodedDesign(
+            canvasSize: delegate.canvasSize,
+            objects: delegate.objects,
+            backgroundImageFileName: delegate.backgroundImageFileName
+        )
+    }
+
+    private final class ParserDelegate: NSObject, XMLParserDelegate {
+        var canvasSize: CGSize = .zero
+        var objects: [DesignObject] = []
+        var backgroundImageFileName: String?
+
+        private var currentTextObject: DesignObject?
+        private var currentTextBuffer = ""
+
+        func parser(
+            _ parser: XMLParser,
+            didStartElement elementName: String,
+            namespaceURI: String?,
+            qualifiedName qName: String?,
+            attributes attributeDict: [String: String] = [:]
+        ) {
+            switch elementName {
+            case "svg":
+                canvasSize = CGSize(
+                    width: Self.parseDouble(attributeDict["width"]) ?? 0,
+                    height: Self.parseDouble(attributeDict["height"]) ?? 0
+                )
+            case "image":
+                if attributeDict["data-ss-role"] == "background" {
+                    let href = attributeDict["href"] ?? ""
+                    backgroundImageFileName = href.replacingOccurrences(of: "assets/", with: "")
+                }
+            case "rect":
+                objects.append(Self.makeRectangle(attributeDict))
+            case "ellipse":
+                objects.append(Self.makeCircle(attributeDict))
+            case "path":
+                objects.append(Self.makePathElement(attributeDict))
+            case "text":
+                let object = Self.makeText(attributeDict)
+                currentTextObject = object
+                currentTextBuffer = ""
+            default:
+                break
+            }
+        }
+
+        func parser(_ parser: XMLParser, foundCharacters string: String) {
+            guard currentTextObject != nil else { return }
+            currentTextBuffer += string
+        }
+
+        func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
+            guard elementName == "text", let object = currentTextObject else { return }
+            object.text = currentTextBuffer
+            objects.append(object)
+            currentTextObject = nil
+            currentTextBuffer = ""
+        }
+
+        private static func applyCommonAttributes(_ attrs: [String: String], to object: DesignObject) {
+            if let idString = attrs["id"], let uuid = UUID(uuidString: idString) {
+                object.id = uuid
+            }
+            object.name = attrs["data-ss-name"] ?? object.name
+            object.zIndex = Int(attrs["data-ss-z"] ?? "") ?? 0
+            object.isVisible = (attrs["data-ss-visible"] ?? "true") == "true"
+            object.isLocked = (attrs["data-ss-locked"] ?? "false") == "true"
+            object.rotationDegrees = parseDouble(attrs["data-ss-rotation"]) ?? 0
+            object.skewXDegrees = parseDouble(attrs["data-ss-skew-x"]) ?? 0
+            object.skewYDegrees = parseDouble(attrs["data-ss-skew-y"]) ?? 0
+            object.fillColorHex = attrs["fill"] ?? object.fillColorHex
+
+            if let fillMethod = attrs["inkstitch:fill_method"], let stitchType = StitchType(rawValue: fillMethod) {
+                let settings = StitchSettings(
+                    stitchType: stitchType,
+                    density: parseDouble(attrs["inkstitch:row_spacing_mm"]) ?? 0.4,
+                    angleDegrees: parseDouble(attrs["inkstitch:angle"]) ?? 0,
+                    underlayType: UnderlayType(rawValue: attrs["inkstitch:underlay"] ?? "") ?? .centerWalk
+                )
+                settings.designObject = object
+                object.stitchSettings = settings
+            }
+        }
+
+        private static func makeRectangle(_ attrs: [String: String]) -> DesignObject {
+            let x = parseDouble(attrs["x"]) ?? 0
+            let y = parseDouble(attrs["y"]) ?? 0
+            let width = parseDouble(attrs["width"]) ?? 0
+            let height = parseDouble(attrs["height"]) ?? 0
+            let object = DesignObject(name: "", kind: .rectangle, positionX: x, positionY: y, width: width, height: height)
+            object.cornerRadius = parseDouble(attrs["rx"]) ?? 0
+            applyCommonAttributes(attrs, to: object)
+            return object
+        }
+
+        private static func makeCircle(_ attrs: [String: String]) -> DesignObject {
+            let cx = parseDouble(attrs["cx"]) ?? 0
+            let cy = parseDouble(attrs["cy"]) ?? 0
+            let rx = parseDouble(attrs["rx"]) ?? 0
+            let ry = parseDouble(attrs["ry"]) ?? 0
+            let object = DesignObject(name: "", kind: .circle, positionX: cx - rx, positionY: cy - ry, width: rx * 2, height: ry * 2)
+            applyCommonAttributes(attrs, to: object)
+            return object
+        }
+
+        private static func makePathElement(_ attrs: [String: String]) -> DesignObject {
+            let x = parseDouble(attrs["data-ss-x"]) ?? 0
+            let y = parseDouble(attrs["data-ss-y"]) ?? 0
+            let width = parseDouble(attrs["data-ss-w"]) ?? 0
+            let height = parseDouble(attrs["data-ss-h"]) ?? 0
+            let isStar = attrs["data-ss-star-points"] != nil
+            let object = DesignObject(name: "", kind: isStar ? .star : .path, positionX: x, positionY: y, width: width, height: height)
+            if isStar {
+                object.starPointCount = Int(attrs["data-ss-star-points"] ?? "") ?? 5
+            } else {
+                object.pathData = attrs["d"]
+            }
+            applyCommonAttributes(attrs, to: object)
+            return object
+        }
+
+        private static func makeText(_ attrs: [String: String]) -> DesignObject {
+            let x = parseDouble(attrs["x"]) ?? 0
+            let y = parseDouble(attrs["y"]) ?? 0
+            let width = parseDouble(attrs["data-ss-w"]) ?? 0
+            let height = parseDouble(attrs["data-ss-h"]) ?? 0
+            let object = DesignObject(name: "", kind: .text, positionX: x, positionY: y, width: width, height: height)
+            object.fontName = attrs["font-family"]
+            object.fontSize = parseDouble(attrs["font-size"])
+            applyCommonAttributes(attrs, to: object)
+            return object
+        }
+
+        private static func parseDouble(_ string: String?) -> Double? {
+            guard let string else { return nil }
+            let numericPart = string.prefix { $0.isNumber || $0 == "." || $0 == "-" }
+            return Double(numericPart)
+        }
+    }
+}
+
+private func fmt(_ value: Double) -> String {
+    String(format: "%.4f", value)
+}
+
+private func xmlEscapeAttribute(_ string: String) -> String {
+    string
+        .replacingOccurrences(of: "&", with: "&amp;")
+        .replacingOccurrences(of: "\"", with: "&quot;")
+        .replacingOccurrences(of: "<", with: "&lt;")
+        .replacingOccurrences(of: ">", with: "&gt;")
+}
+
+private func xmlEscapeText(_ string: String) -> String {
+    string
+        .replacingOccurrences(of: "&", with: "&amp;")
+        .replacingOccurrences(of: "<", with: "&lt;")
+        .replacingOccurrences(of: ">", with: "&gt;")
+}

@@ -166,7 +166,13 @@ Text bleibt als `<text>`-Element im SVG erhalten (editierbar). Konvertierung zu 
   - `AppSettings`: bewusst ohne gespeicherte "zuletzt geöffnete Projekte"-Liste (keine Logic in Persistenz-Modellen) — das leitet ein Store später per `@Query` aus `StitchProject.lastOpenedAt` ab
   - Schema in `SimplStitchApp.swift` registriert (alle 6 Typen)
   - Tests `SimplStitchTests/SwiftDataModelsTests.swift`: Roundtrip inkl. Relationships sowie Cascade-Delete-Verhalten (Projekt → DesignObjects → StitchSettings, Palette → ThreadColors) — grün
-- [ ] Projektformat `.stitchdesign`
+- [x] Projektformat `.stitchdesign`
+  - `SVGDesignSerializer` (`SimplStitch/Services/`): `[DesignObject]` ↔ `content.svg` — native SVG-Elemente (`rect`/`ellipse`/`path`/`text`) statt alles auf `<path>` zu reduzieren, per `XMLParser`. Objekt-Metadaten (Name, Z-Order, Rotation, Skew, Sichtbarkeit/Sperre) als `data-ss-*`-Attribute, Sticheinstellungen als `inkstitch:*`-Attribute (`fill_method`, `angle`, `row_spacing_mm`, `underlay`)
+  - **Vereinfachung:** Rotation/Skew werden als rohe `data-ss-rotation`/`data-ss-skew-*`-Werte mitgeführt, nicht in eine SVG-`transform`-Matrix gebacken — reicht für verlustfreien Roundtrip, muss aber für pixelgenaues Rendering (Phase 5) bzw. den echten InkStitch-Aufruf (Phase 6) noch in echte Transform-Komposition überführt werden. Ebenso sind die `inkstitch:*`-Attributnamen unser eigenes Schema, nicht zwingend 1:1 das, was echtes InkStitch erwartet — in Phase 6 gegen die reale InkStitch-Quelle verifizieren
+  - `PreviewImageRenderer`: einfacher CoreGraphics-Renderer für `preview.png` (Rechteck/Kreis gefüllt, Stern/Pfad/Text nur als Bounding-Box) — bewusst simpel vor der echten Canvas-Engine; sollte deren Renderer in Phase 5 wiederverwenden statt duplizieren
+  - `DocumentPackageManager` (Protocol `DocumentPackageManaging`): reiner I/O-Service, erzeugt/liest `content.svg` + `preview.png` + `assets/<Hintergrundbild>`. Bewusst **kein** SwiftUI `DocumentGroup`/`FileDocument` und keine UTType-Registrierung fürs Finder-Package-Icon — das ist Phase 8 (UI). Reconciliation mit bereits im ModelContext existierenden `StitchProject`-Einträgen (z.B. "zuletzt geöffnet") ist Aufgabe eines künftigen `ProjectStore`
+  - `StitchProject.backgroundImageFileName` ergänzt (nur Dateiname, nicht Pfad) für die Asset-Referenz
+  - Tests `SimplStitchTests/DocumentPackageManagerTests.swift`: vollständiger Save/Reopen-Roundtrip mit allen 5 Objektarten (inkl. StitchSettings, Rotation/Skew, Sichtbarkeit/Sperre, Umlauten im Text), Hintergrundbild-Kopie nach `assets/`, `preview.png` ist valides PNG — grün
 - [ ] Canvas-Engine
 - [ ] Stichgenerierung
 - [ ] Import/Export

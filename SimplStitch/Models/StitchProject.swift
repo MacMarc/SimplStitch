@@ -27,6 +27,9 @@ final class StitchProject {
     var canvasWidthMillimeters: Double = 100
     var canvasHeightMillimeters: Double = 100
 
+    /// Dateiname (nicht Pfad) des Hintergrundbilds unter assets/ im Document Package, falls gesetzt.
+    var backgroundImageFileName: String?
+
     @Relationship(deleteRule: .cascade, inverse: \DesignObject.project)
     var objects: [DesignObject] = []
 

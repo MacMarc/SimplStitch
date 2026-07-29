@@ -10,6 +10,7 @@ import SwiftData
 
 @Model
 final class ThreadPalette {
+    @Attribute(.unique) var id: UUID = UUID()
     var name: String = ""
     var isBuiltIn: Bool = false
     var sourceFileName: String?

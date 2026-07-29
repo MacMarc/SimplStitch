@@ -36,5 +36,10 @@ struct SimplStitchApp: App {
         .commands {
             SimplStitchCommands()
         }
+
+        Settings {
+            SettingsView()
+        }
+        .modelContainer(sharedModelContainer)
     }
 }

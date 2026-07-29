@@ -1,0 +1,5 @@
+# pyembroidery: Format-I/O (liest 46, schreibt 20 Stickformate inkl. VP3). MIT-Lizenz.
+pyembroidery
+
+# InkStitch (Stichgenerierung, GPL-3.0) ist kein pip-Paket und wird in Phase 6
+# als Vendored-Library unter SimplStitch/Bridge/inkstitch_lib/ ergänzt.

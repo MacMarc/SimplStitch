@@ -151,7 +151,13 @@ Text bleibt als `<text>`-Element im SVG erhalten (editierbar). Konvertierung zu 
   - Lokalisierung DE+EN aktiv (`Localizable.xcstrings`, `knownRegions` inkl. `de`)
   - GPL-3.0 `COPYING`, `.gitignore`, shared Scheme `SimplStitch`, GitHub-Actions-Gerüst (`.github/workflows/build.yml`) — lokaler Build via `xcodebuild` verifiziert
   - Offen: GitHub-Remote noch nicht angelegt/gepusht
-- [ ] Python-Backend gebündelt
+- [x] Python-Backend gebündelt
+  - CPython 3.12 (python-build-standalone, arm64) via `Scripts/bundle_python.sh`; Xcode Run-Script-Build-Phase "Bundle Python Runtime" kopiert die Runtime bei jedem Build nach `Contents/Resources/python/` (liegt bewusst ausserhalb von `SimplStitch/`, sonst würden Xcodes File-System-Synchronized-Groups tausende Runtime-Dateien einzeln einlesen)
+  - `SimplStitch/Bridge/bridge.py` + `PythonBridge.swift` (Actor, stdin/stdout JSON, ein Request/eine Response pro Zeile) — als lose Resourcen landen `bridge.py`/`requirements.txt` flach unter `Contents/Resources/`, nicht unter `Bridge/`
+  - `pyembroidery` (MIT) real installiert und getestet (Befehle `ping`, `write_vp3`, `read_embroidery`)
+  - Roundtrip-Test `SimplStitchTests/PythonBridgeTests.swift` grün: Dummy-Stichkoordinaten → VP3 schreiben → zurücklesen
+  - **Scope-Hinweis:** InkStitch selbst (GPL-3.0, Stichgenerierung) ist kein pip-Paket und noch NICHT gebündelt — folgt als Vendored-Library in Phase 6, wenn `StitchGenerationService` es tatsächlich aufruft
+  - `ENABLE_USER_SCRIPT_SANDBOXING = NO` gesetzt (Build-Phase braucht Netzwerkzugriff für den Download)
 - [ ] SwiftData Models
 - [ ] Projektformat `.stitchdesign`
 - [ ] Canvas-Engine

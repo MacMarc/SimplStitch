@@ -11,10 +11,12 @@
 //  Klick eine Default-Grösse) und wechseln danach direkt in den Bearbeitungsmodus
 //  (5d) — CanvasView zeigt dafür eine TextField-Overlay über der Box.
 //
-//  `objects` lebt vorerst nur im Store (kein ModelContext-Insert) — bis
-//  Phase 8 echte Projekte via DocumentGroup öffnet, gibt es noch kein reales
-//  StitchProject zum Anhängen; die Synchronisation mit SwiftData übernimmt
-//  dann ein ProjectStore.
+//  `objects`/`canvasSizeMillimeters` sind computed properties über ein
+//  `StitchProject` (Phase 8a) — kein eigenes Array mehr. Da `project` ein
+//  SwiftData-`@Model` ist, dessen Properties selbst Teil des Observation-
+//  Tracking sind, bemerken SwiftUI-Views das trotz des Zwischenschritts über
+//  den computed getter (Observation trackt zur Laufzeit den tatsächlichen
+//  Zugriffspfad, nicht nur direkt als `@Observable` markierte Properties).
 //
 //  Scope-Hinweis (5c): Verzerren (Skew) hat trotz vorhandener
 //  skewXDegrees/skewYDegrees-Felder im Modell noch keinen interaktiven Griff
@@ -41,20 +43,46 @@ final class CanvasStore {
 
     private(set) var zoomScale: CGFloat
     private(set) var panOffset: CGSize
-    var canvasSizeMillimeters: CGSize
 
+    var canvasSizeMillimeters: CGSize {
+        get { CGSize(width: project.canvasWidthMillimeters, height: project.canvasHeightMillimeters) }
+        set {
+            project.canvasWidthMillimeters = newValue.width
+            project.canvasHeightMillimeters = newValue.height
+        }
+    }
+
+    private let project: StitchProject
     private let stitchGenerationService: StitchGenerationServicing
 
     init(
+        project: StitchProject,
+        zoomScale: CGFloat = 1,
+        panOffset: CGSize = .zero,
+        stitchGenerationService: StitchGenerationServicing = StitchGenerationService(bridge: PythonBridge())
+    ) {
+        self.project = project
+        self.zoomScale = min(max(zoomScale, Self.minZoomScale), Self.maxZoomScale)
+        self.panOffset = panOffset
+        self.stitchGenerationService = stitchGenerationService
+    }
+
+    /// Komfort-Initializer für Tests/Previews ohne eigenes `StitchProject` — erzeugt intern ein
+    /// unbenanntes Projekt mit der gewünschten Zeichenflächengrösse. Produktivcode (`ContentView`)
+    /// nutzt `init(project:...)` mit dem echten, aus dem Dokument geladenen `StitchProject`.
+    convenience init(
         canvasSizeMillimeters: CGSize,
         zoomScale: CGFloat = 1,
         panOffset: CGSize = .zero,
         stitchGenerationService: StitchGenerationServicing = StitchGenerationService(bridge: PythonBridge())
     ) {
-        self.canvasSizeMillimeters = canvasSizeMillimeters
-        self.zoomScale = min(max(zoomScale, Self.minZoomScale), Self.maxZoomScale)
-        self.panOffset = panOffset
-        self.stitchGenerationService = stitchGenerationService
+        let project = StitchProject(
+            name: "",
+            lastKnownPath: "",
+            canvasWidthMillimeters: canvasSizeMillimeters.width,
+            canvasHeightMillimeters: canvasSizeMillimeters.height
+        )
+        self.init(project: project, zoomScale: zoomScale, panOffset: panOffset, stitchGenerationService: stitchGenerationService)
     }
 
     func setZoomScale(_ newValue: CGFloat) {
@@ -120,7 +148,12 @@ final class CanvasStore {
     static let minimumShapeSize: Double = 1
 
     private(set) var currentTool: CanvasTool = .select
-    private(set) var objects: [DesignObject] = []
+
+    private(set) var objects: [DesignObject] {
+        get { project.objects }
+        set { project.objects = newValue }
+    }
+
     private(set) var isDrafting = false
     private(set) var draftShapeRect: CGRect?
     private(set) var draftPathPoints: [CGPoint] = []
@@ -196,6 +229,7 @@ final class CanvasStore {
         }
 
         if let newObject {
+            newObject.project = project
             objects.append(newObject)
         }
         currentTool = .select

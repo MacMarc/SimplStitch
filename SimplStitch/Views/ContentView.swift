@@ -9,8 +9,9 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    // Platzhalter-Canvasgrösse, bis Phase 8 ein echtes Projekt via DocumentGroup öffnet.
-    @State private var canvasStore = CanvasStore(canvasSizeMillimeters: CGSize(width: 130, height: 180))
+    @ObservedObject var document: StitchDesignDocument
+
+    @State private var canvasStore: CanvasStore
     @State private var isLayersPanelPresented = true
     @State private var isExportDialogPresented = false
     // Eigener Subprocess statt canvasStores internem — der ist private (siehe CanvasStore-Kommentar
@@ -18,6 +19,11 @@ struct ContentView: View {
     // Sheet-Präsentation neu erzeugt), sonst würde jedes Öffnen des Export-Dialogs einen weiteren,
     // nie beendeten Subprocess starten.
     @State private var exportService = FileExportService(bridge: PythonBridge())
+
+    init(document: StitchDesignDocument) {
+        self.document = document
+        self._canvasStore = State(initialValue: CanvasStore(project: document.project))
+    }
 
     var body: some View {
         NavigationSplitView {
@@ -80,5 +86,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    ContentView(document: StitchDesignDocument())
 }

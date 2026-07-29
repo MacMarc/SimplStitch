@@ -37,4 +37,15 @@ struct StitchSettingsTests {
         #expect(StitchType.suggested(forShapeWidth: 0, height: 10) == .tatami)
         #expect(StitchType.suggested(forShapeWidth: 10, height: 0) == .tatami)
     }
+
+    // MARK: UnderlayType.suggested (Issue #18)
+
+    @Test func suggestsNoUnderlayForStraightStitch() {
+        #expect(UnderlayType.suggested(for: .straight) == .none)
+    }
+
+    @Test func suggestsCenterWalkUnderlayForTatamiAndSatin() {
+        #expect(UnderlayType.suggested(for: .tatami) == .centerWalk)
+        #expect(UnderlayType.suggested(for: .satin) == .centerWalk)
+    }
 }

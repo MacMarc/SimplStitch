@@ -16,6 +16,10 @@ enum DesignObjectKind: String, Codable, CaseIterable {
     case rectangle
     case star
     case path
+    /// Issue #18/#19: reine Kontur-Form (zwei Punkte, Start→Ende) — teilt sich Geometrie/Pfad-
+    /// Maschinerie mit `.path` (dieselbe SVG-`<path>`-Repräsentation), hat aber per Definition nie
+    /// eine Füllung (`hasFill = false`, `hasBorder = true`) und ein eigenes Werkzeug/Icon/Namen.
+    case line
     case text
 }
 
@@ -59,6 +63,19 @@ final class DesignObject {
 
     var threadColor: ThreadColor?
     var project: StitchProject?
+
+    // Rand/Kontur (Issue #18) — unabhängig von der Füllung: eine Form kann Füllung, Rand,
+    // oder beides haben. `hasFill`/`hasBorder` bestimmen, was beim Export/in der Stichvorschau
+    // tatsächlich gestickt wird; die zugehörigen `*StitchSettings` bleiben beim Deaktivieren
+    // erhalten (kein Datenverlust beim Wieder-Einschalten).
+    var hasFill: Bool = true
+    var hasBorder: Bool = false
+    var borderWidthMillimeters: Double = 0.3
+    var borderColorHex: String?
+    var borderThreadColor: ThreadColor?
+
+    @Relationship(deleteRule: .cascade, inverse: \StitchSettings.borderOwner)
+    var borderStitchSettings: StitchSettings?
 
     init(
         name: String,

@@ -14,6 +14,7 @@ struct DocumentPackageManagerTests {
     /// Feste ID statt `UUID()` pro Aufruf — `makeSampleProject()` wird von mehreren Tests
     /// aufgerufen, die dieselbe Gruppen-ID nach dem Roundtrip wiedererkennen müssen (Issue #16).
     private static let sampleGroupID = UUID()
+    private static let sampleDefaultThreadPaletteID = UUID()
 
     private func makeTempPackageURL() -> URL {
         FileManager.default.temporaryDirectory
@@ -32,6 +33,19 @@ struct DocumentPackageManagerTests {
         // Real InkStitch kennt für Tatami nur ein An/Aus-Bool (kein Typ) — jeder Nicht-.none-Wert
         // wird beim Roundtrip auf .centerWalk normalisiert (siehe SVGDesignSerializer, Phase 6c).
         rectangle.stitchSettings = StitchSettings(stitchType: .tatami, density: 0.4, angleDegrees: 45, underlayType: .centerWalk)
+        // Issue #18: Füllung UND Rand gleichzeitig, um zu verifizieren, dass beide unabhängig
+        // voneinander persistieren.
+        rectangle.hasBorder = true
+        rectangle.borderWidthMillimeters = 0.6
+        rectangle.borderColorHex = "#00FFFF"
+        rectangle.borderStitchSettings = StitchSettings(stitchType: .straight, density: 0.25, angleDegrees: 0, underlayType: .none)
+
+        let line = DesignObject(name: "Linie", kind: .line, positionX: 0, positionY: 0, width: 20, height: 10)
+        line.pathData = "M0,0 L20,10"
+        line.zIndex = 5
+        line.hasFill = false
+        line.hasBorder = true
+        line.borderStitchSettings = StitchSettings(stitchType: .straight, density: 0.3, angleDegrees: 0, underlayType: .none)
 
         let circle = DesignObject(name: "Kreis", kind: .circle, positionX: 60, positionY: 10, width: 30, height: 30)
         circle.zIndex = 1
@@ -57,11 +71,12 @@ struct DocumentPackageManagerTests {
         text.skewXDegrees = 5
         text.skewYDegrees = -3
 
-        let objects = [rectangle, circle, star, path, text]
+        let objects = [rectangle, circle, star, path, text, line]
         for object in objects {
             object.project = project
         }
         project.objects = objects
+        project.defaultThreadPaletteID = Self.sampleDefaultThreadPaletteID
 
         return project
     }
@@ -82,9 +97,10 @@ struct DocumentPackageManagerTests {
 
         let reopened = try manager.read(from: packageURL)
 
-        #expect(reopened.objects.count == 5)
+        #expect(reopened.objects.count == 6)
         #expect(abs(reopened.canvasWidthMillimeters - 130) < 0.001)
         #expect(abs(reopened.canvasHeightMillimeters - 180) < 0.001)
+        #expect(reopened.defaultThreadPaletteID == Self.sampleDefaultThreadPaletteID)
 
         let rectangle = try #require(reopened.objects.first { $0.kind == .rectangle })
         #expect(rectangle.name == "Rechteck")
@@ -100,6 +116,13 @@ struct DocumentPackageManagerTests {
         #expect(rectangleSettings.underlayType == .centerWalk)
         #expect(abs(rectangleSettings.angleDegrees - 45) < 0.001)
         #expect(abs(rectangleSettings.density - 0.4) < 0.001)
+        #expect(rectangle.hasFill == true)
+        #expect(rectangle.hasBorder == true)
+        #expect(abs(rectangle.borderWidthMillimeters - 0.6) < 0.001)
+        #expect(rectangle.borderColorHex == "#00FFFF")
+        let rectangleBorderSettings = try #require(rectangle.borderStitchSettings)
+        #expect(rectangleBorderSettings.stitchType == .straight)
+        #expect(abs(rectangleBorderSettings.density - 0.25) < 0.001)
 
         let circle = try #require(reopened.objects.first { $0.kind == .circle })
         #expect(abs(circle.positionX - 60) < 0.001)
@@ -127,6 +150,12 @@ struct DocumentPackageManagerTests {
         #expect(abs((text.fontSize ?? 0) - 18) < 0.001)
         #expect(abs(text.skewXDegrees - 5) < 0.001)
         #expect(abs(text.skewYDegrees - (-3)) < 0.001)
+
+        let line = try #require(reopened.objects.first { $0.kind == .line })
+        #expect(line.pathData == "M0,0 L20,10")
+        #expect(line.hasFill == false)
+        #expect(line.hasBorder == true)
+        #expect(line.borderStitchSettings?.stitchType == .straight)
     }
 
     @Test func backgroundImageIsCopiedIntoAssetsFolder() throws {

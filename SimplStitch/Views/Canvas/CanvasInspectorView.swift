@@ -9,13 +9,25 @@
 //  (wie das Format-Inspector-Verhalten in Pages/Keynote) — Nutzer können
 //  jederzeit manuell zurück zu "Ebenen" wechseln.
 //
+//  Issue #14: der Tab-Picker sass ursprünglich als normales Geschwister-Element
+//  über dem aktiven Panel in einem VStack — bei langem Panel-Inhalt (viele
+//  Garnfarben/Ebenen) hat NICHT das jeweilige List/Form intern gescrollt,
+//  sondern die umgebende `.inspector()`-Spalte hat den GESAMTEN VStack
+//  (Picker inklusive) als einen Block gescrollt, weil der VStack ohne
+//  explizite Höhenvorgabe keine verlässliche Scroll-Grenze für sein Kind-List
+//  darstellt. Fix: Picker+Divider hängen jetzt als `.safeAreaInset(edge: .top)`
+//  am jeweiligen Panel — das Panel (List/Form) ist damit der alleinige Root-
+//  Inhalt und bekommt die volle verfügbare Höhe (scrollt zuverlässig intern),
+//  der Picker liegt strukturell ausserhalb der Scroll-Hierarchie und kann
+//  dadurch gar nicht mehr mitscrollen.
+//
 
 import SwiftUI
 
 private enum InspectorTab: String, CaseIterable, Identifiable {
     case layers
     case object
-    case threads
+    case project
 
     var id: String { rawValue }
 
@@ -23,7 +35,7 @@ private enum InspectorTab: String, CaseIterable, Identifiable {
         switch self {
         case .layers: return String(localized: "inspector.tab.layers")
         case .object: return String(localized: "inspector.tab.object")
-        case .threads: return String(localized: "inspector.tab.threads")
+        case .project: return String(localized: "inspector.tab.project")
         }
     }
 }
@@ -34,18 +46,7 @@ struct CanvasInspectorView: View {
     @State private var selectedTab: InspectorTab = .layers
 
     var body: some View {
-        VStack(spacing: 0) {
-            Picker("", selection: $selectedTab) {
-                ForEach(InspectorTab.allCases) { tab in
-                    Text(tab.displayName).tag(tab)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .padding(8)
-
-            Divider()
-
+        Group {
             switch selectedTab {
             case .layers:
                 LayersPanelView(store: store)
@@ -62,9 +63,28 @@ struct CanvasInspectorView: View {
                         description: Text("inspector.object.empty.description")
                     )
                 }
-            case .threads:
-                ThreadPalettesPanelView()
+            case .project:
+                ProjectInspectorView(store: store)
             }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            VStack(spacing: 0) {
+                // Issue #20: Pulldown statt Segmented Control — "Ebenen"/"Objekt-Eigenschaften"/
+                // "Projekt-Eigenschaften" sind als deutsche Komposita zu lang für drei Segmente in
+                // der schmalen Inspector-Spalte (240–280pt). Ein Menü-Picker bleibt bei jeder
+                // Fensterbreite lesbar.
+                Picker("", selection: $selectedTab) {
+                    ForEach(InspectorTab.allCases) { tab in
+                        Text(tab.displayName).tag(tab)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .padding(8)
+
+                Divider()
+            }
+            .background(.bar)
         }
         .onChange(of: store.selectedObjectIDs) { _, newValue in
             if !newValue.isEmpty {

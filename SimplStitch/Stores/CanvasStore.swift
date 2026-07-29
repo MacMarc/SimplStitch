@@ -177,6 +177,10 @@ final class CanvasStore {
             draftShapeRect = CGRect(origin: point, size: .zero)
         case .path:
             draftPathPoints = [point]
+        case .line:
+            // Genau zwei Punkte (Start, aktuelles Ende) statt eines akkumulierenden Polygonzugs
+            // wie beim Freihand-Pfad — eine Linie hat immer nur einen Anfangs- und einen Endpunkt.
+            draftPathPoints = [point, point]
         case .select:
             break
         }
@@ -195,6 +199,8 @@ final class CanvasStore {
             )
         case .path:
             draftPathPoints.append(point)
+        case .line:
+            draftPathPoints = [start, point]
         case .select:
             break
         }
@@ -224,6 +230,8 @@ final class CanvasStore {
             newObject = makeShapeObject(kind: .star)
         case .path:
             newObject = makePathObject()
+        case .line:
+            newObject = makeLineObject()
         case .text:
             newObject = makeTextObject()
         }
@@ -269,7 +277,10 @@ final class CanvasStore {
     /// Besuch im Objekt-Inspektor blieb eine frisch gezeichnete Form dauerhaft unstickbar. Neue
     /// Objekte bekommen daher sofort sinnvolle Default-Einstellungen (überschreibbar im Inspector).
     private func assignDefaultStitchSettings(to object: DesignObject, stitchType: StitchType) {
-        let settings = StitchSettings(stitchType: stitchType)
+        // Issue #18: Unterlage wird ebenfalls vorgeschlagen statt immer fest centerWalk zu setzen
+        // (StitchSettings()-Default) — Laufstich bekommt keine, Tatami/Satin eine Center-Walk-
+        // Unterlage. Im Inspector jederzeit überschreibbar.
+        let settings = StitchSettings(stitchType: stitchType, underlayType: UnderlayType.suggested(for: stitchType))
         settings.designObject = object
         object.stitchSettings = settings
     }
@@ -294,6 +305,37 @@ final class CanvasStore {
         object.zIndex = objects.count
         object.pathData = Self.pathData(from: draftPathPoints)
         assignDefaultStitchSettings(to: object, stitchType: .straight)
+        return object
+    }
+
+    /// Issue #18/#19: "Linie" — genau zwei Punkte (Start→Ende), teilt sich die Pfad-Geometrie mit
+    /// `makePathObject()`, hat aber per Definition nie eine Füllung: `hasFill = false`,
+    /// `hasBorder = true` mit Laufstich-Randeinstellungen statt der üblichen Füll-`stitchSettings`.
+    private func makeLineObject() -> DesignObject? {
+        guard draftPathPoints.count == 2 else { return nil }
+        let start = draftPathPoints[0]
+        let end = draftPathPoints[1]
+        let minX = min(start.x, end.x)
+        let minY = min(start.y, end.y)
+        guard abs(end.x - start.x) >= Self.minimumShapeSize || abs(end.y - start.y) >= Self.minimumShapeSize else {
+            return nil
+        }
+
+        let object = DesignObject(
+            name: nextDefaultName(for: .line),
+            kind: .line,
+            positionX: minX,
+            positionY: minY,
+            width: abs(end.x - start.x),
+            height: abs(end.y - start.y)
+        )
+        object.zIndex = objects.count
+        object.pathData = Self.pathData(from: [start, end])
+        object.hasFill = false
+        object.hasBorder = true
+        let borderSettings = StitchSettings(stitchType: .straight, underlayType: .none)
+        borderSettings.borderOwner = object
+        object.borderStitchSettings = borderSettings
         return object
     }
 
@@ -556,9 +598,9 @@ final class CanvasStore {
         switch object.kind {
         case .rectangle, .circle, .star:
             return object.designSpacePath().contains(point)
-        case .path, .text:
-            // Vereinfachung: Freihand-Pfade (Strich statt Fläche) und Text (Glyphen statt exaktem
-            // Pfad) werden per Bounding-Box getroffen — reicht fürs Selektieren.
+        case .path, .line, .text:
+            // Vereinfachung: Freihand-Pfade/Linien (Strich statt Fläche) und Text (Glyphen statt
+            // exaktem Pfad) werden per Bounding-Box getroffen — reicht fürs Selektieren.
             let bounds = CGRect(x: object.positionX, y: object.positionY, width: object.width, height: object.height)
             return bounds.insetBy(dx: -1, dy: -1).contains(point)
         }
@@ -1066,18 +1108,40 @@ final class CanvasStore {
         }
     }
 
-    // MARK: Garnfarben-Zuweisung (8e)
+    // MARK: Garnfarben-Zuweisung (8e, vereinfacht in Issue #20)
 
-    /// Weist einem Objekt eine Garnfarbe zu (Drag aus dem Garnlisten-Panel, siehe CanvasView-
-    /// Drop-Handler). Erzeugt bewusst ein neues, unabhängiges `ThreadColor` statt eine Relationship
-    /// zur Palette durchzureichen — der Drag-Vorgang transportiert nur Werte (`DraggedThreadColor`),
-    /// keine SwiftData-Objektreferenz über einen fremden ModelContext hinweg. `fillColorHex` wird
-    /// synchron gehalten, da das Canvas-Rendering weiterhin darüber läuft, nicht über `threadColor`.
+    /// Weist einem Objekt eine Garnfarbe zu (Picker im Objekt-Inspektor, der die Farben der
+    /// projektweiten Standard-Garnliste anbietet, siehe `defaultThreadPaletteID`). Erzeugt bewusst
+    /// ein neues, unabhängiges `ThreadColor` statt eine Relationship zur Palette durchzureichen —
+    /// die Palette kann sich ändern/gelöscht werden, ohne bereits zugewiesene Objektfarben zu
+    /// verlieren. `fillColorHex` wird synchron gehalten, da das Canvas-Rendering weiterhin darüber
+    /// läuft, nicht über `threadColor`.
     func assignColor(name: String, red: Int, green: Int, blue: Int, catalogNumber: String?, to id: UUID) {
         guard let object = objects.first(where: { $0.id == id }) else { return }
         object.threadColor = ThreadColor(name: name, red: red, green: green, blue: blue, catalogNumber: catalogNumber)
         object.fillColorHex = String(format: "#%02X%02X%02X", red, green, blue)
         refreshStitchPreview()
+    }
+
+    /// Analog zu `assignColor`, aber für die Randfarbe (Issue #18) statt der Füllfarbe.
+    func assignBorderColor(name: String, red: Int, green: Int, blue: Int, catalogNumber: String?, to id: UUID) {
+        guard let object = objects.first(where: { $0.id == id }) else { return }
+        object.borderThreadColor = ThreadColor(name: name, red: red, green: green, blue: blue, catalogNumber: catalogNumber)
+        object.borderColorHex = String(format: "#%02X%02X%02X", red, green, blue)
+        refreshStitchPreview()
+    }
+
+    // MARK: Projekt-Garnliste (Issue #20, nach User-Feedback vereinfacht)
+
+    /// EINE Standard-Garnliste pro Projekt statt einer kuratierten Farbliste — Quelle für den
+    /// Objekt-Inspektor-Farbpicker (Füllung UND Rand) sowie für den Pulldown im Projekt-
+    /// Eigenschaften-Tab (`ProjectInspectorView`). Die alte, farbweise kuratierte Liste zeigte alle
+    /// Farben aller aktiven Paletten einzeln an (~20'000 Zeilen bei den mitgelieferten InkStitch-
+    /// Paletten) und verursachte damit spürbares Lag — eine einzelne Paletten-Auswahl ist sowohl
+    /// performant als auch die vom Nutzer gewünschte, einfachere Bedienung.
+    var defaultThreadPaletteID: UUID? {
+        get { project.defaultThreadPaletteID }
+        set { project.defaultThreadPaletteID = newValue }
     }
 
     // MARK: Live-Stichvorschau (6e)
@@ -1098,7 +1162,9 @@ final class CanvasStore {
     func refreshStitchPreview() {
         stitchPreviewTask?.cancel()
 
-        guard let object = selectedObject, object.stitchSettings != nil else {
+        guard let object = selectedObject,
+              (object.hasFill && object.stitchSettings != nil) || (object.hasBorder && object.borderStitchSettings != nil)
+        else {
             stitchPreviewTask = nil
             stitchPreview = nil
             stitchPreviewError = nil
@@ -1107,12 +1173,23 @@ final class CanvasStore {
 
         let objectID = object.id
         let canvasSize = canvasSizeMillimeters
+        let hasFill = object.hasFill
+        let hasBorder = object.hasBorder
         stitchPreviewTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: Self.stitchPreviewDebounce)
             guard let self, !Task.isCancelled, self.selectedObjectID == objectID else { return }
 
             do {
-                let stitches = try await self.stitchGenerationService.generateStitches(for: object, canvasSize: canvasSize)
+                // Issue #18: Füllung und Rand sind unabhängige Stichpässe — beide (falls aktiv)
+                // fliessen in dieselbe Vorschau ein, damit ein Objekt mit beidem seine komplette
+                // Stickerei zeigt, nicht nur die Füllung.
+                var stitches: [StitchPoint] = []
+                if hasFill, object.stitchSettings != nil {
+                    stitches.append(contentsOf: try await self.stitchGenerationService.generateStitches(for: object, canvasSize: canvasSize))
+                }
+                if hasBorder, object.borderStitchSettings != nil {
+                    stitches.append(contentsOf: try await self.stitchGenerationService.generateBorderStitches(for: object, canvasSize: canvasSize))
+                }
                 guard !Task.isCancelled, self.selectedObjectID == objectID else { return }
                 self.stitchPreview = stitches
                 self.stitchPreviewError = nil

@@ -163,6 +163,32 @@ struct CanvasStoreTests {
         #expect(created?.stitchSettings?.stitchType == .straight)
     }
 
+    @Test func draggingLineToolCreatesLineObjectWithoutFillButWithBorder() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        store.selectTool(.line)
+        store.beginDraft(atDesignPoint: CGPoint(x: 5, y: 5))
+        store.updateDraft(toDesignPoint: CGPoint(x: 15, y: 25))
+        let created = store.commitDraft()
+
+        #expect(created?.kind == .line)
+        #expect(created?.pathData == "M5.0000,5.0000 L15.0000,25.0000")
+        #expect(created?.hasFill == false)
+        #expect(created?.hasBorder == true)
+        #expect(created?.stitchSettings == nil)
+        #expect(created?.borderStitchSettings?.stitchType == .straight)
+    }
+
+    @Test func singleClickWithLineToolCreatesNoObject() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        store.selectTool(.line)
+        store.beginDraft(atDesignPoint: CGPoint(x: 5, y: 5))
+        store.updateDraft(toDesignPoint: CGPoint(x: 5, y: 5))
+        let created = store.commitDraft()
+
+        #expect(created == nil)
+        #expect(store.objects.isEmpty)
+    }
+
     @Test func singleClickWithPathToolCreatesNoObject() {
         let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
         store.selectTool(.path)
@@ -704,6 +730,30 @@ struct CanvasStoreTests {
 
         #expect(object.threadColor == nil)
         #expect(object.fillColorHex == originalHex)
+    }
+
+    @Test func assignBorderColorSetsBorderThreadColorAndMatchingHex() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let object = makeRectangle(in: store)
+
+        store.assignBorderColor(name: "Blau", red: 0, green: 0, blue: 255, catalogNumber: nil, to: object.id)
+
+        #expect(object.borderThreadColor?.name == "Blau")
+        #expect(object.borderColorHex == "#0000FF")
+        // Füllfarbe bleibt unangetastet — Rand- und Füllfarbe sind unabhängig (Issue #18).
+        #expect(object.fillColorHex != "#0000FF")
+    }
+
+    // MARK: Projekt-Garnliste (Issue #20)
+
+    @Test func defaultThreadPaletteIDReadsAndWritesThroughToProject() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let paletteID = UUID()
+
+        #expect(store.defaultThreadPaletteID == nil)
+        store.defaultThreadPaletteID = paletteID
+
+        #expect(store.defaultThreadPaletteID == paletteID)
     }
 
     // MARK: Live-Stichvorschau (6e)

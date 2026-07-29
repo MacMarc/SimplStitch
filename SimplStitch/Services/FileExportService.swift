@@ -111,7 +111,7 @@ final class FileExportService: FileExportServicing {
     }
 
     private func exportSVG(objects: [DesignObject], canvasSize: CGSize, to url: URL) throws -> ExportSummary {
-        let svg = svgSerializer.encode(objects: objects, canvasSize: canvasSize, backgroundImageFileName: nil)
+        let svg = svgSerializer.encode(objects: objects, canvasSize: canvasSize, backgroundImageFileName: nil, defaultThreadPaletteID: nil)
         try svg.write(to: url, atomically: true, encoding: .utf8)
 
         let stitchableObjects = stitchableObjects(from: objects)
@@ -130,34 +130,67 @@ final class FileExportService: FileExportServicing {
         var combinedStitches: [StitchPoint] = []
         var threads: [[String: Any]] = []
 
-        for object in stitchableObjects {
-            // Ein einzelnes Objekt mit fehlerhafter Geometrie/Sticheinstellung soll nicht den
-            // gesamten Export zum Absturz bringen — übersprungen statt den kompletten Export
-            // abzubrechen (analog zum bereits bestehenden Überspringen leerer Stichfolgen unten).
-            guard let stitches = try? await stitchGenerationService.generateStitches(for: object, canvasSize: canvasSize),
-                  !stitches.isEmpty else { continue }
-
+        // Issue #18: Füllung und Rand sind unabhängige Stichpässe pro Objekt — beide werden (falls
+        // aktiv) nacheinander angehängt. Wie schon bisher zwischen Objekten (unabhängig davon, ob
+        // sich die Farbe tatsächlich unterscheidet — siehe bestehender Test
+        // `combinesStitchesAcrossObjectsWithColorChangeBetweenBlocks`) wird zwischen JEDEM Paar
+        // aufeinanderfolgender Pässe ein COLOR_CHANGE eingefügt, jetzt auch zwischen Füll- und
+        // Randpass desselben Objekts.
+        func appendPass(stitches: [StitchPoint]?, threadPayload: [String: Any]) {
+            guard let stitches, !stitches.isEmpty else { return }
             if let last = combinedStitches.last {
                 combinedStitches.append(StitchPoint(x: last.x, y: last.y, command: .colorChange))
             }
             combinedStitches.append(contentsOf: stitches)
-            threads.append(threadPayload(for: object))
+            threads.append(threadPayload)
+        }
+
+        for object in stitchableObjects {
+            // Ein einzelnes Objekt mit fehlerhafter Geometrie/Sticheinstellung soll nicht den
+            // gesamten Export zum Absturz bringen — übersprungen statt den kompletten Export
+            // abzubrechen (analog zum bereits bestehenden Überspringen leerer Stichfolgen unten).
+            if object.hasFill, object.stitchSettings != nil {
+                let stitches = try? await stitchGenerationService.generateStitches(for: object, canvasSize: canvasSize)
+                appendPass(stitches: stitches, threadPayload: threadPayload(for: object))
+            }
+            if object.hasBorder, object.borderStitchSettings != nil {
+                let stitches = try? await stitchGenerationService.generateBorderStitches(for: object, canvasSize: canvasSize)
+                appendPass(stitches: stitches, threadPayload: borderThreadPayload(for: object))
+            }
         }
 
         return (combinedStitches, threads)
     }
 
-    /// Nur sichtbare Objekte mit Sticheinstellungen können gestickt werden — ein sichtbares
-    /// Objekt ohne `stitchSettings` wird beim Export stillschweigend übersprungen statt den
-    /// gesamten Export fehlschlagen zu lassen. Reihenfolge folgt der Z-Order (wie SVGDesignSerializer).
+    /// Nur sichtbare Objekte mit einer aktiven, eingestellten Füllung ODER einem aktiven,
+    /// eingestellten Rand können gestickt werden — beides fehlt (z.B. neu erzeugtes Text-Objekt),
+    /// wird das Objekt beim Export stillschweigend übersprungen statt den gesamten Export
+    /// fehlschlagen zu lassen. Reihenfolge folgt der Z-Order (wie SVGDesignSerializer).
     private func stitchableObjects(from objects: [DesignObject]) -> [DesignObject] {
         objects
-            .filter { $0.isVisible && $0.stitchSettings != nil }
+            .filter { $0.isVisible && (($0.hasFill && $0.stitchSettings != nil) || ($0.hasBorder && $0.borderStitchSettings != nil)) }
             .sorted { $0.zIndex < $1.zIndex }
     }
 
     private func countDistinctColors(_ objects: [DesignObject]) -> Int {
-        Set(objects.map { $0.threadColor.map(colorKey) ?? $0.fillColorHex.lowercased() }).count
+        var keys = Set<String>()
+        for object in objects {
+            if object.hasFill, object.stitchSettings != nil {
+                keys.insert(fillColorKey(for: object))
+            }
+            if object.hasBorder, object.borderStitchSettings != nil {
+                keys.insert(borderColorKey(for: object))
+            }
+        }
+        return keys.count
+    }
+
+    private func fillColorKey(for object: DesignObject) -> String {
+        object.threadColor.map(colorKey) ?? object.fillColorHex.lowercased()
+    }
+
+    private func borderColorKey(for object: DesignObject) -> String {
+        object.borderThreadColor.map(colorKey) ?? (object.borderColorHex ?? object.fillColorHex).lowercased()
     }
 
     private func colorKey(_ threadColor: ThreadColor) -> String {
@@ -178,6 +211,23 @@ final class FileExportService: FileExportServicing {
             return payload
         }
         let (red, green, blue) = Self.rgb(fromHex: object.fillColorHex)
+        return ["red": red, "green": green, "blue": blue, "name": object.name]
+    }
+
+    private func borderThreadPayload(for object: DesignObject) -> [String: Any] {
+        if let threadColor = object.borderThreadColor {
+            var payload: [String: Any] = [
+                "red": threadColor.red,
+                "green": threadColor.green,
+                "blue": threadColor.blue,
+                "name": threadColor.name,
+            ]
+            if let catalogNumber = threadColor.catalogNumber {
+                payload["catalogNumber"] = catalogNumber
+            }
+            return payload
+        }
+        let (red, green, blue) = Self.rgb(fromHex: object.borderColorHex ?? object.fillColorHex)
         return ["red": red, "green": green, "blue": blue, "name": object.name]
     }
 

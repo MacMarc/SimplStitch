@@ -81,23 +81,44 @@ struct ContentView: View {
         }
     }
 
-    /// `.borderedProminent` nur für das aktive Werkzeug — als `if`/`else` statt eines Ternarys
-    /// zwischen zwei ButtonStyle-Typen, da `.borderedProminent`/`.bordered` unterschiedliche
-    /// konkrete Typen sind und sich nicht direkt in einem Ausdruck vereinen lassen.
+    /// Apple-Mail-Stil (Issue #5): runder Icon-Kreis, gefüllt bei aktivem Werkzeug, kleinerer
+    /// Text darunter statt Icon+Text nebeneinander in einer `.bordered`/`.borderedProminent`-Kapsel.
+    /// `.plain`-ButtonStyle, da der Kreis-Hintergrund selbst die Aktiv-Kapsel übernimmt — eine
+    /// zusätzliche Button-Kapsel würde den Kreis in ein Rechteck einfassen.
+    ///
+    /// Zwei Bugfixes nach User-Feedback auf der ersten Fassung:
+    /// - `.contentShape(Rectangle())` auf dem gesamten Label: ohne das reagiert ein `.plain`-Button
+    ///   mit nicht-opakem Inhalt (der Kreis-Hintergrund ist bei inaktivem Werkzeug `Color.clear`)
+    ///   nur auf Klicks innerhalb der tatsächlich gezeichneten Pixel (SF-Symbol-Glyph, Text) — der
+    ///   Leerraum dazwischen war klickunempfindlich, das Icon liess sich zwar treffen, der Text
+    ///   darunter kaum. Der explizite Rechteck-Content-Shape macht das gesamte Label-Frame klickbar.
+    /// - Kreis von 28pt auf 22pt verkleinert, Innenabstand reduziert: die vorherige Gesamthöhe
+    ///   (Icon-Frame + Text) überschritt die von der Toolbar bereitgestellte Höhe, der obere Rand
+    ///   des Kreises wurde dadurch sichtbar abgeschnitten ("Kreis schaut oben raus").
     @ViewBuilder
     private func toolButton(for tool: CanvasTool) -> some View {
-        let button = Button {
+        let isActive = canvasStore.currentTool == tool
+
+        Button {
             canvasStore.selectTool(tool)
         } label: {
-            Label(tool.displayName, systemImage: tool.systemImageName)
-                .labelStyle(.titleAndIcon)
+            VStack(spacing: 1) {
+                Image(systemName: tool.systemImageName)
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(width: 22, height: 22)
+                    .background {
+                        Circle().fill(isActive ? Color.accentColor : Color.clear)
+                    }
+                    .foregroundStyle(isActive ? Color.white : Color.primary)
+                Text(tool.displayName)
+                    .font(.system(size: 9))
+                    .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+            }
+            .frame(width: 50)
+            .contentShape(Rectangle())
         }
-
-        if canvasStore.currentTool == tool {
-            button.buttonStyle(.borderedProminent)
-        } else {
-            button.buttonStyle(.bordered)
-        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(tool.displayName))
     }
 }
 

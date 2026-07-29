@@ -10,6 +10,10 @@ import SwiftData
 
 @Model
 final class ThreadColor {
+    /// Issue #20: stabile ID fürs `Picker`-Tagging im Objekt-Inspektor (Füllung/Rand) — vorher
+    /// hatte `ThreadColor` keine eigene ID (`ForEach`/Picker liefen über Objektidentität bzw.
+    /// `\.name`).
+    @Attribute(.unique) var id: UUID = UUID()
     var name: String = ""
     var red: Int = 0   // 0...255
     var green: Int = 0

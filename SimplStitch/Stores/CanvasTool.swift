@@ -15,6 +15,7 @@ enum CanvasTool: String, CaseIterable, Identifiable {
     case circle
     case star
     case path
+    case line
     case text
 
     var id: String { rawValue }
@@ -27,6 +28,7 @@ enum CanvasTool: String, CaseIterable, Identifiable {
         case .circle: return .circle
         case .star: return .star
         case .path: return .path
+        case .line: return .line
         case .text: return .text
         }
     }
@@ -38,6 +40,7 @@ enum CanvasTool: String, CaseIterable, Identifiable {
         case .circle: return String(localized: "canvas.tool.circle")
         case .star: return String(localized: "canvas.tool.star")
         case .path: return String(localized: "canvas.tool.path")
+        case .line: return String(localized: "canvas.tool.line")
         case .text: return String(localized: "canvas.tool.text")
         }
     }
@@ -51,6 +54,7 @@ enum CanvasTool: String, CaseIterable, Identifiable {
         case .circle: return "circle"
         case .star: return "star"
         case .path: return "scribble"
+        case .line: return "line.diagonal"
         case .text: return "character.cursor.ibeam"
         }
     }

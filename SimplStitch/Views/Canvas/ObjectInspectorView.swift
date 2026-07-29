@@ -13,12 +13,22 @@
 //  nachgeholt (zwei Slider, analog zur Rotation).
 //
 //  Farbe (Issue #13): kein freier ColorPicker mehr — gestickt werden kann nur, was als Garn in
-//  einer Garnliste vorhanden ist. Die Sektion ist daher ein zweistufiger Picker (Garnliste, dann
-//  Garnfarbe innerhalb dieser Liste), der wie das bestehende Drag&Drop (`CanvasStore.assignColor`,
-//  Phase 8e) direkt aus RGB-Werten setzt statt über SwiftUI `Color`/Hex zu gehen — das war
-//  vermutlich ohnehin die Ursache des alten "Füllfarbe bleibt schwarz"-Bugs (`Color.cgColor` ist
-//  für manche vom System-Farbwähler gelieferte `Color`-Werte nicht zuverlässig auf konkrete RGB-
-//  Komponenten auflösbar, `Color.hexString`s Schwarz-Fallback griff dann lautlos).
+//  einer Garnliste vorhanden ist. Setzt wie das bestehende Drag&Drop (`CanvasStore.assignColor`,
+//  Phase 8e) direkt aus RGB-Werten statt über SwiftUI `Color`/Hex zu gehen — das war vermutlich
+//  ohnehin die Ursache des alten "Füllfarbe bleibt schwarz"-Bugs (`Color.cgColor` ist für manche
+//  vom System-Farbwähler gelieferte `Color`-Werte nicht zuverlässig auf konkrete RGB-Komponenten
+//  auflösbar, `Color.hexString`s Schwarz-Fallback griff dann lautlos).
+//
+//  Farbe (Issue #20): der frühere zweistufige Picker (erst Garnliste, dann Garnfarbe darin) zeigte
+//  ungefiltert ALLE importierten Garnlisten und liess seine Auswahl über lokalen @State laufen —
+//  der resettete sich beim Weg- und Zurückwechseln des Objekts auf die erste Palette ("Garnliste
+//  resettet sich immer zum Default"), weil `.id(object.id)` in CanvasInspectorView bewusst alles
+//  lokale @State beim Objektwechsel verwirft. Nach weiterem User-Feedback (die erste kuratierte-
+//  Farbliste-Fassung verursachte mit ~20'000 Zeilen spürbares Lag und gefiel nicht) jetzt ein
+//  einziger flacher Picker über die Farben der EINEN projektweiten Standard-Garnliste
+//  (`CanvasStore.defaultThreadPaletteID`, im Projekt-Eigenschaften-Tab gewählt) ohne eigenes
+//  @State — die Auswahl wird direkt aus `object.threadColor` abgeleitet, kann sich also nie
+//  "zurücksetzen".
 //
 
 import SwiftData
@@ -29,8 +39,6 @@ struct ObjectInspectorView: View {
     let store: CanvasStore
 
     @Query(sort: \ThreadPalette.name) private var palettes: [ThreadPalette]
-    @State private var selectedPaletteID: UUID?
-    @State private var selectedThreadColor: ThreadColor?
 
     var body: some View {
         Form {
@@ -81,43 +89,33 @@ struct ObjectInspectorView: View {
                     }
                 }
 
-                if palettes.isEmpty {
-                    Text("inspector.color.noPalettes")
+                if projectThreadColors.isEmpty {
+                    Text("inspector.color.noProjectThreads")
                         .foregroundStyle(.secondary)
                         .font(.caption)
                 } else {
-                    Picker("inspector.color.palette", selection: paletteBinding) {
-                        ForEach(palettes) { palette in
-                            Text(palette.name).tag(Optional(palette.id))
+                    Picker("inspector.color.thread", selection: threadColorSelectionBinding) {
+                        Text("inspector.color.pickPlaceholder").tag(UUID?.none)
+                        ForEach(projectThreadColors) { color in
+                            threadColorLabel(color).tag(Optional(color.id))
                         }
-                    }
-                    Picker("inspector.color.thread", selection: $selectedThreadColor) {
-                        Text("inspector.color.pickPlaceholder").tag(ThreadColor?.none)
-                        ForEach(currentPaletteColors) { color in
-                            threadColorLabel(color).tag(ThreadColor?.some(color))
-                        }
-                    }
-                    .onChange(of: selectedThreadColor) { _, newValue in
-                        guard let newValue else { return }
-                        store.assignColor(
-                            name: newValue.name,
-                            red: newValue.red,
-                            green: newValue.green,
-                            blue: newValue.blue,
-                            catalogNumber: newValue.catalogNumber,
-                            to: object.id
-                        )
                     }
                 }
             }
 
             Section("inspector.section.stitch") {
+                // Issue #18: "hat Füllung" ist unabhängig von der Farbwahl — deaktiviert lässt
+                // sich der Stichtyp zwar weiterhin einsehen/vorbereiten, wird aber beim Export/in
+                // der Stichvorschau nicht mehr berücksichtigt (siehe FileExportService/CanvasStore).
+                Toggle("inspector.fill.enabled", isOn: hasFillBinding)
+
                 Picker("inspector.stitch.type", selection: stitchTypeBinding) {
                     Text("inspector.stitch.type.none").tag(StitchType?.none)
                     ForEach(StitchType.allCases, id: \.self) { type in
                         Text(displayName(for: type)).tag(StitchType?.some(type))
                     }
                 }
+                .disabled(!object.hasFill)
 
                 if let settings = object.stitchSettings {
                     LabeledContent("inspector.stitch.density") {
@@ -131,6 +129,55 @@ struct ObjectInspectorView: View {
                     Picker("inspector.stitch.underlay", selection: underlayBinding(settings)) {
                         ForEach(UnderlayType.allCases, id: \.self) { underlay in
                             Text(displayName(for: underlay)).tag(underlay)
+                        }
+                    }
+                }
+            }
+
+            Section("inspector.section.border") {
+                Toggle("inspector.border.enabled", isOn: hasBorderBinding)
+
+                if object.hasBorder {
+                    LabeledContent("inspector.border.width") {
+                        Slider(value: borderWidthBinding, in: 0.1...5)
+                    }
+
+                    LabeledContent("inspector.color.current") {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(Color(hex: object.borderColorHex ?? object.fillColorHex) ?? .black)
+                                .frame(width: 18, height: 18)
+                                .overlay(Circle().strokeBorder(Color.secondary.opacity(0.3)))
+                            Text(object.borderThreadColor?.name.isEmpty == false ? object.borderThreadColor!.name : (object.borderColorHex ?? "—"))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    if projectThreadColors.isEmpty {
+                        Text("inspector.color.noProjectThreads")
+                            .foregroundStyle(.secondary)
+                            .font(.caption)
+                    } else {
+                        Picker("inspector.color.thread", selection: borderThreadColorSelectionBinding) {
+                            Text("inspector.color.pickPlaceholder").tag(UUID?.none)
+                            ForEach(projectThreadColors) { color in
+                                threadColorLabel(color).tag(Optional(color.id))
+                            }
+                        }
+                    }
+
+                    Picker("inspector.stitch.type", selection: borderStitchTypeBinding) {
+                        ForEach(StitchType.allCases, id: \.self) { type in
+                            Text(displayName(for: type)).tag(type)
+                        }
+                    }
+                    if let borderSettings = object.borderStitchSettings {
+                        LabeledContent("inspector.stitch.density") {
+                            Slider(value: densityBinding(borderSettings), in: 0.1...2.0)
+                        }
+                        Picker("inspector.stitch.underlay", selection: underlayBinding(borderSettings)) {
+                            ForEach(UnderlayType.allCases, id: \.self) { underlay in
+                                Text(displayName(for: underlay)).tag(underlay)
+                            }
                         }
                     }
                 }
@@ -183,16 +230,37 @@ struct ObjectInspectorView: View {
 
     // MARK: Farbe
 
-    private var effectivePaletteID: UUID? {
-        selectedPaletteID ?? palettes.first?.id
+    /// Farben der EINEN projektweiten Standard-Garnliste (Issue #20, `CanvasStore.
+    /// defaultThreadPaletteID`, im Projekt-Eigenschaften-Tab gewählt), nach Namen sortiert
+    /// (Bugfix: vorher waren Farben innerhalb einer Garnliste unsortiert).
+    private var projectThreadColors: [ThreadColor] {
+        guard let paletteID = store.defaultThreadPaletteID,
+              let palette = palettes.first(where: { $0.id == paletteID }) else {
+            return []
+        }
+        return palette.colors.sorted { $0.name < $1.name }
     }
 
-    private var paletteBinding: Binding<UUID?> {
-        Binding(get: { effectivePaletteID }, set: { selectedPaletteID = $0 })
-    }
-
-    private var currentPaletteColors: [ThreadColor] {
-        palettes.first { $0.id == effectivePaletteID }?.colors ?? []
+    private var threadColorSelectionBinding: Binding<UUID?> {
+        Binding(
+            get: {
+                guard let current = object.threadColor else { return nil }
+                return projectThreadColors.first {
+                    $0.red == current.red && $0.green == current.green && $0.blue == current.blue
+                }?.id
+            },
+            set: { newID in
+                guard let newID, let color = projectThreadColors.first(where: { $0.id == newID }) else { return }
+                store.assignColor(
+                    name: color.name,
+                    red: color.red,
+                    green: color.green,
+                    blue: color.blue,
+                    catalogNumber: color.catalogNumber,
+                    to: object.id
+                )
+            }
+        )
     }
 
     private func threadColorLabel(_ color: ThreadColor) -> some View {
@@ -201,6 +269,71 @@ struct ObjectInspectorView: View {
             systemImage: "circle.fill"
         )
         .foregroundStyle(Color(red: Double(color.red) / 255, green: Double(color.green) / 255, blue: Double(color.blue) / 255))
+    }
+
+    // MARK: Füllung/Rand (Issue #18)
+
+    private var hasFillBinding: Binding<Bool> {
+        Binding(get: { object.hasFill }, set: { object.hasFill = $0; store.refreshStitchPreview() })
+    }
+
+    private var hasBorderBinding: Binding<Bool> {
+        Binding(
+            get: { object.hasBorder },
+            set: { newValue in
+                object.hasBorder = newValue
+                // Randeinstellungen bleiben beim Deaktivieren erhalten (Datenverlust vermeiden) —
+                // beim ERSTEN Aktivieren gibt es aber noch keine, die erzeugen wir hier vor.
+                if newValue, object.borderStitchSettings == nil {
+                    let settings = StitchSettings(stitchType: .straight, underlayType: UnderlayType.suggested(for: .straight))
+                    settings.borderOwner = object
+                    object.borderStitchSettings = settings
+                }
+                store.refreshStitchPreview()
+            }
+        )
+    }
+
+    private var borderWidthBinding: Binding<Double> {
+        Binding(get: { object.borderWidthMillimeters }, set: { object.borderWidthMillimeters = max($0, 0.1) })
+    }
+
+    private var borderThreadColorSelectionBinding: Binding<UUID?> {
+        Binding(
+            get: {
+                guard let current = object.borderThreadColor else { return nil }
+                return projectThreadColors.first {
+                    $0.red == current.red && $0.green == current.green && $0.blue == current.blue
+                }?.id
+            },
+            set: { newID in
+                guard let newID, let color = projectThreadColors.first(where: { $0.id == newID }) else { return }
+                store.assignBorderColor(
+                    name: color.name,
+                    red: color.red,
+                    green: color.green,
+                    blue: color.blue,
+                    catalogNumber: color.catalogNumber,
+                    to: object.id
+                )
+            }
+        )
+    }
+
+    private var borderStitchTypeBinding: Binding<StitchType> {
+        Binding(
+            get: { object.borderStitchSettings?.stitchType ?? .straight },
+            set: { newType in
+                if let settings = object.borderStitchSettings {
+                    settings.stitchType = newType
+                } else {
+                    let settings = StitchSettings(stitchType: newType)
+                    settings.borderOwner = object
+                    object.borderStitchSettings = settings
+                }
+                store.refreshStitchPreview()
+            }
+        )
     }
 
     // MARK: Sticheinstellungen

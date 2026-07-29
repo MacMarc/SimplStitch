@@ -38,6 +38,13 @@ struct CanvasView: View {
     @GestureState private var liveDragTranslation: CGSize = .zero
     @State private var selectionDrag = SelectionDragState()
     @FocusState private var isTextEditorFocused: Bool
+    /// Issue #15: `.onAppear` allein reicht nicht — bei einem frisch von `DocumentGroup` geöffneten
+    /// Fenster ist die `GeometryReader`-Grösse zu diesem Zeitpunkt teils noch (0,0) oder eine
+    /// transiente Zwischengrösse, bevor macOS das Fenster auf seine endgültige Grösse bringt. Der
+    /// Flag sorgt dafür, dass `zoomToFit` trotzdem nur EINMAL passiert (nicht bei jeder späteren
+    /// manuellen Fenstergrössenänderung) — beim ersten validen (nicht-Null) `proxy.size`, egal ob
+    /// das schon in `onAppear` oder erst in einem folgenden `onChange` ist.
+    @State private var hasPerformedInitialZoomToFit = false
 
     private var effectiveZoomScale: CGFloat {
         store.zoomScale * liveMagnification
@@ -69,28 +76,13 @@ struct CanvasView: View {
                 .gesture(magnificationGesture)
                 .simultaneousGesture(doubleTapToEditGesture)
                 .onAppear {
-                    store.zoomToFit(viewportSize: proxy.size)
+                    performInitialZoomToFitIfNeeded(proxy.size)
+                }
+                .onChange(of: proxy.size) { _, newSize in
+                    performInitialZoomToFitIfNeeded(newSize)
                 }
                 .focusedSceneValue(\.zoomToFitAction) {
                     store.zoomToFit(viewportSize: proxy.size)
-                }
-                // Farbzuweisung per Drag aus dem Garnlisten-Panel (8e) — der Canvas rendert alle
-                // Objekte in einem einzigen `Canvas`, nicht als separate SwiftUI-Views, daher trifft
-                // der Drop-Handler das Zielobjekt über dieselbe Hit-Testing-Logik wie die Selektion
-                // (`object(atDesignPoint:)`), nicht über eine per-Objekt `.dropDestination`.
-                .dropDestination(for: DraggedThreadColor.self) { items, location in
-                    guard let dragged = items.first else { return false }
-                    let designPoint = store.designPoint(fromView: location)
-                    guard let object = store.object(atDesignPoint: designPoint) else { return false }
-                    store.assignColor(
-                        name: dragged.name,
-                        red: dragged.red,
-                        green: dragged.green,
-                        blue: dragged.blue,
-                        catalogNumber: dragged.catalogNumber,
-                        to: object.id
-                    )
-                    return true
                 }
 
                 if let editingObject = store.editingTextObject {
@@ -98,6 +90,14 @@ struct CanvasView: View {
                 }
             }
         }
+    }
+
+    /// Issue #15: einmaliger Auto-`zoomToFit` beim Öffnen, siehe Kommentar bei
+    /// `hasPerformedInitialZoomToFit`.
+    private func performInitialZoomToFitIfNeeded(_ size: CGSize) {
+        guard !hasPerformedInitialZoomToFit, size.width > 0, size.height > 0 else { return }
+        store.zoomToFit(viewportSize: size)
+        hasPerformedInitialZoomToFit = true
     }
 
     /// Doppelklick auf ein Text-Objekt mit dem Auswahl-Werkzeug startet die Inline-Bearbeitung.
@@ -307,15 +307,34 @@ struct CanvasView: View {
             let color = Color(cgColor: CGColor.fromHex(object.fillColorHex) ?? CGColor(gray: 0, alpha: 1))
             switch object.kind {
             case .rectangle, .circle, .star:
+                // Issue #18: Füllung/Rand sind unabhängig voneinander — eine Form kann beides,
+                // nur eins oder (mit hasFill=false, hasBorder=false) vorübergehend gar nichts haben.
                 let path = object.designSpacePath().applying(object.visualTransform)
-                objectContext.fill(path, with: .color(color))
-            case .path:
+                if object.hasFill {
+                    objectContext.fill(path, with: .color(color))
+                }
+                if object.hasBorder {
+                    objectContext.stroke(path, with: .color(borderColor(for: object)), lineWidth: object.borderWidthMillimeters)
+                }
+            case .path, .line:
+                // Bestehende Freihand-Pfade (hasBorder=false per Default) behalten ihr bisheriges
+                // Rendering (Strich in Füllfarbe, feste 0.3mm) bei — nur wenn der Rand explizit
+                // aktiviert ist (immer der Fall bei .line, siehe CanvasStore.makeLineObject),
+                // kommen die eigenen Randeinstellungen zum Einsatz.
                 let path = object.designSpacePath().applying(object.visualTransform)
-                objectContext.stroke(path, with: .color(color), lineWidth: 0.3)
+                if object.hasBorder {
+                    objectContext.stroke(path, with: .color(borderColor(for: object)), lineWidth: object.borderWidthMillimeters)
+                } else {
+                    objectContext.stroke(path, with: .color(color), lineWidth: 0.3)
+                }
             case .text:
                 drawText(object, color: color, in: context)
             }
         }
+    }
+
+    private func borderColor(for object: DesignObject) -> Color {
+        Color(cgColor: CGColor.fromHex(object.borderColorHex ?? object.fillColorHex) ?? CGColor(gray: 0, alpha: 1))
     }
 
     /// Text wird nicht als `Path` gerendert, sondern über `GraphicsContext.draw(Text:at:)` — die
@@ -348,7 +367,7 @@ struct CanvasView: View {
         case .star:
             guard let rect = store.draftShapeRect else { return }
             path = DesignObject.starPath(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height, pointCount: 5)
-        case .path:
+        case .path, .line:
             path = polyline(through: store.draftPathPoints)
         case .select:
             return

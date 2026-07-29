@@ -19,18 +19,25 @@ import Foundation
 import CoreGraphics
 
 protocol SVGDesignSerializing {
-    func encode(objects: [DesignObject], canvasSize: CGSize, backgroundImageFileName: String?) -> String
+    func encode(objects: [DesignObject], canvasSize: CGSize, backgroundImageFileName: String?, defaultThreadPaletteID: UUID?) -> String
     func decode(svg: String) throws -> SVGDecodedDesign
     /// Markup für ein einzelnes Objekt (dasselbe Fragment, das `encode` pro Objekt in `content.svg`
     /// schreibt) — von `StitchGenerationService` wiederverwendet, um InkStitch dieselben
-    /// `inkstitch:*`-Attribute zu übergeben, die auch im gespeicherten Projekt landen.
+    /// `inkstitch:*`-Attribute zu übergeben, die auch im gespeicherten Projekt landen. Trägt immer
+    /// die FÜLL-Sticheinstellungen (`object.stitchSettings`).
     func element(for object: DesignObject) -> String
+    /// Issue #18: dieselbe Geometrie wie `element(for:)`, aber mit den RAND-Sticheinstellungen
+    /// (`object.borderStitchSettings`) als `inkstitch:*`-Attribute statt der Füll-Einstellungen —
+    /// eigener Aufruf für `StitchGenerationService`s zweiten (Rand-)Stichgenerierungs-Pass. `nil`,
+    /// wenn das Objekt keine Randeinstellungen hat.
+    func borderElement(for object: DesignObject) -> String?
 }
 
 struct SVGDecodedDesign {
     var canvasSize: CGSize
     var objects: [DesignObject]
     var backgroundImageFileName: String?
+    var defaultThreadPaletteID: UUID?
 }
 
 enum SVGDesignSerializerError: Error, LocalizedError {
@@ -53,10 +60,11 @@ final class SVGDesignSerializer: SVGDesignSerializing {
 
     // MARK: Encode
 
-    func encode(objects: [DesignObject], canvasSize: CGSize, backgroundImageFileName: String?) -> String {
+    func encode(objects: [DesignObject], canvasSize: CGSize, backgroundImageFileName: String?, defaultThreadPaletteID: UUID? = nil) -> String {
+        let defaultPaletteAttr = defaultThreadPaletteID.map { " data-ss-default-palette=\"\($0.uuidString)\"" } ?? ""
         var svg = """
         <?xml version="1.0" encoding="UTF-8"?>
-        <svg xmlns="http://www.w3.org/2000/svg" xmlns:inkstitch="\(Self.inkstitchNamespace)" width="\(fmt(canvasSize.width))mm" height="\(fmt(canvasSize.height))mm" viewBox="0 0 \(fmt(canvasSize.width)) \(fmt(canvasSize.height))" data-ss-version="1">\n
+        <svg xmlns="http://www.w3.org/2000/svg" xmlns:inkstitch="\(Self.inkstitchNamespace)" width="\(fmt(canvasSize.width))mm" height="\(fmt(canvasSize.height))mm" viewBox="0 0 \(fmt(canvasSize.width)) \(fmt(canvasSize.height))" data-ss-version="1"\(defaultPaletteAttr)>\n
         """
 
         if let backgroundImageFileName {
@@ -86,12 +94,56 @@ final class SVGDesignSerializer: SVGDesignSerializing {
         case .path:
             let d = object.pathData ?? ""
             return "<path d=\"\(xmlEscapeAttribute(d))\" data-ss-x=\"\(fmt(object.positionX))\" data-ss-y=\"\(fmt(object.positionY))\" data-ss-w=\"\(fmt(object.width))\" data-ss-h=\"\(fmt(object.height))\" \(common) />"
+        case .line:
+            let d = object.pathData ?? ""
+            return "<path d=\"\(xmlEscapeAttribute(d))\" data-ss-x=\"\(fmt(object.positionX))\" data-ss-y=\"\(fmt(object.positionY))\" data-ss-w=\"\(fmt(object.width))\" data-ss-h=\"\(fmt(object.height))\" data-ss-line=\"true\" \(common) />"
         case .text:
             let fontFamily = object.fontName ?? "Helvetica"
             let fontSize = object.fontSize ?? 12
             let text = xmlEscapeText(object.text ?? "")
             return "<text x=\"\(fmt(object.positionX))\" y=\"\(fmt(object.positionY))\" font-family=\"\(xmlEscapeAttribute(fontFamily))\" font-size=\"\(fmt(fontSize))\" data-ss-w=\"\(fmt(object.width))\" data-ss-h=\"\(fmt(object.height))\" \(common)>\(text)</text>"
         }
+    }
+
+    /// Siehe Protokoll-Dokumentation — dieselbe Geometrie wie `element(for:)`, aber mit den Rand-
+    /// statt Füll-Sticheinstellungen. Bewusst eine leicht duplizierte Geometrie-Switch statt einer
+    /// gemeinsamen Abstraktion mit `element(for:)`: die beiden Methoden unterscheiden sich nur in
+    /// der Attribut-Quelle (Füll- vs. Randeinstellungen), eine Parametrisierung wäre hier mehr
+    /// Indirektion als Ersparnis.
+    func borderElement(for object: DesignObject) -> String? {
+        guard let settings = object.borderStitchSettings else { return nil }
+        let common = borderGenerationAttributes(for: object, settings: settings)
+        switch object.kind {
+        case .rectangle:
+            return "<rect x=\"\(fmt(object.positionX))\" y=\"\(fmt(object.positionY))\" width=\"\(fmt(object.width))\" height=\"\(fmt(object.height))\" rx=\"\(fmt(object.cornerRadius))\" ry=\"\(fmt(object.cornerRadius))\" \(common) />"
+        case .circle:
+            let rx = object.width / 2
+            let ry = object.height / 2
+            return "<ellipse cx=\"\(fmt(object.positionX + rx))\" cy=\"\(fmt(object.positionY + ry))\" rx=\"\(fmt(rx))\" ry=\"\(fmt(ry))\" \(common) />"
+        case .star:
+            let pointCount = object.starPointCount ?? 5
+            let d = Self.starPathData(x: object.positionX, y: object.positionY, width: object.width, height: object.height, pointCount: pointCount)
+            return "<path d=\"\(d)\" \(common) />"
+        case .path, .line:
+            let d = object.pathData ?? ""
+            return "<path d=\"\(xmlEscapeAttribute(d))\" \(common) />"
+        case .text:
+            // Text hat keinen Rand-Pfad (kein Vektorpfad ohne Text-zu-Pfad-Konvertierung, siehe 5d).
+            return nil
+        }
+    }
+
+    private func borderGenerationAttributes(for object: DesignObject, settings: StitchSettings) -> String {
+        var attrs = [
+            "id=\"\(object.id.uuidString)\"",
+            "data-ss-name=\"\(xmlEscapeAttribute(object.name))\"",
+            "data-ss-rotation=\"\(fmt(object.rotationDegrees))\"",
+            "data-ss-skew-x=\"\(fmt(object.skewXDegrees))\"",
+            "data-ss-skew-y=\"\(fmt(object.skewYDegrees))\"",
+            "fill=\"\(object.borderColorHex ?? object.fillColorHex)\"",
+        ]
+        attrs.append(contentsOf: stitchAttributes(for: settings))
+        return attrs.joined(separator: " ")
     }
 
     private func commonAttributes(for object: DesignObject) -> String {
@@ -105,9 +157,25 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             "data-ss-skew-x=\"\(fmt(object.skewXDegrees))\"",
             "data-ss-skew-y=\"\(fmt(object.skewYDegrees))\"",
             "fill=\"\(object.fillColorHex)\"",
+            "data-ss-has-fill=\"\(object.hasFill)\"",
+            "data-ss-has-border=\"\(object.hasBorder)\"",
+            "data-ss-border-width=\"\(fmt(object.borderWidthMillimeters))\"",
         ]
         if let groupID = object.groupID {
             attrs.append("data-ss-group=\"\(groupID.uuidString)\"")
+        }
+        if let borderColorHex = object.borderColorHex {
+            attrs.append("data-ss-border-color=\"\(borderColorHex)\"")
+        }
+        // Issue #18: Rand-Sticheinstellungen werden als eigenständige data-ss-border-*-Attribute
+        // persistiert (rohe StitchType/UnderlayType-Rawvalues, kein inkstitch:*-Namespace) — die
+        // Übersetzung in echte inkstitch:*-Attribute passiert erst bei der tatsächlichen Rand-
+        // Stichgenerierung (`borderElement(for:)`), nicht beim content.svg-Roundtrip selbst.
+        if let borderSettings = object.borderStitchSettings {
+            attrs.append("data-ss-border-stitch-type=\"\(borderSettings.stitchType.rawValue)\"")
+            attrs.append("data-ss-border-density=\"\(fmt(borderSettings.density))\"")
+            attrs.append("data-ss-border-angle=\"\(fmt(borderSettings.angleDegrees))\"")
+            attrs.append("data-ss-border-underlay=\"\(borderSettings.underlayType.rawValue)\"")
         }
         if let settings = object.stitchSettings {
             attrs.append(contentsOf: stitchAttributes(for: settings))
@@ -190,7 +258,8 @@ final class SVGDesignSerializer: SVGDesignSerializing {
         return SVGDecodedDesign(
             canvasSize: delegate.canvasSize,
             objects: delegate.objects,
-            backgroundImageFileName: delegate.backgroundImageFileName
+            backgroundImageFileName: delegate.backgroundImageFileName,
+            defaultThreadPaletteID: delegate.defaultThreadPaletteID
         )
     }
 
@@ -198,6 +267,7 @@ final class SVGDesignSerializer: SVGDesignSerializing {
         var canvasSize: CGSize = .zero
         var objects: [DesignObject] = []
         var backgroundImageFileName: String?
+        var defaultThreadPaletteID: UUID?
 
         private var currentTextObject: DesignObject?
         private var currentTextBuffer = ""
@@ -215,6 +285,7 @@ final class SVGDesignSerializer: SVGDesignSerializing {
                     width: Self.parseDouble(attributeDict["width"]) ?? 0,
                     height: Self.parseDouble(attributeDict["height"]) ?? 0
                 )
+                defaultThreadPaletteID = attributeDict["data-ss-default-palette"].flatMap { UUID(uuidString: $0) }
             case "image":
                 if attributeDict["data-ss-role"] == "background" {
                     let href = attributeDict["href"] ?? ""
@@ -262,6 +333,21 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             object.fillColorHex = attrs["fill"] ?? object.fillColorHex
             if let groupIDString = attrs["data-ss-group"], let groupID = UUID(uuidString: groupIDString) {
                 object.groupID = groupID
+            }
+            object.hasFill = (attrs["data-ss-has-fill"] ?? "true") == "true"
+            object.hasBorder = (attrs["data-ss-has-border"] ?? "false") == "true"
+            object.borderWidthMillimeters = parseDouble(attrs["data-ss-border-width"]) ?? 0.3
+            object.borderColorHex = attrs["data-ss-border-color"]
+            if let borderStitchTypeRaw = attrs["data-ss-border-stitch-type"],
+               let borderStitchType = StitchType(rawValue: borderStitchTypeRaw) {
+                let borderSettings = StitchSettings(
+                    stitchType: borderStitchType,
+                    density: parseDouble(attrs["data-ss-border-density"]) ?? 0.4,
+                    angleDegrees: parseDouble(attrs["data-ss-border-angle"]) ?? 0,
+                    underlayType: UnderlayType(rawValue: attrs["data-ss-border-underlay"] ?? "") ?? .none
+                )
+                borderSettings.borderOwner = object
+                object.borderStitchSettings = borderSettings
             }
 
             if let settings = Self.stitchSettings(from: attrs) {
@@ -333,7 +419,9 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             let width = parseDouble(attrs["data-ss-w"]) ?? 0
             let height = parseDouble(attrs["data-ss-h"]) ?? 0
             let isStar = attrs["data-ss-star-points"] != nil
-            let object = DesignObject(name: "", kind: isStar ? .star : .path, positionX: x, positionY: y, width: width, height: height)
+            let isLine = attrs["data-ss-line"] == "true"
+            let kind: DesignObjectKind = isStar ? .star : (isLine ? .line : .path)
+            let object = DesignObject(name: "", kind: kind, positionX: x, positionY: y, width: width, height: height)
             if isStar {
                 object.starPointCount = Int(attrs["data-ss-star-points"] ?? "") ?? 5
             } else {

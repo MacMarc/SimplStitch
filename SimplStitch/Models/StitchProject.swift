@@ -30,6 +30,16 @@ final class StitchProject {
     /// Dateiname (nicht Pfad) des Hintergrundbilds unter assets/ im Document Package, falls gesetzt.
     var backgroundImageFileName: String?
 
+    /// Issue #20 (nach User-Feedback vereinfacht): EINE Standard-Garnliste pro Projekt statt einer
+    /// kuratierten Farbliste — die alte "alle Farben aller aktiven Paletten einzeln auflisten"-UI
+    /// verursachte mit ~20'000 Garnfarben (73 InkStitch-Paletten) massives Lag in der SwiftUI-Liste
+    /// und gefiel dem Nutzer ohnehin nicht. `ThreadPalette.id`-Referenz, aufgelöst gegen die echten
+    /// Paletten aus dem sharedModelContainer. Bewusst eine ID statt einer SwiftData-Relationship:
+    /// StitchProject lebt ausserhalb des ModelContext (Quelle der Wahrheit ist content.svg, siehe
+    /// Phase 8a), ThreadPalette dagegen im echten sharedModelContainer — beide Persistenz-Domänen
+    /// lassen sich nicht über eine Relationship verbinden.
+    var defaultThreadPaletteID: UUID?
+
     @Relationship(deleteRule: .cascade, inverse: \DesignObject.project)
     var objects: [DesignObject] = []
 

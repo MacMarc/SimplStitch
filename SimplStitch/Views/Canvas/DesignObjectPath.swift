@@ -47,7 +47,7 @@ extension DesignObject {
             return Path(ellipseIn: CGRect(x: positionX, y: positionY, width: width, height: height))
         case .star:
             return Self.starPath(x: positionX, y: positionY, width: width, height: height, pointCount: starPointCount ?? 5)
-        case .path:
+        case .path, .line:
             return Self.linePath(fromPathData: pathData ?? "")
         case .text:
             // Text hat keinen Füll-/Strichpfad — CanvasView zeichnet Glyphen direkt über

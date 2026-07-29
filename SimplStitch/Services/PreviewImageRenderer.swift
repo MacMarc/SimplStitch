@@ -79,7 +79,7 @@ final class PreviewImageRenderer: PreviewImageRendering {
             context.fill(rect)
         case .circle:
             context.fillEllipse(in: rect)
-        case .star, .path:
+        case .star, .path, .line:
             context.stroke(rect, width: max(scale * 0.2, 1))
         case .text:
             drawText(object, in: context, scale: scale, canvasHeightPixels: canvasHeightPixels, color: color)

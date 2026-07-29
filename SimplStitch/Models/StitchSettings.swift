@@ -40,6 +40,17 @@ enum UnderlayType: String, Codable, CaseIterable {
     case centerWalk
     case edgeWalk
     case zigzagNet
+
+    /// Automatischer Unterlage-Vorschlag je Stichtyp (Issue #18), analog zu `StitchType.suggested`
+    /// (Issue #11): reine Vorbelegung beim Erzeugen der Sticheinstellungen, im Objekt-Inspektor
+    /// jederzeit manuell überschreibbar. Laufstich (offene Linie, kein Flächengebiet) bekommt keine
+    /// Unterlage; Tatami-Füllung und Satin profitieren beide von einer Center-Walk-Unterlage.
+    static func suggested(for stitchType: StitchType) -> UnderlayType {
+        switch stitchType {
+        case .straight: return .none
+        case .tatami, .satin: return .centerWalk
+        }
+    }
 }
 
 @Model
@@ -50,6 +61,11 @@ final class StitchSettings {
     var underlayType: UnderlayType = UnderlayType.centerWalk
 
     var designObject: DesignObject?
+    /// Issue #18: separate Rand-Sticheinstellungen — ein `StitchSettings`-Objekt gehört entweder
+    /// über `designObject` (Füllung) oder über `borderOwner` (Rand) zu genau einem `DesignObject`,
+    /// nie über beide gleichzeitig. Zwei getrennte Inverse-Relationships statt einer einzigen, da
+    /// ein Objekt Füllung UND Rand unabhängig voneinander haben kann.
+    var borderOwner: DesignObject?
 
     init(
         stitchType: StitchType = .tatami,

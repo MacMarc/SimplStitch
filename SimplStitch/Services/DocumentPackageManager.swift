@@ -92,7 +92,8 @@ final class DocumentPackageManager: DocumentPackageManaging {
         let svg = svgSerializer.encode(
             objects: project.objects,
             canvasSize: canvasSize,
-            backgroundImageFileName: project.backgroundImageFileName
+            backgroundImageFileName: project.backgroundImageFileName,
+            defaultThreadPaletteID: project.defaultThreadPaletteID
         )
         try svg.write(to: packageURL.appendingPathComponent("content.svg"), atomically: true, encoding: .utf8)
 
@@ -125,6 +126,7 @@ final class DocumentPackageManager: DocumentPackageManaging {
             canvasHeightMillimeters: decoded.canvasSize.height
         )
         project.backgroundImageFileName = decoded.backgroundImageFileName
+        project.defaultThreadPaletteID = decoded.defaultThreadPaletteID
         project.objects = decoded.objects
         for object in decoded.objects {
             object.project = project
@@ -137,7 +139,8 @@ final class DocumentPackageManager: DocumentPackageManaging {
         let svg = svgSerializer.encode(
             objects: project.objects,
             canvasSize: canvasSize,
-            backgroundImageFileName: project.backgroundImageFileName
+            backgroundImageFileName: project.backgroundImageFileName,
+            defaultThreadPaletteID: project.defaultThreadPaletteID
         )
         guard let svgData = svg.data(using: .utf8) else {
             throw DocumentPackageError.previewRenderingFailed
@@ -164,6 +167,7 @@ final class DocumentPackageManager: DocumentPackageManaging {
             canvasHeightMillimeters: decoded.canvasSize.height
         )
         project.backgroundImageFileName = decoded.backgroundImageFileName
+        project.defaultThreadPaletteID = decoded.defaultThreadPaletteID
         project.objects = decoded.objects
         for object in decoded.objects {
             object.project = project

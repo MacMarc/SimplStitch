@@ -1,1612 +1,1734 @@
 {
-  "sourceLanguage": "de",
-  "strings": {
-    "": {},
-    "canvas.tool.circle": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kreis"
+  "sourceLanguage" : "de",
+  "strings" : {
+    "" : {
+
+    },
+    "canvas.tool.circle" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kreis"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Circle"
+          }
+        }
+      }
+    },
+    "canvas.tool.line" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linie"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Line"
+          }
+        }
+      }
+    },
+    "canvas.tool.path" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Freihand"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Freehand"
+          }
+        }
+      }
+    },
+    "canvas.tool.rectangle" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rechteck"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rectangle"
+          }
+        }
+      }
+    },
+    "canvas.tool.select" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auswählen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select"
+          }
+        }
+      }
+    },
+    "canvas.tool.star" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stern"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Star"
+          }
+        }
+      }
+    },
+    "canvas.tool.text" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text"
+          }
+        }
+      }
+    },
+    "detail.selectProject" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wähle ein Projekt aus"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Circle"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select a project"
           }
         }
       }
     },
-    "canvas.tool.path": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Freihand"
+    "export.dialog.cancel" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abbrechen"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Freehand"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
           }
         }
       }
     },
-    "canvas.tool.rectangle": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rechteck"
+    "export.dialog.export" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportieren"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rectangle"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export"
           }
         }
       }
     },
-    "canvas.tool.select": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Auswählen"
+    "export.dialog.formatPicker.label" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Format"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Select"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Format"
           }
         }
       }
     },
-    "canvas.tool.star": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stern"
+    "export.dialog.preview.colorCount" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld Farben"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Star"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld colors"
           }
         }
       }
     },
-    "canvas.tool.text": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Text"
+    "export.dialog.preview.stitchCount" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld Stiche"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Text"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld stitches"
           }
         }
       }
     },
-    "detail.selectProject": {
-      "extractionState": "stale",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wähle ein Projekt aus"
+    "export.dialog.title" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stickdatei exportieren"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Select a project"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export Embroidery File"
           }
         }
       }
     },
-    "export.dialog.cancel": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abbrechen"
+    "export.error.noStitchableObjects" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projekt enthält keine sichtbaren Objekte mit Sticheinstellungen."
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cancel"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Project contains no visible objects with stitch settings."
           }
         }
       }
     },
-    "export.dialog.export": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Exportieren"
+    "export.format.dst" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DST"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Export"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DST"
           }
         }
       }
     },
-    "export.dialog.formatPicker.label": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Format"
+    "export.format.exp" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EXP"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Format"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EXP"
           }
         }
       }
     },
-    "export.dialog.preview.colorCount": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld Farben"
+    "export.format.jef" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "JEF"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld colors"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "JEF"
           }
         }
       }
     },
-    "export.dialog.preview.stitchCount": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld Stiche"
+    "export.format.pes" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PES"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld stitches"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PES"
           }
         }
       }
     },
-    "export.dialog.title": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stickdatei exportieren"
+    "export.format.svg" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SVG"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Export Embroidery File"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SVG"
           }
         }
       }
     },
-    "export.error.noStitchableObjects": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Projekt enthält keine sichtbaren Objekte mit Sticheinstellungen."
+    "export.format.vp3" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VP3"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Project contains no visible objects with stitch settings."
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VP3"
           }
         }
       }
     },
-    "export.format.dst": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "DST (Tajima)"
+    "export.toolbar.button" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportieren"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "DST (Tajima)"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export"
           }
         }
       }
     },
-    "export.format.exp": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "EXP (Bernina/Melco)"
+    "gpl.defaultName" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Palette"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "EXP (Bernina/Melco)"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Palette"
           }
         }
       }
     },
-    "export.format.jef": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "JEF (Janome)"
+    "gpl.error.emptyPalette" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Palettendatei enthält keine Farben."
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "JEF (Janome)"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Palette file contains no colors."
           }
         }
       }
     },
-    "export.format.pes": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PES (Brother)"
+    "gpl.error.invalidHeader" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine gültige GIMP-Palettendatei (Kopfzeile fehlt)."
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PES (Brother)"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not a valid GIMP palette file (missing header)."
           }
         }
       }
+    },
+    "H" : {
+
     },
-    "export.format.svg": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SVG (Vektor)"
+    "import.object.defaultName" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importiertes Muster"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SVG (vector)"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imported Pattern"
           }
         }
       }
     },
-    "export.format.vp3": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "VP3 (Pfaff)"
+    "inspector.border.enabled" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rand"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "VP3 (Pfaff)"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Border"
           }
         }
       }
     },
-    "export.toolbar.button": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Exportieren"
+    "inspector.border.width" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Randdicke (mm)"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Export"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Border Width (mm)"
           }
         }
       }
     },
-    "gpl.defaultName": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Palette"
+    "inspector.color.current" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktuelle Farbe"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Palette"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current Color"
           }
         }
       }
     },
-    "gpl.error.emptyPalette": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Palettendatei enthält keine Farben."
+    "inspector.color.noProjectThreads" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine Standard-Garnliste gewählt. Im Tab „Projekt-Eigenschaften” auswählen."
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Palette file contains no colors."
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No default palette selected. Choose one in the “Project Properties” tab."
           }
         }
       }
     },
-    "gpl.error.invalidHeader": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keine gültige GIMP-Palettendatei (Kopfzeile fehlt)."
+    "inspector.color.pickPlaceholder" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Garnfarbe wählen…"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Not a valid GIMP palette file (missing header)."
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose thread color…"
           }
         }
       }
     },
-    "H": {},
-    "import.object.defaultName": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Importiertes Muster"
+    "inspector.color.thread" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Garnfarbe"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imported Pattern"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thread Color"
           }
         }
       }
     },
-    "inspector.color.current": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aktuelle Farbe"
+    "inspector.fill.enabled" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Füllung"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Current Color"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fill"
           }
         }
       }
     },
-    "inspector.color.noPalettes": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keine Garnlisten vorhanden."
+    "inspector.group.memberCount" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Objekte"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No thread palettes available."
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Objects"
           }
         }
       }
     },
-    "inspector.color.palette": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Garnliste"
+    "inspector.group.section" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gruppe"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Thread Palette"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group"
           }
         }
       }
     },
-    "inspector.color.pickPlaceholder": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Garnfarbe wählen…"
+    "inspector.group.ungroup" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gruppierung aufheben"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose thread color…"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ungroup"
           }
         }
       }
     },
-    "inspector.color.thread": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Garnfarbe"
+    "inspector.object.cornerRadius" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eckenradius (mm)"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Thread Color"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Corner Radius (mm)"
           }
         }
       }
     },
-    "inspector.group.memberCount": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Objekte"
+    "inspector.object.empty" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein Objekt ausgewählt"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Objects"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Object Selected"
           }
         }
       }
     },
-    "inspector.group.section": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gruppe"
+    "inspector.object.empty.description" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wähle ein Objekt auf der Zeichenfläche, um seine Eigenschaften zu bearbeiten."
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Group"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select an object on the canvas to edit its properties."
           }
         }
       }
     },
-    "inspector.group.ungroup": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gruppierung aufheben"
+    "inspector.object.name" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ungroup"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
           }
         }
       }
     },
-    "inspector.object.cornerRadius": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Eckenradius (mm)"
+    "inspector.object.position" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Position (mm)"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Corner Radius (mm)"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Position (mm)"
           }
         }
       }
     },
-    "inspector.object.empty": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kein Objekt ausgewählt"
+    "inspector.object.rotation" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rotation (°)"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No Object Selected"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rotation (°)"
           }
         }
       }
     },
-    "inspector.object.empty.description": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wähle ein Objekt auf der Zeichenfläche, um seine Eigenschaften zu bearbeiten."
+    "inspector.object.size" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grösse (mm)"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Select an object on the canvas to edit its properties."
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Size (mm)"
           }
         }
       }
     },
-    "inspector.object.name": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Name"
+    "inspector.object.skewX" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verzerren X"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Name"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skew X"
           }
         }
       }
     },
-    "inspector.object.position": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Position (mm)"
+    "inspector.object.skewY" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verzerren Y"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Position (mm)"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skew Y"
           }
         }
       }
     },
-    "inspector.object.rotation": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rotation (°)"
+    "inspector.section.border" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rand"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rotation (°)"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Border"
           }
         }
       }
     },
-    "inspector.object.size": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Grösse (mm)"
+    "inspector.section.color" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Farbe"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Size (mm)"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Color"
           }
         }
       }
     },
-    "inspector.section.color": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Farbe"
+    "inspector.section.object" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Objekt"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Color"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Object"
           }
         }
       }
     },
-    "inspector.section.object": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Objekt"
+    "inspector.section.stitch" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sticheinstellungen"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Object"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stitch Settings"
           }
         }
       }
     },
-    "inspector.section.stitch": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sticheinstellungen"
+    "inspector.stitch.angle" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Winkel (°)"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stitch Settings"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Angle (°)"
           }
         }
       }
     },
-    "inspector.stitch.angle": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Winkel (°)"
+    "inspector.stitch.density" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dichte (mm)"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Angle (°)"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Density (mm)"
           }
         }
       }
     },
-    "inspector.stitch.density": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dichte (mm)"
+    "inspector.stitch.type" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stichtyp"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Density (mm)"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stitch Type"
           }
         }
       }
     },
-    "inspector.stitch.type": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stichtyp"
+    "inspector.stitch.type.none" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stitch Type"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
           }
         }
       }
     },
-    "inspector.stitch.type.none": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kein"
+    "inspector.stitch.type.satin" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Satin"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "None"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Satin"
           }
         }
       }
     },
-    "inspector.stitch.type.satin": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Satin"
+    "inspector.stitch.type.straight" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laufstich"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Satin"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Running Stitch"
           }
         }
       }
     },
-    "inspector.stitch.type.straight": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Laufstich"
+    "inspector.stitch.type.tatami" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Füllung"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Running Stitch"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fill"
           }
         }
       }
     },
-    "inspector.stitch.type.tatami": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Füllung"
+    "inspector.stitch.underlay" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unterlage"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fill"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Underlay"
           }
         }
       }
     },
-    "inspector.stitch.underlay": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Unterlage"
+    "inspector.tab.layers" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ebenen"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Underlay"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Layers"
           }
         }
       }
     },
-    "inspector.tab.layers": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ebenen"
+    "inspector.tab.object" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Objekt-Eigenschaften"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Layers"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Object Properties"
           }
         }
       }
     },
-    "inspector.tab.object": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Eigenschaften"
+    "inspector.tab.project" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projekt-Eigenschaften"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Properties"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Project Properties"
           }
         }
       }
     },
-    "inspector.tab.threads": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Garnlisten"
+    "inspector.toggle" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inspektor"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Threads"
+        "en" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Inspector"
           }
         }
       }
     },
-    "inspector.toggle": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Inspector"
+    "inspector.underlay.centerWalk" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mittelsteg"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Inspector"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Center Walk"
           }
         }
       }
     },
-    "inspector.underlay.centerWalk": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mittelsteg"
+    "inspector.underlay.edgeWalk" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Randsteg"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Center Walk"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edge Walk"
           }
         }
       }
     },
-    "inspector.underlay.edgeWalk": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Randsteg"
+    "inspector.underlay.none" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Edge Walk"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
           }
         }
       }
     },
-    "inspector.underlay.none": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keine"
+    "inspector.underlay.zigzagNet" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zickzack-Netz"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "None"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zigzag Net"
           }
         }
       }
     },
-    "inspector.underlay.zigzagNet": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zickzack-Netz"
+    "layers.group.label" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gruppe (%lld Objekte)"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zigzag Net"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group (%lld objects)"
           }
         }
       }
     },
-    "layers.group.label": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gruppe (%lld Objekte)"
+    "layers.group.ungroup" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gruppierung aufheben"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Group (%lld objects)"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ungroup"
           }
         }
       }
     },
-    "layers.group.ungroup": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gruppierung aufheben"
+    "layers.hide" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausblenden"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ungroup"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide"
           }
         }
       }
     },
-    "layers.hide": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ausblenden"
+    "layers.lock" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sperren"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hide"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lock"
           }
         }
       }
     },
-    "layers.lock": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sperren"
+    "layers.moveBackward" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine Ebene nach hinten"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lock"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send Backward"
           }
         }
       }
     },
-    "layers.moveBackward": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Eine Ebene nach hinten"
+    "layers.moveForward" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine Ebene nach vorne"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Send Backward"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bring Forward"
           }
         }
       }
     },
-    "layers.moveForward": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Eine Ebene nach vorne"
+    "layers.moveToBack" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In den Hintergrund"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bring Forward"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send to Back"
           }
         }
       }
     },
-    "layers.moveToBack": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "In den Hintergrund"
+    "layers.moveToFront" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In den Vordergrund"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Send to Back"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bring to Front"
           }
         }
       }
     },
-    "layers.moveToFront": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "In den Vordergrund"
+    "layers.panel.empty" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Ebenen"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bring to Front"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No layers yet"
           }
         }
       }
     },
-    "layers.panel.empty": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Noch keine Ebenen"
+    "layers.panel.empty.description" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeichne eine Form oder einen Text, um eine Ebene zu erstellen."
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No layers yet"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Draw a shape or text to create a layer."
           }
         }
       }
     },
-    "layers.panel.empty.description": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zeichne eine Form oder einen Text, um eine Ebene zu erstellen."
+    "layers.panel.title" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ebenen"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Draw a shape or text to create a layer."
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Layers"
           }
         }
       }
     },
-    "layers.panel.title": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ebenen"
+    "layers.show" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einblenden"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Layers"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show"
           }
         }
       }
     },
-    "layers.show": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Einblenden"
+    "layers.unlock" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entsperren"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock"
           }
         }
       }
     },
-    "layers.unlock": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Entsperren"
+    "menu.edit.delete" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Objekt löschen"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Unlock"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Object"
           }
         }
       }
     },
-    "menu.edit.delete": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Objekt löschen"
+    "menu.file.export" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportieren…"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Delete Object"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export…"
           }
         }
       }
     },
-    "menu.file.export": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Exportieren…"
+    "menu.object.group" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gruppieren"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Export…"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group"
           }
         }
       }
     },
-    "menu.object.group": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gruppieren"
+    "menu.object.title" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Objekt"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Group"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Object"
           }
         }
       }
     },
-    "menu.object.title": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Objekt"
+    "menu.object.ungroup" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gruppierung aufheben"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Object"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ungroup"
           }
         }
       }
     },
-    "menu.object.ungroup": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gruppierung aufheben"
+    "menu.tool.title" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Werkzeug"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ungroup"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tool"
           }
         }
       }
     },
-    "menu.tool.title": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Werkzeug"
+    "menu.view.resetZoom" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Originalgrösse"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tool"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actual Size"
           }
         }
       }
     },
-    "menu.view.resetZoom": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Originalgrösse"
+    "menu.view.zoomIn" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vergrössern"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Actual Size"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zoom In"
           }
         }
       }
     },
-    "menu.view.zoomIn": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vergrössern"
+    "menu.view.zoomOut" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verkleinern"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zoom In"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zoom Out"
           }
         }
       }
     },
-    "menu.view.zoomOut": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verkleinern"
+    "menu.view.zoomToFit" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ganze Seite einpassen"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zoom Out"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zoom to Fit"
           }
         }
       }
     },
-    "menu.view.zoomToFit": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ganze Seite einpassen"
+    "project.defaultPalette.label" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standard Garnliste"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zoom to Fit"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default Palette"
           }
         }
       }
     },
-    "settings.defaultPalette": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Standard-Garnliste"
+    "project.defaultPalette.none" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Default Thread Palette"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
           }
         }
       }
     },
-    "settings.defaultPalette.none": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keine"
+    "project.defaultPalette.section" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standard-Garnliste"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "None"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default Palette"
           }
         }
       }
     },
-    "settings.maxRecentProjects": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zuletzt geöffnete Projekte"
+    "project.threads.panel.title" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projekt-Eigenschaften"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recent Projects"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Project Properties"
           }
         }
       }
     },
-    "settings.measurementUnit": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Masseinheit"
+    "settings.defaultPalette" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standard-Garnliste"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Measurement Unit"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default Thread Palette"
           }
         }
       }
     },
-    "settings.section.projects": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Projekte"
+    "settings.defaultPalette.none" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Projects"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
           }
         }
       }
     },
-    "settings.section.threads": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Garnlisten"
+    "settings.maxRecentProjects" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zuletzt geöffnete Projekte"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Thread Palettes"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recent Projects"
           }
         }
       }
     },
-    "settings.section.units": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Einheiten"
+    "settings.measurementUnit" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masseinheit"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Units"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Measurement Unit"
           }
         }
       }
     },
-    "settings.unit.inches": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zoll"
+    "settings.palettes.empty" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Garnlisten importiert."
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Inches"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No thread palettes imported yet."
           }
         }
       }
     },
-    "settings.unit.millimeters": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Millimeter"
+    "settings.section.palettes" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Garnlisten verwalten"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Millimeters"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage Thread Palettes"
           }
         }
       }
     },
-    "sidebar.noProjects": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Noch keine Projekte"
+    "settings.section.projects" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projekte"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No projects yet"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projects"
           }
         }
       }
     },
-    "threads.import.button": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Importieren…"
+    "settings.section.threads" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Garnlisten"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Import…"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thread Palettes"
           }
         }
       }
     },
-    "threads.import.error.dismiss": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "OK"
+    "settings.section.units" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einheiten"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "OK"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Units"
           }
         }
       }
     },
-    "threads.import.error.title": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Import fehlgeschlagen"
+    "settings.unit.inches" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zoll"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Import Failed"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inches"
           }
         }
       }
     },
-    "threads.panel.empty": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Noch keine Garnlisten"
+    "settings.unit.millimeters" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Millimeter"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No Thread Palettes Yet"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Millimeters"
           }
         }
       }
     },
-    "threads.panel.empty.description": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Importiere eine .gpl-Garnliste, um Farben per Drag zuzuweisen."
+    "sidebar.noProjects" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Projekte"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Import a .gpl thread palette to assign colors by drag & drop."
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No projects yet"
           }
         }
       }
     },
-    "threads.panel.title": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Garnlisten"
+    "threads.import.button" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importieren…"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Thread Palettes"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import…"
           }
         }
       }
     },
-    "W": {},
-    "X": {},
-    "Y": {},
-    "inspector.object.skewX": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verzerren X"
+    "threads.import.error.dismiss" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Skew X"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
           }
         }
       }
     },
-    "inspector.object.skewY": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verzerren Y"
+    "threads.import.error.title" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import fehlgeschlagen"
           }
         },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Skew Y"
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import Failed"
           }
         }
       }
+    },
+    "W" : {
+
+    },
+    "X" : {
+
+    },
+    "Y" : {
+
     }
   },
-  "version": "1.0"
+  "version" : "1.0"
 }

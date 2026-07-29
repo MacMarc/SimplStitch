@@ -42,6 +42,14 @@ private final class RecordingStitchGenerationService: StitchGenerationServicing 
         }
         return stitchesByObjectID[object.id] ?? []
     }
+
+    func generateBorderStitches(for object: DesignObject, canvasSize: CGSize) async throws -> [StitchPoint] {
+        requestedObjectIDsInOrder.append(object.id)
+        guard object.borderStitchSettings != nil else {
+            throw StitchGenerationError.missingStitchSettings
+        }
+        return stitchesByObjectID[object.id] ?? []
+    }
 }
 
 struct FileExportServiceTests {

@@ -42,6 +42,10 @@ enum StitchGenerationError: Error, LocalizedError {
 
 protocol StitchGenerationServicing {
     func generateStitches(for object: DesignObject, canvasSize: CGSize) async throws -> [StitchPoint]
+    /// Issue #18: separater Stichgenerierungs-Pass für den Rand (`object.borderStitchSettings`)
+    /// statt der Füllung — unabhängig aufrufbar, da ein Objekt Füllung und Rand unabhängig
+    /// voneinander haben kann.
+    func generateBorderStitches(for object: DesignObject, canvasSize: CGSize) async throws -> [StitchPoint]
 }
 
 final class StitchGenerationService: StitchGenerationServicing {
@@ -57,8 +61,18 @@ final class StitchGenerationService: StitchGenerationServicing {
         guard let stitchType = object.stitchSettings?.stitchType else {
             throw StitchGenerationError.missingStitchSettings
         }
+        return try await generate(objectSvg: svgSerializer.element(for: object), stitchType: stitchType, canvasSize: canvasSize)
+    }
 
-        let objectSvg = svgSerializer.element(for: object)
+    func generateBorderStitches(for object: DesignObject, canvasSize: CGSize) async throws -> [StitchPoint] {
+        guard let stitchType = object.borderStitchSettings?.stitchType,
+              let objectSvg = svgSerializer.borderElement(for: object) else {
+            throw StitchGenerationError.missingStitchSettings
+        }
+        return try await generate(objectSvg: objectSvg, stitchType: stitchType, canvasSize: canvasSize)
+    }
+
+    private func generate(objectSvg: String, stitchType: StitchType, canvasSize: CGSize) async throws -> [StitchPoint] {
         let result = try await bridge.send(
             command: "generate_stitches",
             payload: [
@@ -101,6 +115,16 @@ final class MockStitchGenerationService: StitchGenerationServicing {
 
     func generateStitches(for object: DesignObject, canvasSize: CGSize) async throws -> [StitchPoint] {
         guard object.stitchSettings != nil else {
+            throw StitchGenerationError.missingStitchSettings
+        }
+        if let errorToThrow {
+            throw errorToThrow
+        }
+        return stitchesToReturn
+    }
+
+    func generateBorderStitches(for object: DesignObject, canvasSize: CGSize) async throws -> [StitchPoint] {
+        guard object.borderStitchSettings != nil else {
             throw StitchGenerationError.missingStitchSettings
         }
         if let errorToThrow {

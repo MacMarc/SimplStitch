@@ -33,5 +33,8 @@ struct SimplStitchApp: App {
             ContentView(document: configuration.document)
         }
         .modelContainer(sharedModelContainer)
+        .commands {
+            SimplStitchCommands()
+        }
     }
 }

@@ -81,6 +81,12 @@ struct ContentView: View {
                     exportService: exportService
                 )
             }
+            // Macht canvasStore/die Sheet-Bindings für die Menüleiste erreichbar (SimplStitchCommands,
+            // Phase 8b) — .commands ist auf Scene-Ebene deklariert, hat also keinen direkten Zugriff
+            // auf pro-Fenster-Zustand.
+            .focusedSceneValue(\.canvasStore, canvasStore)
+            .focusedSceneValue(\.isExportDialogPresented, $isExportDialogPresented)
+            .focusedSceneValue(\.isLayersPanelPresented, $isLayersPanelPresented)
         }
     }
 }

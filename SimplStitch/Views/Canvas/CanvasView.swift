@@ -59,6 +59,9 @@ struct CanvasView: View {
                 .onAppear {
                     store.zoomToFit(viewportSize: proxy.size)
                 }
+                .focusedSceneValue(\.zoomToFitAction) {
+                    store.zoomToFit(viewportSize: proxy.size)
+                }
 
                 if let editingObject = store.editingTextObject {
                     textEditorOverlay(for: editingObject)

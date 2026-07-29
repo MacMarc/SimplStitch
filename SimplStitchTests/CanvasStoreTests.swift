@@ -543,6 +543,60 @@ struct CanvasStoreTests {
         #expect(!object.isLocked)
     }
 
+    @Test func deleteObjectRemovesItAndClearsSelectionIfSelected() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let object = makeRectangle(in: store)
+        #expect(store.selectedObjectID == object.id)
+
+        store.deleteObject(object.id)
+
+        #expect(store.objects.isEmpty)
+        #expect(store.selectedObjectID == nil)
+    }
+
+    @Test func deleteObjectLeavesSelectionUntouchedForOtherObjects() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let first = makeRectangle(in: store, from: CGPoint(x: 10, y: 10), to: CGPoint(x: 20, y: 20))
+        let second = makeRectangle(in: store, from: CGPoint(x: 40, y: 40), to: CGPoint(x: 50, y: 50))
+        #expect(store.selectedObjectID == second.id)
+
+        store.deleteObject(first.id)
+
+        #expect(store.objects.map(\.id) == [second.id])
+        #expect(store.selectedObjectID == second.id)
+    }
+
+    @Test func deleteSelectedObjectDeletesCurrentSelectionOnly() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        _ = makeRectangle(in: store, from: CGPoint(x: 10, y: 10), to: CGPoint(x: 20, y: 20))
+        let second = makeRectangle(in: store, from: CGPoint(x: 40, y: 40), to: CGPoint(x: 50, y: 50))
+
+        store.deleteSelectedObject()
+
+        #expect(store.objects.count == 1)
+        #expect(store.objects.first?.id != second.id)
+    }
+
+    @Test func deleteSelectedObjectDoesNothingWithoutSelection() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        _ = makeRectangle(in: store)
+        store.selectObject(nil)
+
+        store.deleteSelectedObject()
+
+        #expect(store.objects.count == 1)
+    }
+
+    @Test func deletingLockedObjectAlsoRemovesIt() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let object = makeRectangle(in: store)
+        store.toggleLock(of: object.id)
+
+        store.deleteObject(object.id)
+
+        #expect(store.objects.isEmpty)
+    }
+
     // MARK: Live-Stichvorschau (6e)
 
     @Test func selectingObjectWithStitchSettingsPopulatesStitchPreview() async throws {

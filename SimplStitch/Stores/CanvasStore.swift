@@ -631,6 +631,35 @@ final class CanvasStore {
         objects.first { $0.id == id }?.isLocked.toggle()
     }
 
+    /// Entfernt ein Objekt endgültig vom Canvas (Phase 8b, "Objekt löschen"-Menü/Toolbar-Aktion —
+    /// bislang gab es dafür noch keine Store-API). Bereinigt Selektion/Bearbeitungszustand, falls
+    /// sie sich auf das gelöschte Objekt bezogen. Gesperrte Objekte lassen sich bewusst löschen
+    /// (Sperre verhindert nur Verschieben/Skalieren/Drehen, siehe 5c/5e-Konvention).
+    func deleteObject(_ id: UUID) {
+        objects.removeAll { $0.id == id }
+        if selectedObjectID == id {
+            selectedObjectID = nil
+            stitchPreview = nil
+            stitchPreviewError = nil
+        }
+        if editingTextObjectID == id {
+            editingTextObjectID = nil
+        }
+        if activeObjectID == id {
+            activeObjectID = nil
+            activeHandle = nil
+            transformDragStartPoint = nil
+            transformDragSnapshot = nil
+        }
+    }
+
+    /// Löscht das aktuell selektierte Objekt, falls vorhanden — Komfort-Methode für Menü/Toolbar,
+    /// die keine explizite ID kennen (anders als das Ebenen-Panel, das pro Zeile eine ID hat).
+    func deleteSelectedObject() {
+        guard let id = selectedObjectID else { return }
+        deleteObject(id)
+    }
+
     // MARK: Live-Stichvorschau (6e)
 
     static let stitchPreviewDebounce: Duration = .milliseconds(250)

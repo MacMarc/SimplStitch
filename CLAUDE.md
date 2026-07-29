@@ -158,7 +158,14 @@ Text bleibt als `<text>`-Element im SVG erhalten (editierbar). Konvertierung zu 
   - Roundtrip-Test `SimplStitchTests/PythonBridgeTests.swift` grün: Dummy-Stichkoordinaten → VP3 schreiben → zurücklesen
   - **Scope-Hinweis:** InkStitch selbst (GPL-3.0, Stichgenerierung) ist kein pip-Paket und noch NICHT gebündelt — folgt als Vendored-Library in Phase 6, wenn `StitchGenerationService` es tatsächlich aufruft
   - `ENABLE_USER_SCRIPT_SANDBOXING = NO` gesetzt (Build-Phase braucht Netzwerkzugriff für den Download)
-- [ ] SwiftData Models
+- [x] SwiftData Models
+  - `DesignObject` als **eine** konkrete `@Model`-Klasse mit `kind`-Enum-Discriminator (circle/rectangle/star/path/text) statt echter Swift-Vererbung — SwiftData-Relationships/@Query über Subklassen sind noch fehleranfällig; erfüllt denselben Zweck als gemeinsame Basis für alle Canvas-Elemente
+  - `StitchSettings` (1:1 an `DesignObject`, cascade delete): `StitchType` (straight/satin/tatami), `density`, `angleDegrees`, `UnderlayType` (none/centerWalk/edgeWalk/zigzagNet)
+  - `ThreadColor` (RGB 0–255 + Hersteller/Katalognummer) 1:n in `ThreadPalette` (cascade delete)
+  - `StitchProject`: Wrapper-Metadaten fürs Document Package (`fileBookmarkData` statt reinem Pfad, da App Sandbox aktiv ist) + `objects: [DesignObject]` (cascade delete) — Quelle der Wahrheit für den Inhalt bleibt `content.svg` (Phase 4); die Relationship ist der In-App-Arbeitsstand
+  - `AppSettings`: bewusst ohne gespeicherte "zuletzt geöffnete Projekte"-Liste (keine Logic in Persistenz-Modellen) — das leitet ein Store später per `@Query` aus `StitchProject.lastOpenedAt` ab
+  - Schema in `SimplStitchApp.swift` registriert (alle 6 Typen)
+  - Tests `SimplStitchTests/SwiftDataModelsTests.swift`: Roundtrip inkl. Relationships sowie Cascade-Delete-Verhalten (Projekt → DesignObjects → StitchSettings, Palette → ThreadColors) — grün
 - [ ] Projektformat `.stitchdesign`
 - [ ] Canvas-Engine
 - [ ] Stichgenerierung

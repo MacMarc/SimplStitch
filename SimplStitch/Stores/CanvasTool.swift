@@ -41,4 +41,17 @@ enum CanvasTool: String, CaseIterable, Identifiable {
         case .text: return String(localized: "canvas.tool.text")
         }
     }
+
+    /// SF Symbol fürs Werkzeug — Toolbar (8c) und ggf. weitere Icon-Darstellungen teilen sich
+    /// diese eine Zuordnung, statt sie pro View zu duplizieren.
+    var systemImageName: String {
+        switch self {
+        case .select: return "cursorarrow"
+        case .rectangle: return "rectangle"
+        case .circle: return "circle"
+        case .star: return "star"
+        case .path: return "scribble"
+        case .text: return "character.cursor.ibeam"
+        }
+    }
 }

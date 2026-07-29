@@ -98,22 +98,6 @@
         }
       }
     },
-    "canvas.toolPicker.label": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Werkzeug"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tool"
-          }
-        }
-      }
-    },
     "detail.selectProject": {
       "extractionState": "stale",
       "localizations": {

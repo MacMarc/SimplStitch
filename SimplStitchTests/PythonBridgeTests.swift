@@ -96,4 +96,63 @@ struct PythonBridgeTests {
         }
         await bridge.stop()
     }
+
+    // Phase 7: generischer Multi-Format-Export mit Garnfarben, Formatwahl über die
+    // Dateiendung (write_embroidery dispatcht via pyembroidery.write, siehe bridge.py).
+    //
+    // Empirischer Befund: exaktes RGB-Roundtrip gilt nicht für alle Formate — VP3 speichert
+    // die exakte Farbe, PES/JEF runden dagegen auf die nächste Farbe der Marken-eigenen
+    // Fadenkarte (z.B. 255,0,0 → 237,23,31 "Red" bei PES), und EXP/DST kennen gar keine
+    // Farbinformation im Format (threadlist bleibt beim Zurücklesen leer). Dieser Test nutzt
+    // daher VP3, wo Roundtrip-Exaktheit tatsächlich zutrifft.
+    @Test func writeEmbroideryRoundtripWithThreads() async throws {
+        let bridge = PythonBridge()
+
+        let stitches: [[Any]] = [
+            [0, 0, 0],
+            [10, 0, 0],
+            [10, 0, 5], // COLOR_CHANGE
+            [10, 10, 0],
+            [0, 10, 0],
+        ]
+        let threads: [[String: Any]] = [
+            ["red": 255, "green": 0, "blue": 0, "name": "Red"],
+            ["red": 0, "green": 255, "blue": 0, "name": "Green"],
+        ]
+
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("vp3")
+        defer { try? FileManager.default.removeItem(at: outputURL) }
+
+        let writeResult = try await bridge.send(
+            command: "write_embroidery",
+            payload: ["stitches": stitches, "threads": threads, "outputPath": outputURL.path]
+        )
+        #expect((writeResult["colorCount"] as? Int) == 2)
+        #expect(FileManager.default.fileExists(atPath: outputURL.path))
+
+        let readResult = try await bridge.send(command: "read_embroidery", payload: ["inputPath": outputURL.path])
+        let readThreads = try #require(readResult["threads"] as? [[String: Any]])
+        #expect(readThreads.count == 2)
+        #expect(readThreads[0]["red"] as? Int == 255)
+        #expect(readThreads[1]["green"] as? Int == 255)
+
+        await bridge.stop()
+    }
+
+    @Test func writeEmbroideryUnsupportedExtensionThrows() async throws {
+        let bridge = PythonBridge()
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("vip")
+
+        await #expect(throws: PythonBridgeError.self) {
+            try await bridge.send(
+                command: "write_embroidery",
+                payload: ["stitches": [[0, 0, 0], [1, 1, 4]], "threads": [], "outputPath": outputURL.path]
+            )
+        }
+        await bridge.stop()
+    }
 }

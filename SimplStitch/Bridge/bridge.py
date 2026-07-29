@@ -17,6 +17,7 @@ import json
 import os
 import sys
 import traceback
+import unicodedata
 
 # inkstitch_lib liegt als Geschwisterordner neben bridge.py (Contents/Resources/,
 # siehe Scripts/bundle_python.sh) und muss als Package "lib" auflösbar sein —
@@ -53,7 +54,82 @@ def cmd_read_embroidery(payload):
         raise ValueError(f"Konnte Datei nicht lesen (unbekanntes Format?): {input_path}")
 
     stitches = [[s[0], s[1], s[2]] for s in pattern.stitches]
-    return {"stitches": stitches}
+    threads = [_thread_to_dict(thread) for thread in pattern.threadlist]
+    return {"stitches": stitches, "threads": threads}
+
+
+def _thread_to_dict(thread):
+    return {
+        "red": thread.get_red(),
+        "green": thread.get_green(),
+        "blue": thread.get_blue(),
+        "name": thread.description,
+        "catalogNumber": thread.catalog_number,
+    }
+
+
+def cmd_write_embroidery(payload):
+    """Generischer Multi-Format-Export (Phase 7): Formatwahl läuft über die
+    Dateiendung von outputPath (pyembroidery.write dispatcht selbst), nicht über
+    einen eigenen Format-Parameter — deckt alle von pyembroidery unterstützten
+    Schreib-Formate ab (u.a. vp3/pes/jef/exp/dst), ohne pro Format eine eigene
+    Bridge-Funktion zu brauchen.
+
+    Payload: {"stitches": [[x_mm, y_mm, command], ...], "threads": [{"red",
+    "green", "blue", "name"?, "catalogNumber"?}, ...], "outputPath"}. `threads[i]`
+    entspricht dem i-ten Farbblock (durch COLOR_CHANGE-Stiche getrennt) — dieselbe
+    Zuordnung wie pyembroidery.EmbPattern.get_as_colorblocks.
+    """
+    import pyembroidery
+
+    stitches = payload["stitches"]
+    threads = payload.get("threads", [])
+    output_path = payload["outputPath"]
+
+    pattern = pyembroidery.EmbPattern()
+    for thread in threads:
+        pattern.add_thread(
+            {
+                "color": (thread["red"], thread["green"], thread["blue"]),
+                "description": _ascii_safe_thread_text(thread.get("name")),
+                "catalog": _ascii_safe_thread_text(thread.get("catalogNumber")),
+            }
+        )
+    for x, y, command in stitches:
+        pattern.add_stitch_absolute(command, x, y)
+    pattern.end()
+
+    pyembroidery.write(pattern, output_path)
+
+    return {
+        "writtenPath": output_path,
+        "stitchCount": pattern.count_stitches(),
+        "colorCount": max(pattern.count_color_changes() + 1, pattern.count_threads()),
+    }
+
+
+_GERMAN_TRANSLITERATION = str.maketrans(
+    {"ä": "ae", "ö": "oe", "ü": "ue", "Ä": "Ae", "Ö": "Oe", "Ü": "Ue", "ß": "ss"}
+)
+
+
+def _ascii_safe_thread_text(text):
+    """Transliteriert Garnnamen/Katalognummern auf reines ASCII.
+
+    Empirischer Befund: pyembroiderys VP3Writer schreibt die Byte-Länge eines
+    Fadennamens anhand von Pythons `len()` (Zeichenanzahl), nicht der tatsächlichen
+    UTF-8-Byte-Länge. Bei Umlauten (z.B. "Grün", 4 Zeichen aber 5 UTF-8-Bytes)
+    verschiebt das nachfolgende Binärfelder um die Differenz — die Datei liest
+    sich danach nicht mehr zurück ("read length must be non-negative or -1").
+    Für ein DE/EN-lokalisiertes Garnnamen-Vokabular (Grün, Türkis, Rosé, …) ist
+    das kein Rand-, sondern ein Regelfall — daher hier vorsorglich für alle
+    Zielformate transliteriert, nicht nur für das VP3, an dem der Fehler
+    gefunden wurde.
+    """
+    if not text:
+        return text
+    text = text.translate(_GERMAN_TRANSLITERATION)
+    return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
 
 
 _STITCH_ELEMENT_CLASSES = None  # lazy: importiert erst bei erstem generate_stitches-Aufruf
@@ -138,6 +214,7 @@ COMMANDS = {
     "write_vp3": cmd_write_vp3,
     "read_embroidery": cmd_read_embroidery,
     "generate_stitches": cmd_generate_stitches,
+    "write_embroidery": cmd_write_embroidery,
 }
 
 

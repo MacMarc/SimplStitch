@@ -12,6 +12,12 @@ struct ContentView: View {
     // Platzhalter-Canvasgrösse, bis Phase 8 ein echtes Projekt via DocumentGroup öffnet.
     @State private var canvasStore = CanvasStore(canvasSizeMillimeters: CGSize(width: 130, height: 180))
     @State private var isLayersPanelPresented = true
+    @State private var isExportDialogPresented = false
+    // Eigener Subprocess statt canvasStores internem — der ist private (siehe CanvasStore-Kommentar
+    // zu "ein PythonBridge-Subprocess pro CanvasStore reicht"). Einmalig hier gehalten (nicht pro
+    // Sheet-Präsentation neu erzeugt), sonst würde jedes Öffnen des Export-Dialogs einen weiteren,
+    // nie beendeten Subprocess starten.
+    @State private var exportService = FileExportService(bridge: PythonBridge())
 
     var body: some View {
         NavigationSplitView {
@@ -49,10 +55,25 @@ struct ContentView: View {
                         Label("layers.panel.toggle", systemImage: "square.3.layers.3d")
                     }
                 }
+                // Platzhalter-Export-Button, bis Phase 8 die echte Menü-/Toolbar-Verdrahtung bringt.
+                ToolbarItem {
+                    Button {
+                        isExportDialogPresented = true
+                    } label: {
+                        Label("export.toolbar.button", systemImage: "square.and.arrow.up")
+                    }
+                }
             }
             .inspector(isPresented: $isLayersPanelPresented) {
                 LayersPanelView(store: canvasStore)
                     .inspectorColumnWidth(min: 200, ideal: 240)
+            }
+            .sheet(isPresented: $isExportDialogPresented) {
+                ExportDialogView(
+                    objects: canvasStore.objects,
+                    canvasSize: canvasStore.canvasSizeMillimeters,
+                    exportService: exportService
+                )
             }
         }
     }

@@ -258,7 +258,9 @@ final class CanvasStore {
         if kind == .star {
             object.starPointCount = 5
         }
-        assignDefaultStitchSettings(to: object, stitchType: .tatami)
+        // Issue #11: Stichtyp wird anhand der Geometrie vorgeschlagen (schmal+länglich -> Satin,
+        // sonst Tatami-Füllung), statt immer fest Tatami zu setzen — im Inspector überschreibbar.
+        assignDefaultStitchSettings(to: object, stitchType: StitchType.suggested(forShapeWidth: rect.width, height: rect.height))
         return object
     }
 
@@ -633,6 +635,7 @@ final class CanvasStore {
 
     private enum ActiveTransform {
         case single(objectID: UUID, snapshot: TransformSnapshot)
+        case skew(objectID: UUID, snapshot: TransformSnapshot)
         case group(GroupTransformSnapshot)
     }
 
@@ -656,6 +659,18 @@ final class CanvasStore {
         activeHandle = handle
         transformDragStartPoint = point
         activeTransform = .single(objectID: object.id, snapshot: TransformSnapshot(object: object))
+    }
+
+    /// Startet einen Verzerren-Drag (Issue #9) — ⌥+Drag auf einem Kanten-Griff (nicht Ecke) verzerrt
+    /// statt zu skalieren (siehe `CanvasHandleKind.isEdgeHandle`). Bewusst nur für Einzelobjekte:
+    /// eine Gruppe als Ganzes zu verzerren wäre ein deutlich grösserer geometrischer Schritt (siehe
+    /// dieselbe Vereinfachung bei `applyGroupResize`) und ist nicht Teil dieses Schritts.
+    func beginSkewDrag(object: DesignObject, handle: CanvasHandleKind, atDesignPoint point: CGPoint) {
+        selectedObjectIDs = [object.id]
+        guard handle.isEdgeHandle, !object.isLocked else { return }
+        activeHandle = handle
+        transformDragStartPoint = point
+        activeTransform = .skew(objectID: object.id, snapshot: TransformSnapshot(object: object))
     }
 
     /// Startet einen Griff-Drag auf dem Gruppenrahmen der aktuell selektierten Gruppe
@@ -688,6 +703,9 @@ final class CanvasStore {
             default:
                 applyResize(to: object, handle: handle, snapshot: snapshot, dragPoint: point)
             }
+        case .skew(let objectID, let snapshot):
+            guard let object = objects.first(where: { $0.id == objectID }), let handle = activeHandle else { return }
+            applySkew(to: object, handle: handle, snapshot: snapshot, dragPoint: point)
         case .group(let snapshot):
             guard let handle = activeHandle else {
                 applyGroupMove(snapshot: snapshot, start: start, dragPoint: point)
@@ -862,6 +880,45 @@ final class CanvasStore {
         object.cornerRadius = min(max(radius, 0), maxRadius)
     }
 
+    static let maxSkewDegrees: Double = 75
+
+    /// Verzerren (Issue #9): die Verschiebung des gegriffenen Kanten-Griffs relativ zur Objektmitte
+    /// (im unrotierten lokalen Raum, `snapshot.rotationDegrees` bereits herausgerechnet) wird über
+    /// `atan2` in einen Scherwinkel umgerechnet — Bezugsgrösse ist die halbe Breite/Höhe, damit der
+    /// Winkel unabhängig von der Objektgrösse vergleichbar bleibt. `handle.resizeSign` bestimmt das
+    /// Vorzeichen: ein Griff auf der "negativen" Seite (top: y=-halfH, left: x=-halfW) braucht den
+    /// negierten Versatz, damit der Griff dem Mauszeiger tatsächlich folgt — das Vorzeichen muss
+    /// exakt zur Scher-Matrix in `DesignObjectPath.visualTransform` passen (x' = x + y·tanX für
+    /// top/bottom, y' = y + x·tanY für left/right).
+    ///
+    /// Vereinfachung: nutzt wie `applyResize`/`applyRotation` weiterhin nur `rotationDegrees` für
+    /// die lokale Rückrechnung — ein bereits verzerrtes Objekt (`skewXDegrees`/`skewYDegrees` != 0)
+    /// nachträglich per Ecken-/Rotations-Griff zu skalieren/drehen bleibt dadurch eine Annäherung
+    /// (dieselbe Art Vereinfachung wie bei `applyGroupResize`), die eigentliche Verzerren-Geste
+    /// selbst ist davon nicht betroffen (sie setzt `skewXDegrees`/`skewYDegrees` direkt neu).
+    private func applySkew(to object: DesignObject, handle: CanvasHandleKind, snapshot: TransformSnapshot, dragPoint: CGPoint) {
+        guard let sign = handle.resizeSign else { return }
+        let center = CGPoint(x: snapshot.positionX + snapshot.width / 2, y: snapshot.positionY + snapshot.height / 2)
+        let local = Self.localDesignVector(dragPoint, center: center, rotationDegrees: snapshot.rotationDegrees)
+
+        switch handle {
+        case .top, .bottom:
+            guard snapshot.height > 0 else { return }
+            let angle = atan2(local.x * sign.y, snapshot.height / 2) * 180 / .pi
+            object.skewXDegrees = Self.clampSkew(angle)
+        case .left, .right:
+            guard snapshot.width > 0 else { return }
+            let angle = atan2(local.y * sign.x, snapshot.width / 2) * 180 / .pi
+            object.skewYDegrees = Self.clampSkew(angle)
+        default:
+            break
+        }
+    }
+
+    private static func clampSkew(_ degrees: Double) -> Double {
+        min(max(degrees, -maxSkewDegrees), maxSkewDegrees)
+    }
+
     private static func center(of object: DesignObject) -> CGPoint {
         CGPoint(x: object.positionX + object.width / 2, y: object.positionY + object.height / 2)
     }
@@ -995,6 +1052,7 @@ final class CanvasStore {
     private func isPartOfActiveTransform(_ id: UUID) -> Bool {
         switch activeTransform {
         case .single(let objectID, _): return objectID == id
+        case .skew(let objectID, _): return objectID == id
         case .group(let snapshot): return snapshot.memberSnapshots[id] != nil
         case nil: return false
         }

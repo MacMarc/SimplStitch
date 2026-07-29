@@ -387,6 +387,7 @@
         }
       }
     },
+    "H": {},
     "import.object.defaultName": {
       "localizations": {
         "de": {
@@ -399,6 +400,86 @@
           "stringUnit": {
             "state": "translated",
             "value": "Imported Pattern"
+          }
+        }
+      }
+    },
+    "inspector.color.current": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktuelle Farbe"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current Color"
+          }
+        }
+      }
+    },
+    "inspector.color.noPalettes": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Garnlisten vorhanden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No thread palettes available."
+          }
+        }
+      }
+    },
+    "inspector.color.palette": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garnliste"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thread Palette"
+          }
+        }
+      }
+    },
+    "inspector.color.pickPlaceholder": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garnfarbe wählen…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose thread color…"
+          }
+        }
+      }
+    },
+    "inspector.color.thread": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garnfarbe"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thread Color"
           }
         }
       }
@@ -1491,82 +1572,37 @@
         }
       }
     },
-    "inspector.color.current": {
+    "W": {},
+    "X": {},
+    "Y": {},
+    "inspector.object.skewX": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aktuelle Farbe"
+            "value": "Verzerren X"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Current Color"
+            "value": "Skew X"
           }
         }
       }
     },
-    "inspector.color.palette": {
+    "inspector.object.skewY": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Garnliste"
+            "value": "Verzerren Y"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Thread Palette"
-          }
-        }
-      }
-    },
-    "inspector.color.thread": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Garnfarbe"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Thread Color"
-          }
-        }
-      }
-    },
-    "inspector.color.pickPlaceholder": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Garnfarbe wählen…"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose thread color…"
-          }
-        }
-      }
-    },
-    "inspector.color.noPalettes": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keine Garnlisten vorhanden."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No thread palettes available."
+            "value": "Skew Y"
           }
         }
       }

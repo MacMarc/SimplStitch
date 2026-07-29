@@ -32,4 +32,15 @@ enum CanvasHandleKind: Hashable {
         case .rotate, .cornerRadius: return nil
         }
     }
+
+    /// Nur die vier Kanten-Griffe (nicht Ecken/Rotation/Eckenradius) haben beim Verzerren
+    /// (Issue #9, ⌥+Drag) einen eindeutigen Achsenbezug — oben/unten verändert `skewXDegrees`
+    /// (horizontale Scherung), links/rechts `skewYDegrees` (vertikale Scherung). Eine Ecke müsste
+    /// beide Achsen gleichzeitig bedienen, das ist als Geste nicht eindeutig genug.
+    var isEdgeHandle: Bool {
+        switch self {
+        case .top, .bottom, .left, .right: return true
+        default: return false
+        }
+    }
 }

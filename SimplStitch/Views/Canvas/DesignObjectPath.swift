@@ -15,14 +15,25 @@
 import SwiftUI
 
 extension DesignObject {
-    /// Bringt den unrotierten `designSpacePath()` auf die sichtbare, um die Objektmitte gedrehte Ausrichtung
-    /// (`rotationDegrees`) — dieselbe Rotationskonvention wie `CanvasStore`s Hit-Testing/Handle-Platzierung.
-    var rotationTransform: CGAffineTransform {
-        guard rotationDegrees != 0 else { return .identity }
+    /// Bringt den unrotierten/unverzerrten `designSpacePath()` auf die sichtbare Ausrichtung: erst
+    /// Scherung (`skewXDegrees`/`skewYDegrees`, Issue #9), dann Rotation (`rotationDegrees`), beides
+    /// um die Objektmitte — dieselbe Konvention wie `CanvasStore`s Hit-Testing/Handle-Platzierung
+    /// (dort bewusst weiterhin nur rotationsbasiert zurückgerechnet, siehe CanvasStore-Kommentar zu
+    /// `applySkew`/`localDesignVector`). Hiess bis Issue #9 `rotationTransform` — umbenannt, weil sie
+    /// jetzt mehr als nur Rotation ausdrückt.
+    var visualTransform: CGAffineTransform {
+        guard rotationDegrees != 0 || skewXDegrees != 0 || skewYDegrees != 0 else { return .identity }
         let center = CGPoint(x: positionX + width / 2, y: positionY + height / 2)
-        return CGAffineTransform(translationX: -center.x, y: -center.y)
-            .concatenating(CGAffineTransform(rotationAngle: rotationDegrees * .pi / 180))
-            .concatenating(CGAffineTransform(translationX: center.x, y: center.y))
+        var transform = CGAffineTransform(translationX: -center.x, y: -center.y)
+        if skewXDegrees != 0 || skewYDegrees != 0 {
+            let tanX = tan(skewXDegrees * .pi / 180)
+            let tanY = tan(skewYDegrees * .pi / 180)
+            transform = transform.concatenating(CGAffineTransform(a: 1, b: tanY, c: tanX, d: 1, tx: 0, ty: 0))
+        }
+        if rotationDegrees != 0 {
+            transform = transform.concatenating(CGAffineTransform(rotationAngle: rotationDegrees * .pi / 180))
+        }
+        return transform.concatenating(CGAffineTransform(translationX: center.x, y: center.y))
     }
 
     func designSpacePath() -> Path {

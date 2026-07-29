@@ -193,12 +193,16 @@ struct CanvasView: View {
     /// Entscheidet anhand des Trefferpunkts (View-Koordinaten) beim Gestenstart, was die laufende
     /// Geste bewirken soll — inkl. der dafür nötigen Store-Seiteneffekte (Selektieren, Drag starten).
     /// Shift ist der Modifier für Mehrfachauswahl (Objekt-Toggle bzw. Gummiband, siehe Klassenkommentar).
+    /// ⌥ (Option) auf einem Kanten-Griff des selektierten Einzelobjekts verzerrt statt zu skalieren
+    /// (Issue #9) — nur für Einzelobjekte, nicht für eine selektierte Gruppe (siehe
+    /// `CanvasStore.beginSkewDrag`-Kommentar).
     private func beginSelectionInteraction(atViewPoint viewPoint: CGPoint) -> SelectionDragState.Mode {
         if store.editingTextObject != nil {
             store.endEditingText()
         }
         let designPoint = store.designPoint(fromView: viewPoint)
         let shiftHeld = NSEvent.modifierFlags.contains(.shift)
+        let optionHeld = NSEvent.modifierFlags.contains(.option)
 
         if !shiftHeld, let groupBounds = store.selectedGroupBounds,
            let handle = store.handle(atDesignPoint: designPoint, forGroupBounds: groupBounds) {
@@ -208,7 +212,11 @@ struct CanvasView: View {
 
         if !shiftHeld, let selected = store.selectedObject, !selected.isLocked,
            let handle = store.handle(atDesignPoint: designPoint, for: selected) {
-            store.beginTransformDrag(object: selected, handle: handle, atDesignPoint: designPoint)
+            if optionHeld, handle.isEdgeHandle {
+                store.beginSkewDrag(object: selected, handle: handle, atDesignPoint: designPoint)
+            } else {
+                store.beginTransformDrag(object: selected, handle: handle, atDesignPoint: designPoint)
+            }
             return .handle(handle)
         }
 
@@ -299,10 +307,10 @@ struct CanvasView: View {
             let color = Color(cgColor: CGColor.fromHex(object.fillColorHex) ?? CGColor(gray: 0, alpha: 1))
             switch object.kind {
             case .rectangle, .circle, .star:
-                let path = object.designSpacePath().applying(object.rotationTransform)
+                let path = object.designSpacePath().applying(object.visualTransform)
                 objectContext.fill(path, with: .color(color))
             case .path:
-                let path = object.designSpacePath().applying(object.rotationTransform)
+                let path = object.designSpacePath().applying(object.visualTransform)
                 objectContext.stroke(path, with: .color(color), lineWidth: 0.3)
             case .text:
                 drawText(object, color: color, in: context)
@@ -312,11 +320,11 @@ struct CanvasView: View {
 
     /// Text wird nicht als `Path` gerendert, sondern über `GraphicsContext.draw(Text:at:)` — die
     /// Rotation kommt daher zusätzlich in die Context-Transform statt in den Pfad (siehe
-    /// DesignObjectPath.rotationTransform für dieselbe Rotationskonvention als Pfad-Transform).
+    /// DesignObjectPath.visualTransform für dieselbe Rotationskonvention als Pfad-Transform).
     private func drawText(_ object: DesignObject, color: Color, in context: GraphicsContext) {
         guard let string = object.text, !string.isEmpty, object.id != store.editingTextObject?.id else { return }
         var textContext = context
-        textContext.transform = object.rotationTransform.concatenating(designToViewTransform)
+        textContext.transform = object.visualTransform.concatenating(designToViewTransform)
         let fontSize = object.fontSize ?? CanvasStore.defaultTextFontSize
         let font = Font.custom(object.fontName ?? "Helvetica", size: fontSize)
         let text = Text(string).font(font).foregroundColor(color)
@@ -401,7 +409,7 @@ struct CanvasView: View {
             // PowerPoint, wo eine Gruppenselektion beides gleichzeitig zeigt.
             for member in store.selectedObjects where member.isVisible {
                 let memberBounds = CGRect(x: member.positionX, y: member.positionY, width: member.width, height: member.height)
-                let memberPath = Path(memberBounds).applying(member.rotationTransform)
+                let memberPath = Path(memberBounds).applying(member.visualTransform)
                 outlineContext.stroke(memberPath, with: .color(.accentColor.opacity(0.5)), style: StrokeStyle(lineWidth: 0.25, dash: [0.8, 0.6]))
             }
             outlineContext.stroke(Path(groupBounds), with: .color(.accentColor), style: style)
@@ -413,7 +421,7 @@ struct CanvasView: View {
             // vor) — Vereinfachung: nur Einzelkonturen, keine gemeinsamen Griffe (siehe CanvasStore).
             for object in store.selectedObjects where object.isVisible {
                 let bounds = CGRect(x: object.positionX, y: object.positionY, width: object.width, height: object.height)
-                let path = Path(bounds).applying(object.rotationTransform)
+                let path = Path(bounds).applying(object.visualTransform)
                 outlineContext.stroke(path, with: .color(.accentColor), style: style)
             }
             return
@@ -421,7 +429,7 @@ struct CanvasView: View {
 
         guard let selected = store.selectedObject, selected.isVisible else { return }
         let bounds = CGRect(x: selected.positionX, y: selected.positionY, width: selected.width, height: selected.height)
-        let path = Path(bounds).applying(selected.rotationTransform)
+        let path = Path(bounds).applying(selected.visualTransform)
         outlineContext.stroke(path, with: .color(.accentColor), style: style)
     }
 

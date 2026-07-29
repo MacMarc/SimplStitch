@@ -122,6 +122,19 @@ struct CanvasStoreTests {
         #expect(created?.stitchSettings?.stitchType == .tatami)
     }
 
+    /// Issue #11: schmale/längliche Rechtecke bekommen automatisch Satin statt Tatami vorgeschlagen
+    /// (siehe StitchSettingsTests für die reine Heuristik) — hier die tatsächliche Verdrahtung in
+    /// CanvasStore.makeShapeObject.
+    @Test func draggingNarrowElongatedRectangleSuggestsSatin() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        store.selectTool(.rectangle)
+        store.beginDraft(atDesignPoint: CGPoint(x: 0, y: 0))
+        store.updateDraft(toDesignPoint: CGPoint(x: 30, y: 3))
+        let created = store.commitDraft()
+
+        #expect(created?.stitchSettings?.stitchType == .satin)
+    }
+
     @Test func draggingBelowMinimumSizeCreatesNoObject() {
         let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
         store.selectTool(.rectangle)
@@ -319,6 +332,71 @@ struct CanvasStoreTests {
         store.updateTransformDrag(toDesignPoint: CGPoint(x: 999, y: 10))
         store.endTransformDrag()
         #expect(abs(object.cornerRadius - 10) < 0.0001) // geklemmt auf min(width,height)/2
+    }
+
+    // MARK: Verzerren (Issue #9)
+
+    /// Rechteck (0,0)-(10,10), Mitte (5,5) — Top-Griff sitzt unrotiert bei (5,0). Dragt man ihn nach
+    /// rechts, muss der sichtbare Top-Mittelpunkt (per `visualTransform`) dem Mauszeiger folgen.
+    @Test func skewDragOnTopHandleMovesVisibleTopEdgeTowardsDragDirection() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let object = makeRectangle(in: store, from: CGPoint(x: 0, y: 0), to: CGPoint(x: 10, y: 10))
+
+        store.beginSkewDrag(object: object, handle: .top, atDesignPoint: CGPoint(x: 5, y: 0))
+        store.updateTransformDrag(toDesignPoint: CGPoint(x: 10, y: 0))
+        store.endTransformDrag()
+
+        #expect(abs(object.skewXDegrees - (-45)) < 0.01)
+        #expect(object.skewYDegrees == 0)
+
+        let visibleTopCenter = CGPoint(x: 5, y: 0).applying(object.visualTransform)
+        #expect(abs(visibleTopCenter.x - 10) < 0.01)
+        #expect(abs(visibleTopCenter.y - 0) < 0.01)
+    }
+
+    @Test func skewDragOnRightHandleSetsSkewY() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let object = makeRectangle(in: store, from: CGPoint(x: 0, y: 0), to: CGPoint(x: 10, y: 10))
+
+        store.beginSkewDrag(object: object, handle: .right, atDesignPoint: CGPoint(x: 10, y: 5))
+        store.updateTransformDrag(toDesignPoint: CGPoint(x: 10, y: 10))
+        store.endTransformDrag()
+
+        #expect(abs(object.skewYDegrees - 45) < 0.01)
+        #expect(object.skewXDegrees == 0)
+    }
+
+    @Test func skewDragIgnoresCornerAndRotateHandles() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let object = makeRectangle(in: store, from: CGPoint(x: 0, y: 0), to: CGPoint(x: 10, y: 10))
+
+        store.beginSkewDrag(object: object, handle: .topLeft, atDesignPoint: CGPoint(x: 0, y: 0))
+        store.updateTransformDrag(toDesignPoint: CGPoint(x: 20, y: 20))
+
+        #expect(object.skewXDegrees == 0)
+        #expect(object.skewYDegrees == 0)
+        #expect(store.selectedObjectID == object.id) // Selektion passiert trotzdem.
+    }
+
+    @Test func skewDragIgnoresLockedObject() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let object = makeRectangle(in: store, from: CGPoint(x: 0, y: 0), to: CGPoint(x: 10, y: 10))
+        object.isLocked = true
+
+        store.beginSkewDrag(object: object, handle: .top, atDesignPoint: CGPoint(x: 5, y: 0))
+        store.updateTransformDrag(toDesignPoint: CGPoint(x: 10, y: 0))
+
+        #expect(object.skewXDegrees == 0)
+    }
+
+    @Test func skewIsClampedToMaxDegrees() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 200, height: 200))
+        let object = makeRectangle(in: store, from: CGPoint(x: 0, y: 0), to: CGPoint(x: 10, y: 10))
+
+        store.beginSkewDrag(object: object, handle: .right, atDesignPoint: CGPoint(x: 10, y: 5))
+        store.updateTransformDrag(toDesignPoint: CGPoint(x: 10, y: 1000))
+
+        #expect(object.skewYDegrees == CanvasStore.maxSkewDegrees)
     }
 
     @Test func lockedObjectIgnoresTransformDrag() {

@@ -7,11 +7,10 @@
 //  (inkl. der dort noch fehlenden Unterlage-Auswahl). Drei Sektionen:
 //  Objekt-Eigenschaften (Transform), Farbe, Sticheinstellungen.
 //
-//  Vereinfachung: Verzerren (Skew) hat trotz vorhandener Modellfelder
-//  (skewXDegrees/skewYDegrees) bewusst kein Eingabefeld — es gibt weiterhin
-//  keinen interaktiven Griff dafür und auch das Rendering wendet es nicht an
-//  (Scope-Hinweis seit 5c), ein Zahlenfeld ohne sichtbare Wirkung wäre
-//  irreführend.
+//  Verzerren (Issue #9): skewXDegrees/skewYDegrees haben jetzt sowohl einen interaktiven Griff
+//  (⌥+Drag auf einem Kanten-Griff, CanvasStore.beginSkewDrag) als auch Rendering
+//  (DesignObjectPath.visualTransform) — die früher bewusst fehlenden Eingabefelder sind daher
+//  nachgeholt (zwei Slider, analog zur Rotation).
 //
 //  Farbe (Issue #13): kein freier ColorPicker mehr — gestickt werden kann nur, was als Garn in
 //  einer Garnliste vorhanden ist. Die Sektion ist daher ein zweistufiger Picker (Garnliste, dann
@@ -56,6 +55,12 @@ struct ObjectInspectorView: View {
                 }
                 LabeledContent("inspector.object.rotation") {
                     Slider(value: rotationBinding, in: 0...360)
+                }
+                LabeledContent("inspector.object.skewX") {
+                    Slider(value: skewXBinding, in: -CanvasStore.maxSkewDegrees...CanvasStore.maxSkewDegrees)
+                }
+                LabeledContent("inspector.object.skewY") {
+                    Slider(value: skewYBinding, in: -CanvasStore.maxSkewDegrees...CanvasStore.maxSkewDegrees)
                 }
                 if object.kind == .rectangle {
                     LabeledContent("inspector.object.cornerRadius") {
@@ -158,6 +163,14 @@ struct ObjectInspectorView: View {
 
     private var rotationBinding: Binding<Double> {
         Binding(get: { object.rotationDegrees }, set: { object.rotationDegrees = $0; store.refreshStitchPreview() })
+    }
+
+    private var skewXBinding: Binding<Double> {
+        Binding(get: { object.skewXDegrees }, set: { object.skewXDegrees = $0; store.refreshStitchPreview() })
+    }
+
+    private var skewYBinding: Binding<Double> {
+        Binding(get: { object.skewYDegrees }, set: { object.skewYDegrees = $0; store.refreshStitchPreview() })
     }
 
     private var maxCornerRadius: Double {

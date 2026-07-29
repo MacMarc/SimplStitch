@@ -287,5 +287,6 @@ Text bleibt als `<text>`-Element im SVG erhalten (editierbar). Konvertierung zu 
     - Ebenen-Panel-Toggle und Export-Button (beide seit 6e/7 vorhanden) ebenfalls auf `.labelStyle(.titleAndIcon)` umgestellt, für dieselbe garantierte Icon+Text-Darstellung; bleiben bei schmalem Fenster im nativen NSToolbar-Overflow-Menü (">>"), das Icon+Text dort ebenfalls beibehält
     - Keine neuen Unit-Tests (reine Toolbar-/Layout-Änderung, keine neue Store-Logik) — bestehende Suite bleibt grün (92 Tests)
     - Visuell verifiziert (`run-and-screenshot`-Skill): alle 6 Werkzeuge zeigen Icon+Text in der Toolbar, aktives Werkzeug ist als gefüllter blauer Button klar erkennbar und wechselt korrekt beim Anklicken eines anderen Werkzeugs; Overflow-Menü (bei schmalem Fenster) zeigt Ebenen-Panel/Exportieren ebenfalls mit Icon+Text
+    - **Offener Umbau (User-Feedback nach Visualcheck):** der aktuelle Stil (Icon+Text nebeneinander in `.bordered`/`.borderedProminent`-Kapseln) gefällt nicht — soll stattdessen wie in Apple Mail aussehen: runde Buttons mit kleinerem Text darunter. Betrifft `ContentView.toolButton(for:)`. Noch nicht umgesetzt
 - [ ] Apple Intelligence Integration
 - [ ] Release-Pipeline (Notarisierung, GitHub Actions)

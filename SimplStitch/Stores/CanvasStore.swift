@@ -295,7 +295,7 @@ final class CanvasStore {
 
     /// Oberstes sichtbares Objekt unter dem gegebenen Punkt (Design-Koordinaten), oder nil.
     func object(atDesignPoint point: CGPoint) -> DesignObject? {
-        for object in objects.sorted(by: { $0.zIndex > $1.zIndex }) where object.isVisible {
+        for object in objectsFrontToBack where object.isVisible {
             let local = Self.localDesignPoint(point, in: object)
             if Self.objectContains(object, localPoint: local) {
                 return object
@@ -524,5 +524,59 @@ final class CanvasStore {
                 selectedObjectID = nil
             }
         }
+    }
+
+    // MARK: Ebenen & Z-Order (5e)
+
+    /// Objekte in Ebenen-Reihenfolge, oberstes (vorderstes) zuerst — wie in einem Ebenen-Panel üblich.
+    /// Höherer `zIndex` liegt weiter vorne.
+    var objectsFrontToBack: [DesignObject] {
+        objects.sorted { $0.zIndex > $1.zIndex }
+    }
+
+    enum ZOrderMove {
+        case toFront, forward, backward, toBack
+    }
+
+    /// Verschiebt ein Objekt in der Ebenen-Reihenfolge und ordnet danach alle `zIndex`-Werte lückenlos
+    /// von hinten (0) nach vorne neu. Funktioniert auch für gesperrte Objekte — `isLocked` verhindert
+    /// nur Verschieben/Skalieren/Drehen auf dem Canvas, nicht das Umsortieren der Ebenen.
+    func moveObject(_ id: UUID, _ move: ZOrderMove) {
+        var ordered = objectsFrontToBack
+        guard let currentIndex = ordered.firstIndex(where: { $0.id == id }) else { return }
+        let object = ordered.remove(at: currentIndex)
+
+        let newIndex: Int
+        switch move {
+        case .toFront: newIndex = 0
+        case .forward: newIndex = max(0, currentIndex - 1)
+        case .backward: newIndex = min(ordered.count, currentIndex + 1)
+        case .toBack: newIndex = ordered.count
+        }
+        ordered.insert(object, at: newIndex)
+        reassignZIndices(frontToBack: ordered)
+    }
+
+    /// Für Drag-Umsortierung im Ebenen-Panel (`List.onMove`) — Offsets/Zielindex beziehen sich auf
+    /// dieselbe vorne-nach-hinten-Reihenfolge wie `objectsFrontToBack`.
+    func reorderObjects(fromFrontToBackOffsets offsets: IndexSet, toFrontToBackOffset destination: Int) {
+        var ordered = objectsFrontToBack
+        ordered.move(fromOffsets: offsets, toOffset: destination)
+        reassignZIndices(frontToBack: ordered)
+    }
+
+    private func reassignZIndices(frontToBack ordered: [DesignObject]) {
+        let count = ordered.count
+        for (index, object) in ordered.enumerated() {
+            object.zIndex = count - 1 - index
+        }
+    }
+
+    func toggleVisibility(of id: UUID) {
+        objects.first { $0.id == id }?.isVisible.toggle()
+    }
+
+    func toggleLock(of id: UUID) {
+        objects.first { $0.id == id }?.isLocked.toggle()
     }
 }

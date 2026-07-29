@@ -424,4 +424,122 @@ struct CanvasStoreTests {
         store.beginEditingText(text.id)
         #expect(store.editingTextObjectID == nil)
     }
+
+    // MARK: Ebenen & Z-Order (5e)
+
+    @Test func objectsFrontToBackListsHighestZIndexFirst() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let first = makeRectangle(in: store)
+        let second = makeRectangle(in: store)
+        let third = makeRectangle(in: store)
+
+        #expect(store.objectsFrontToBack.map(\.id) == [third.id, second.id, first.id])
+    }
+
+    @Test func moveObjectToFrontPutsItAheadOfAllOthers() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let first = makeRectangle(in: store)
+        let second = makeRectangle(in: store)
+        let third = makeRectangle(in: store)
+
+        store.moveObject(first.id, .toFront)
+
+        #expect(store.objectsFrontToBack.map(\.id) == [first.id, third.id, second.id])
+        #expect(first.zIndex == 2)
+        #expect(third.zIndex == 1)
+        #expect(second.zIndex == 0)
+    }
+
+    @Test func moveObjectToBackPutsItBehindAllOthers() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let first = makeRectangle(in: store)
+        let second = makeRectangle(in: store)
+        let third = makeRectangle(in: store)
+
+        store.moveObject(third.id, .toBack)
+
+        #expect(store.objectsFrontToBack.map(\.id) == [second.id, first.id, third.id])
+        #expect(third.zIndex == 0)
+    }
+
+    @Test func moveObjectForwardSwapsWithNextObjectTowardsFront() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let first = makeRectangle(in: store)
+        let second = makeRectangle(in: store)
+        let third = makeRectangle(in: store)
+
+        store.moveObject(first.id, .forward)
+
+        #expect(store.objectsFrontToBack.map(\.id) == [third.id, first.id, second.id])
+    }
+
+    @Test func moveObjectBackwardSwapsWithNextObjectTowardsBack() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let first = makeRectangle(in: store)
+        let second = makeRectangle(in: store)
+        let third = makeRectangle(in: store)
+
+        store.moveObject(third.id, .backward)
+
+        #expect(store.objectsFrontToBack.map(\.id) == [second.id, third.id, first.id])
+    }
+
+    @Test func moveObjectAtFrontIgnoresForwardAndMoveObjectAtBackIgnoresBackward() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let first = makeRectangle(in: store)
+        let second = makeRectangle(in: store)
+
+        store.moveObject(second.id, .forward) // second ist bereits vorne
+        #expect(store.objectsFrontToBack.map(\.id) == [second.id, first.id])
+
+        store.moveObject(first.id, .backward) // first ist bereits hinten
+        #expect(store.objectsFrontToBack.map(\.id) == [second.id, first.id])
+    }
+
+    @Test func moveObjectReordersLockedObjectsToo() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let first = makeRectangle(in: store)
+        let second = makeRectangle(in: store)
+        first.isLocked = true
+
+        store.moveObject(first.id, .toFront)
+
+        #expect(store.objectsFrontToBack.map(\.id) == [first.id, second.id])
+    }
+
+    @Test func reorderObjectsMatchesListOnMoveSemantics() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let first = makeRectangle(in: store)
+        let second = makeRectangle(in: store)
+        let third = makeRectangle(in: store)
+        // Front-to-back vor dem Umsortieren: [third, second, first]
+
+        store.reorderObjects(fromFrontToBackOffsets: IndexSet(integer: 0), toFrontToBackOffset: 3)
+
+        #expect(store.objectsFrontToBack.map(\.id) == [second.id, first.id, third.id])
+    }
+
+    @Test func toggleVisibilityFlipsIsVisible() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let object = makeRectangle(in: store)
+        #expect(object.isVisible)
+
+        store.toggleVisibility(of: object.id)
+        #expect(!object.isVisible)
+
+        store.toggleVisibility(of: object.id)
+        #expect(object.isVisible)
+    }
+
+    @Test func toggleLockFlipsIsLocked() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let object = makeRectangle(in: store)
+        #expect(!object.isLocked)
+
+        store.toggleLock(of: object.id)
+        #expect(object.isLocked)
+
+        store.toggleLock(of: object.id)
+        #expect(!object.isLocked)
+    }
 }

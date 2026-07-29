@@ -11,6 +11,7 @@ import SwiftData
 struct ContentView: View {
     // Platzhalter-Canvasgrösse, bis Phase 8 ein echtes Projekt via DocumentGroup öffnet.
     @State private var canvasStore = CanvasStore(canvasSizeMillimeters: CGSize(width: 130, height: 180))
+    @State private var isLayersPanelPresented = true
 
     var body: some View {
         NavigationSplitView {
@@ -34,6 +35,20 @@ struct ContentView: View {
                 .padding(8)
 
                 CanvasView(store: canvasStore)
+            }
+            .toolbar {
+                // Platzhalter-Toggle fürs Ebenen-Panel, bis Phase 8 die echte Toolbar bringt.
+                ToolbarItem {
+                    Button {
+                        isLayersPanelPresented.toggle()
+                    } label: {
+                        Label("layers.panel.toggle", systemImage: "square.3.layers.3d")
+                    }
+                }
+            }
+            .inspector(isPresented: $isLayersPanelPresented) {
+                LayersPanelView(store: canvasStore)
+                    .inspectorColumnWidth(min: 200, ideal: 240)
             }
         }
     }

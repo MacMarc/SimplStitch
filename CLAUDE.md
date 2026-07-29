@@ -152,7 +152,7 @@ Text bleibt als `<text>`-Element im SVG erhalten (editierbar). Konvertierung zu 
   - Ordnerstruktur: `SimplStitch/{App,Models,Stores,Services,Bridge,Views}` (Xcode File-System-Synchronized-Groups, keine manuelle pbxproj-Pflege nötig)
   - Lokalisierung DE+EN aktiv (`Localizable.xcstrings`, `knownRegions` inkl. `de`)
   - GPL-3.0 `COPYING`, `.gitignore`, shared Scheme `SimplStitch`, GitHub-Actions-Gerüst (`.github/workflows/build.yml`) — lokaler Build via `xcodebuild` verifiziert
-  - Offen: GitHub-Remote noch nicht angelegt/gepusht
+  - GitHub-Remote seit 2026-07-29 angelegt und gepusht: [MacMarc/SimplStitch](https://github.com/MacMarc/SimplStitch) (privat). Offene Punkte als GitHub Issues #1–#12 festgehalten (verbleibende Phasen 8e/8f/9/10 sowie dokumentierte Scope-Lücken)
 - [x] Python-Backend gebündelt
   - CPython 3.12 (python-build-standalone, arm64) via `Scripts/bundle_python.sh`; Xcode Run-Script-Build-Phase "Bundle Python Runtime" kopiert die Runtime bei jedem Build nach `Contents/Resources/python/` (liegt bewusst ausserhalb von `SimplStitch/`, sonst würden Xcodes File-System-Synchronized-Groups tausende Runtime-Dateien einzeln einlesen)
   - `SimplStitch/Bridge/bridge.py` + `PythonBridge.swift` (Actor, stdin/stdout JSON, ein Request/eine Response pro Zeile) — als lose Resourcen landen `bridge.py`/`requirements.txt` flach unter `Contents/Resources/`, nicht unter `Bridge/`

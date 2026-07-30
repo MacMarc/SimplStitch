@@ -1305,6 +1305,15 @@ final class CanvasStore {
     /// Farben aller aktiven Paletten einzeln an (~20'000 Zeilen bei den mitgelieferten InkStitch-
     /// Paletten) und verursachte damit spürbares Lag — eine einzelne Paletten-Auswahl ist sowohl
     /// performant als auch die vom Nutzer gewünschte, einfachere Bedienung.
+    /// Issue #24: Projektname war im Modell (`StitchProject.name`) längst vorhanden, aber nirgends
+    /// editierbar — der Fenstertitel kommt stattdessen vom Dateinamen (macOS-Dokumenten-Konvention,
+    /// Phase 8a). Ein separater interner Anzeigename ist trotzdem sinnvoll (z.B. fürs spätere
+    /// "Zuletzt geöffnet"-Menü), daher jetzt im Projekt-Eigenschaften-Tab editierbar.
+    var projectName: String {
+        get { project.name }
+        set { project.name = newValue }
+    }
+
     var defaultThreadPaletteID: UUID? {
         get { project.defaultThreadPaletteID }
         set { project.defaultThreadPaletteID = newValue }

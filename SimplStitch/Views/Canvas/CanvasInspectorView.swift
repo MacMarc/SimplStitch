@@ -56,6 +56,12 @@ struct CanvasInspectorView: View {
                         .id(object.id)
                 } else if let groupID = store.selectedGroupID {
                     GroupInspectorView(groupID: groupID, memberCount: store.selectedObjects.count, store: store)
+                } else if store.selectedObjectIDs.count > 1 {
+                    // Issue #23: eine Mehrfachauswahl aus (noch) nicht gruppierten Objekten zeigte
+                    // bisher denselben "Kein Objekt ausgewählt"-Leerzustand wie gar keine Selektion —
+                    // dort fehlte die Möglichkeit zu gruppieren, obwohl "Gruppierung aufheben" für
+                    // eine bestehende Gruppe längst im Inspector verfügbar ist (GroupInspectorView).
+                    MultiSelectionInspectorView(memberCount: store.selectedObjectIDs.count, store: store)
                 } else {
                     ContentUnavailableView(
                         "inspector.object.empty",

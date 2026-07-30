@@ -12,6 +12,17 @@
 //  Garnlisten selbst importieren/löschen/(de)aktivieren passiert in SettingsView (Issue #20) —
 //  appweite Verwaltung, kein Projekt-Zustand.
 //
+//  Issue #24 (Überarbeitung nach Live-Test):
+//  - Unschöner Zeilenumbruch behoben: der Picker hatte zusätzlich zum Sektionstitel ein fast
+//    identisches Zeilen-Label ("Standard Garnliste" neben "Standard-Garnliste" als Sektionstitel),
+//    das bei langen Palettennamen (z.B. "InkStitch Robison-Anton Polyester") in der schmalen
+//    Inspector-Spalte umbrach. Das redundante Zeilen-Label ist jetzt weg (`labelsHidden()`), der
+//    Picker bekommt die volle Zeilenbreite für den Wertetext.
+//  - Projektname jetzt editierbar (`StitchProject.name` existierte im Modell, war aber nirgends
+//    in der UI erreichbar — der Fenstertitel kommt stattdessen vom Dateinamen, das bleibt so;
+//    dies ist ein separater interner Anzeigename).
+//  - Sektionsüberschriften vergrössert (`.headline`), analog zu ObjectInspectorView.
+//
 
 import SwiftUI
 import SwiftData
@@ -25,11 +36,21 @@ struct ProjectInspectorView: View {
         palettes.filter(\.isEnabled)
     }
 
+    private var nameBinding: Binding<String> {
+        Binding(get: { store.projectName }, set: { store.projectName = $0 })
+    }
+
     var body: some View {
         Form {
-            Section("project.defaultPalette.section") {
+            Section {
+                TextField("project.name.label", text: nameBinding)
+            } header: {
+                Text("project.name.section").font(.headline)
+            }
+
+            Section {
                 Picker(
-                    "project.defaultPalette.label",
+                    "",
                     selection: Binding(
                         get: { store.defaultThreadPaletteID },
                         set: { store.defaultThreadPaletteID = $0 }
@@ -40,6 +61,9 @@ struct ProjectInspectorView: View {
                         Text(palette.name).tag(Optional(palette.id))
                     }
                 }
+                .labelsHidden()
+            } header: {
+                Text("project.defaultPalette.section").font(.headline)
             }
         }
         .formStyle(.grouped)

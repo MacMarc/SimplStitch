@@ -880,6 +880,16 @@ struct CanvasStoreTests {
 
     // MARK: Projekt-Garnliste (Issue #20)
 
+    // Issue #24: Projektname war im Modell längst vorhanden, aber nirgends editierbar.
+    @Test func projectNameReadsAndWritesThroughToProject() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+
+        #expect(store.projectName == "")
+        store.projectName = "Mein Design"
+
+        #expect(store.projectName == "Mein Design")
+    }
+
     @Test func defaultThreadPaletteIDReadsAndWritesThroughToProject() {
         let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
         let paletteID = UUID()

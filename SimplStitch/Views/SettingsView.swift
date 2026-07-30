@@ -78,6 +78,22 @@ struct SettingsView: View {
                 }
             }
 
+            // Issue #25: Icon-/Textgrösse der Werkzeug-Toolbar war fest verdrahtet ("Tableiste zu
+            // klein") — jetzt drei Stufen, angewendet in ContentView.iconButton.
+            Section("settings.section.toolbar") {
+                Picker(
+                    "settings.toolbarSize",
+                    selection: Binding(
+                        get: { settings.toolbarSize },
+                        set: { settings.toolbarSize = $0 }
+                    )
+                ) {
+                    Text("settings.toolbarSize.small").tag(ToolbarSize.small)
+                    Text("settings.toolbarSize.medium").tag(ToolbarSize.medium)
+                    Text("settings.toolbarSize.large").tag(ToolbarSize.large)
+                }
+            }
+
             Section("settings.section.projects") {
                 Stepper(
                     value: Binding(

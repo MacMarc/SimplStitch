@@ -111,5 +111,20 @@ struct SwiftDataModelsTests {
         let fetched = try #require(try context.fetch(FetchDescriptor<AppSettings>()).first)
         #expect(fetched.preferredMeasurementUnit == .millimeters)
         #expect(fetched.maxRecentProjects == 10)
+        #expect(fetched.toolbarSize == .medium)
+    }
+
+    // Issue #23: ObjectInspectorView rechnet Position/Grösse/Randdicke jetzt je nach
+    // `preferredMeasurementUnit` um — die reine Umrechnungslogik gehört ins Modell, nicht in die View.
+    @Test func measurementUnitConvertsMillimetersToInchesAndBack() {
+        #expect(MeasurementUnit.millimeters.value(fromMillimeters: 25.4) == 25.4)
+        #expect(MeasurementUnit.inches.value(fromMillimeters: 25.4) == 1)
+        #expect(MeasurementUnit.inches.millimeters(from: 1) == 25.4)
+        #expect(MeasurementUnit.millimeters.millimeters(from: 12) == 12)
+    }
+
+    @Test func measurementUnitSymbols() {
+        #expect(MeasurementUnit.millimeters.symbol == "mm")
+        #expect(MeasurementUnit.inches.symbol == "in")
     }
 }

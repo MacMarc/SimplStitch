@@ -509,13 +509,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Randdicke (mm)"
+            "value" : "Randdicke"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Border Width (mm)"
+            "value" : "Border Width"
           }
         }
       }
@@ -653,13 +653,29 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Eckenradius (mm)"
+            "value" : "Eckenradius"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Corner Radius (mm)"
+            "value" : "Corner Radius"
+          }
+        }
+      }
+    },
+    "inspector.multiSelection.section" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mehrfachauswahl"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Multiple Selection"
           }
         }
       }
@@ -717,13 +733,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Position (mm)"
+            "value" : "Position"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Position (mm)"
+            "value" : "Position"
           }
         }
       }
@@ -733,13 +749,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rotation (°)"
+            "value" : "Rotation"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rotation (°)"
+            "value" : "Rotation"
           }
         }
       }
@@ -749,13 +765,45 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Grösse (mm)"
+            "value" : "Grösse"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Size (mm)"
+            "value" : "Size"
+          }
+        }
+      }
+    },
+    "inspector.object.size.height" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "H"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "H"
+          }
+        }
+      }
+    },
+    "inspector.object.size.width" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "B"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "W"
           }
         }
       }
@@ -840,6 +888,22 @@
         }
       }
     },
+    "inspector.section.fill" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Füllung"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fill"
+          }
+        }
+      }
+    },
     "inspector.section.stitch" : {
       "localizations" : {
         "de" : {
@@ -861,13 +925,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Winkel (°)"
+            "value" : "Winkel"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Angle (°)"
+            "value" : "Angle"
           }
         }
       }
@@ -877,13 +941,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dichte (mm)"
+            "value" : "Dichte"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Density (mm)"
+            "value" : "Density"
           }
         }
       }
@@ -1512,6 +1576,38 @@
         }
       }
     },
+    "project.name.label" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        }
+      }
+    },
+    "project.name.section" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projekt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Project"
+          }
+        }
+      }
+    },
     "project.defaultPalette.none" : {
       "localizations" : {
         "de" : {
@@ -1668,6 +1764,86 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Projects"
+          }
+        }
+      }
+    },
+    "settings.section.toolbar" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Werkzeugleiste"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toolbar"
+          }
+        }
+      }
+    },
+    "settings.toolbarSize" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grösse"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Size"
+          }
+        }
+      }
+    },
+    "settings.toolbarSize.small" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klein"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Small"
+          }
+        }
+      }
+    },
+    "settings.toolbarSize.medium" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mittel"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medium"
+          }
+        }
+      }
+    },
+    "settings.toolbarSize.large" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gross"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Large"
           }
         }
       }

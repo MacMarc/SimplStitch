@@ -7,6 +7,19 @@
     " (%@)" : {
 
     },
+    "%lld × %lld mm" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld × %2$lld mm"
+          }
+        }
+      }
+    },
+    "×" : {
+
+    },
     "canvas.tool.circle" : {
       "localizations" : {
         "de" : {
@@ -407,6 +420,9 @@
           }
         }
       }
+    },
+    "H" : {
+
     },
     "import.embroidery.empty" : {
       "localizations" : {
@@ -1579,6 +1595,38 @@
         }
       }
     },
+    "project.defaultPalette.none" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
+          }
+        }
+      }
+    },
+    "project.defaultPalette.section" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standard-Garnliste"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default Palette"
+          }
+        }
+      }
+    },
     "project.hoopSize.builtIn" : {
       "localizations" : {
         "de" : {
@@ -1659,38 +1707,6 @@
         }
       }
     },
-    "project.defaultPalette.none" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Keine"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "None"
-          }
-        }
-      }
-    },
-    "project.defaultPalette.section" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Standard-Garnliste"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Default Palette"
-          }
-        }
-      }
-    },
     "project.name.label" : {
       "localizations" : {
         "de" : {
@@ -1767,6 +1783,86 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "None"
+          }
+        }
+      }
+    },
+    "settings.hoopSizes.add" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neue Grösse hinzufügen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add New Size"
+          }
+        }
+      }
+    },
+    "settings.hoopSizes.addButton" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hinzufügen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add"
+          }
+        }
+      }
+    },
+    "settings.hoopSizes.empty" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine eigenen Stickrahmen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Custom Hoop Sizes"
+          }
+        }
+      }
+    },
+    "settings.hoopSizes.empty.description" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Füge unten eigene Stickrahmen-Grössen hinzu."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add your own hoop sizes below."
+          }
+        }
+      }
+    },
+    "settings.hoopSizes.name" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
           }
         }
       }
@@ -1899,86 +1995,6 @@
         }
       }
     },
-    "settings.hoopSizes.add" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Neue Grösse hinzufügen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add New Size"
-          }
-        }
-      }
-    },
-    "settings.hoopSizes.addButton" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hinzufügen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add"
-          }
-        }
-      }
-    },
-    "settings.hoopSizes.empty" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Keine eigenen Stickrahmen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Custom Hoop Sizes"
-          }
-        }
-      }
-    },
-    "settings.hoopSizes.empty.description" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Füge unten eigene Stickrahmen-Grössen hinzu."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add your own hoop sizes below."
-          }
-        }
-      }
-    },
-    "settings.hoopSizes.name" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Name"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Name"
-          }
-        }
-      }
-    },
     "settings.tab.general" : {
       "localizations" : {
         "de" : {
@@ -1995,22 +2011,6 @@
         }
       }
     },
-    "settings.tab.palettes" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Garnlisten"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Thread Palettes"
-          }
-        }
-      }
-    },
     "settings.tab.hoopSizes" : {
       "localizations" : {
         "de" : {
@@ -2023,6 +2023,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hoop Sizes"
+          }
+        }
+      }
+    },
+    "settings.tab.palettes" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Garnlisten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thread Palettes"
           }
         }
       }
@@ -2298,6 +2314,9 @@
           }
         }
       }
+    },
+    "W" : {
+
     },
     "X" : {
 

@@ -97,7 +97,7 @@ struct SettingsView: View {
                 Picker(
                     "settings.toolbarSize",
                     selection: Binding(
-                        get: { settings.toolbarSize },
+                        get: { settings.toolbarSize ?? .medium },
                         set: { settings.toolbarSize = $0 }
                     )
                 ) {

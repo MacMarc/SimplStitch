@@ -85,7 +85,15 @@ final class AppSettings {
     var preferredMeasurementUnit: MeasurementUnit = MeasurementUnit.millimeters
     var maxRecentProjects: Int = 10
     var defaultThreadPaletteID: UUID?
-    var toolbarSize: ToolbarSize = ToolbarSize.medium
+    /// Bugfix (Absturz "Neues Dokument", SIGABRT): bewusst `Optional` statt `= .medium`.
+    /// Ein bereits vorhandener `AppSettings`-Datensatz aus der Zeit VOR diesem Feld hat in der
+    /// SQLite-Spalte `NULL` stehen (per Crashlog verifiziert: `swift_dynamicCastFailure` im von
+    /// `@Model` generierten Getter, ausgelöst beim ersten Lesezugriff aus `ContentView.toolbarSize`)
+    /// — ein NICHT-optionales `@Model`-Feld mit Default-Wert schützt nur vor einem fehlenden
+    /// Insert-Argument, nicht vor einer bereits bestehenden `NULL`-Spalte aus einem älteren Build.
+    /// `Optional` lässt SwiftData `nil` zurückgeben statt zu crashen; alle Call-Sites lesen ohnehin
+    /// schon über `?? .medium` (ContentView/SettingsView).
+    var toolbarSize: ToolbarSize?
 
     init(
         preferredMeasurementUnit: MeasurementUnit = .millimeters,

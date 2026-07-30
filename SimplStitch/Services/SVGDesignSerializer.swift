@@ -263,6 +263,12 @@ final class SVGDesignSerializer: SVGDesignSerializing {
         )
     }
 
+    /// Issue #6: generischer SVG-Import (beliebige Illustrator/Inkscape-Dateien, nicht nur unser
+    /// eigenes `content.svg`-Schema). Für unsere eigenen Dateien bleibt das Verhalten unverändert
+    /// (width/height in "mm", `viewBox` deckungsgleich mit den mm-Werten, keine `<g>`-Elemente) —
+    /// `unitsToMillimeters` errechnet sich dabei immer exakt zu 1.0 und `transformStack` bleibt
+    /// bei `[.identity]`, die neue Umrechnung ist also ein reiner No-op für den bestehenden
+    /// Roundtrip (siehe `DocumentPackageManagerTests`).
     private final class ParserDelegate: NSObject, XMLParserDelegate {
         var canvasSize: CGSize = .zero
         var objects: [DesignObject] = []
@@ -271,6 +277,22 @@ final class SVGDesignSerializer: SVGDesignSerializing {
 
         private var currentTextObject: DesignObject?
         private var currentTextBuffer = ""
+
+        /// Skalierungsfaktor von SVG-"user units" (bestimmt durch `viewBox`, falls vorhanden, sonst
+        /// durch die Einheit von `width`/`height`) zu Millimetern.
+        private var unitsToMillimeters: Double = 1
+        private var viewBoxOriginX: Double = 0
+        private var viewBoxOriginY: Double = 0
+
+        /// Akkumulierte `<g transform="…">`-Verschachtelung. **Vereinfachung:** nur `translate`/
+        /// `scale` (sowie ein reines `matrix(a,0,0,d,e,f)` ohne Rotations-/Scherungsanteil) werden
+        /// komponiert — deckt das häufigste Illustrator/Inkscape-Gruppierungsmuster ab (positionierte/
+        /// skalierte Objektgruppen), `rotate()`/`skewX()`/`skewY()`/ein `matrix()` mit b≠0 oder c≠0
+        /// werden als Identität behandelt (Position bleibt unverändert) statt eine vollständige
+        /// Affine-Transform-Dekomposition in Rotation/Skew zu versuchen.
+        private var transformStack: [CGAffineTransform] = [.identity]
+
+        private enum LengthAxis { case x, y }
 
         func parser(
             _ parser: XMLParser,
@@ -281,20 +303,39 @@ final class SVGDesignSerializer: SVGDesignSerializing {
         ) {
             switch elementName {
             case "svg":
-                canvasSize = CGSize(
-                    width: Self.parseDouble(attributeDict["width"]) ?? 0,
-                    height: Self.parseDouble(attributeDict["height"]) ?? 0
-                )
+                let (widthValue, widthUnit) = Self.parseLengthWithUnit(attributeDict["width"])
+                let (heightValue, heightUnit) = Self.parseLengthWithUnit(attributeDict["height"])
+                let widthMM = (widthValue ?? 0) * Self.millimetersPerUnit(widthUnit)
+                let heightMM = (heightValue ?? 0) * Self.millimetersPerUnit(heightUnit)
+                canvasSize = CGSize(width: widthMM, height: heightMM)
+
+                if let viewBoxParts = attributeDict["viewBox"]?.split(whereSeparator: { $0 == " " || $0 == "," }).compactMap({ Double($0) }),
+                   viewBoxParts.count == 4, viewBoxParts[2] > 0, viewBoxParts[3] > 0 {
+                    viewBoxOriginX = viewBoxParts[0]
+                    viewBoxOriginY = viewBoxParts[1]
+                    unitsToMillimeters = widthMM / viewBoxParts[2]
+                } else {
+                    unitsToMillimeters = Self.millimetersPerUnit(widthUnit)
+                }
                 defaultThreadPaletteID = attributeDict["data-ss-default-palette"].flatMap { UUID(uuidString: $0) }
+            case "g":
+                let transform = Self.parseTransform(attributeDict["transform"])
+                transformStack.append(transform.concatenating(transformStack.last ?? .identity))
             case "image":
                 if attributeDict["data-ss-role"] == "background" {
                     let href = attributeDict["href"] ?? ""
                     backgroundImageFileName = href.replacingOccurrences(of: "assets/", with: "")
                 }
             case "rect":
-                objects.append(Self.makeRectangle(attributeDict))
+                objects.append(makeRectangle(attributeDict))
             case "ellipse":
-                objects.append(Self.makeCircle(attributeDict))
+                objects.append(makeEllipse(attributeDict))
+            case "circle":
+                objects.append(makeCircleShorthand(attributeDict))
+            case "polygon":
+                objects.append(makePolyShape(attributeDict, closed: true))
+            case "polyline":
+                objects.append(makePolyShape(attributeDict, closed: false))
             case "path":
                 objects.append(Self.makePathElement(attributeDict))
             case "text":
@@ -312,11 +353,40 @@ final class SVGDesignSerializer: SVGDesignSerializing {
         }
 
         func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
-            guard elementName == "text", let object = currentTextObject else { return }
-            object.text = currentTextBuffer
-            objects.append(object)
-            currentTextObject = nil
-            currentTextBuffer = ""
+            switch elementName {
+            case "g":
+                if transformStack.count > 1 {
+                    transformStack.removeLast()
+                }
+            case "text":
+                guard let object = currentTextObject else { return }
+                object.text = currentTextBuffer
+                objects.append(object)
+                currentTextObject = nil
+                currentTextBuffer = ""
+            default:
+                break
+            }
+        }
+
+        /// Wendet die aktuell akkumulierte Gruppen-Transformation sowie die `viewBox`/Einheiten-
+        /// Umrechnung auf einen Punkt an (in dieser Reihenfolge — die Gruppen-Transformation
+        /// operiert in SVG-"user units", die `viewBox` bildet diese erst danach auf Millimeter ab).
+        private func toDesignPoint(x: Double, y: Double) -> CGPoint {
+            let transformed = CGPoint(x: x, y: y).applying(transformStack.last ?? .identity)
+            return CGPoint(
+                x: (transformed.x - viewBoxOriginX) * unitsToMillimeters,
+                y: (transformed.y - viewBoxOriginY) * unitsToMillimeters
+            )
+        }
+
+        /// Längen (Breite/Höhe/Radius) haben keine Position, nur eine Skalierung — nutzt die
+        /// jeweilige Achsen-Skalierung der aktuellen Transformation (`a` bzw. `d`; exakt für die
+        /// unterstützte translate/scale-Untermenge, siehe `transformStack`-Doku).
+        private func toDesignLength(_ value: Double, axis: LengthAxis) -> Double {
+            let t = transformStack.last ?? .identity
+            let scale = axis == .x ? t.a : t.d
+            return abs(value * scale * unitsToMillimeters)
         }
 
         private static func applyCommonAttributes(_ attrs: [String: String], to object: DesignObject) {
@@ -330,11 +400,16 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             object.rotationDegrees = parseDouble(attrs["data-ss-rotation"]) ?? 0
             object.skewXDegrees = parseDouble(attrs["data-ss-skew-x"]) ?? 0
             object.skewYDegrees = parseDouble(attrs["data-ss-skew-y"]) ?? 0
-            object.fillColorHex = attrs["fill"] ?? object.fillColorHex
+            object.fillColorHex = resolvedFillHex(attrs) ?? object.fillColorHex
             if let groupIDString = attrs["data-ss-group"], let groupID = UUID(uuidString: groupIDString) {
                 object.groupID = groupID
             }
             object.hasFill = (attrs["data-ss-has-fill"] ?? "true") == "true"
+            // Issue #6: fremde SVGs (kein data-ss-has-fill) mit fill:none/fill="none" — typisch für
+            // reine Strichzeichnungen/Icons — werden als "keine Füllung" statt schwarz gefüllt erkannt.
+            if attrs["data-ss-has-fill"] == nil, isFillExplicitlyNone(attrs) {
+                object.hasFill = false
+            }
             object.hasBorder = (attrs["data-ss-has-border"] ?? "false") == "true"
             object.borderWidthMillimeters = parseDouble(attrs["data-ss-border-width"]) ?? 0.3
             object.borderColorHex = attrs["data-ss-border-color"]
@@ -392,24 +467,73 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             return nil
         }
 
-        private static func makeRectangle(_ attrs: [String: String]) -> DesignObject {
-            let x = parseDouble(attrs["x"]) ?? 0
-            let y = parseDouble(attrs["y"]) ?? 0
-            let width = parseDouble(attrs["width"]) ?? 0
-            let height = parseDouble(attrs["height"]) ?? 0
-            let object = DesignObject(name: "", kind: .rectangle, positionX: x, positionY: y, width: width, height: height)
-            object.cornerRadius = parseDouble(attrs["rx"]) ?? 0
-            applyCommonAttributes(attrs, to: object)
+        /// Instanzmethode (nicht `static`) — braucht `toDesignPoint`/`toDesignLength` fürs
+        /// `<g transform="…">`/Einheiten-Handling (Issue #6). Für unsere eigenen Dateien (mm-
+        /// Einheiten, keine `<g>`-Verschachtelung) ist das ein No-op, siehe Klassendoku.
+        private func makeRectangle(_ attrs: [String: String]) -> DesignObject {
+            let rawX = Self.parseDouble(attrs["x"]) ?? 0
+            let rawY = Self.parseDouble(attrs["y"]) ?? 0
+            let origin = toDesignPoint(x: rawX, y: rawY)
+            let width = toDesignLength(Self.parseDouble(attrs["width"]) ?? 0, axis: .x)
+            let height = toDesignLength(Self.parseDouble(attrs["height"]) ?? 0, axis: .y)
+            let object = DesignObject(name: "", kind: .rectangle, positionX: origin.x, positionY: origin.y, width: width, height: height)
+            object.cornerRadius = toDesignLength(Self.parseDouble(attrs["rx"]) ?? 0, axis: .x)
+            Self.applyCommonAttributes(attrs, to: object)
             return object
         }
 
-        private static func makeCircle(_ attrs: [String: String]) -> DesignObject {
-            let cx = parseDouble(attrs["cx"]) ?? 0
-            let cy = parseDouble(attrs["cy"]) ?? 0
-            let rx = parseDouble(attrs["rx"]) ?? 0
-            let ry = parseDouble(attrs["ry"]) ?? 0
-            let object = DesignObject(name: "", kind: .circle, positionX: cx - rx, positionY: cy - ry, width: rx * 2, height: ry * 2)
-            applyCommonAttributes(attrs, to: object)
+        private func makeEllipse(_ attrs: [String: String]) -> DesignObject {
+            let cx = Self.parseDouble(attrs["cx"]) ?? 0
+            let cy = Self.parseDouble(attrs["cy"]) ?? 0
+            let rx = toDesignLength(Self.parseDouble(attrs["rx"]) ?? 0, axis: .x)
+            let ry = toDesignLength(Self.parseDouble(attrs["ry"]) ?? 0, axis: .y)
+            let center = toDesignPoint(x: cx, y: cy)
+            let object = DesignObject(name: "", kind: .circle, positionX: center.x - rx, positionY: center.y - ry, width: rx * 2, height: ry * 2)
+            Self.applyCommonAttributes(attrs, to: object)
+            return object
+        }
+
+        /// Issue #6: `<circle cx cy r>` — bislang gar nicht erkannt (nur `<ellipse>`).
+        private func makeCircleShorthand(_ attrs: [String: String]) -> DesignObject {
+            let cx = Self.parseDouble(attrs["cx"]) ?? 0
+            let cy = Self.parseDouble(attrs["cy"]) ?? 0
+            let r = Self.parseDouble(attrs["r"]) ?? 0
+            let rx = toDesignLength(r, axis: .x)
+            let ry = toDesignLength(r, axis: .y)
+            let center = toDesignPoint(x: cx, y: cy)
+            let object = DesignObject(name: "", kind: .circle, positionX: center.x - rx, positionY: center.y - ry, width: rx * 2, height: ry * 2)
+            Self.applyCommonAttributes(attrs, to: object)
+            return object
+        }
+
+        /// Issue #6: `<polygon points="…">` (geschlossen) / `<polyline points="…">` (offen) — als
+        /// `.path`-Objekt nachgezeichnet (M/L[/Z]), dieselbe Pfad-Maschinerie wie Freihand-Pfade.
+        private func makePolyShape(_ attrs: [String: String], closed: Bool) -> DesignObject {
+            let rawPoints = Self.parsePointsList(attrs["points"] ?? "")
+            let points = rawPoints.map { toDesignPoint(x: $0.x, y: $0.y) }
+
+            var pathData = ""
+            for (index, point) in points.enumerated() {
+                pathData += "\(index == 0 ? "M" : "L")\(String(format: "%.4f", point.x)),\(String(format: "%.4f", point.y)) "
+            }
+            if closed {
+                pathData += "Z"
+            }
+
+            let minX = points.map(\.x).min() ?? 0
+            let minY = points.map(\.y).min() ?? 0
+            let maxX = points.map(\.x).max() ?? 0
+            let maxY = points.map(\.y).max() ?? 0
+            let object = DesignObject(
+                name: "",
+                kind: .path,
+                positionX: minX,
+                positionY: minY,
+                width: max(maxX - minX, 0.01),
+                height: max(maxY - minY, 0.01)
+            )
+            object.pathData = pathData.trimmingCharacters(in: .whitespaces)
+            Self.applyCommonAttributes(attrs, to: object)
             return object
         }
 
@@ -427,7 +551,7 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             } else {
                 object.pathData = attrs["d"]
             }
-            applyCommonAttributes(attrs, to: object)
+            Self.applyCommonAttributes(attrs, to: object)
             return object
         }
 
@@ -439,7 +563,7 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             let object = DesignObject(name: "", kind: .text, positionX: x, positionY: y, width: width, height: height)
             object.fontName = attrs["font-family"]
             object.fontSize = parseDouble(attrs["font-size"])
-            applyCommonAttributes(attrs, to: object)
+            Self.applyCommonAttributes(attrs, to: object)
             return object
         }
 
@@ -447,6 +571,112 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             guard let string else { return nil }
             let numericPart = string.prefix { $0.isNumber || $0 == "." || $0 == "-" }
             return Double(numericPart)
+        }
+
+        /// Trennt eine SVG-Länge ("12.5", "200px", "150pt", "10mm", …) in Zahl und Einheit —
+        /// fehlt die Einheit, gilt sie per SVG-Spezifikation als "px" (siehe `millimetersPerUnit`).
+        private static func parseLengthWithUnit(_ string: String?) -> (Double?, String?) {
+            guard let string else { return (nil, nil) }
+            let numericPart = string.prefix { $0.isNumber || $0 == "." || $0 == "-" }
+            let unitPart = string.dropFirst(numericPart.count).trimmingCharacters(in: .whitespaces)
+            return (Double(numericPart), unitPart.isEmpty ? nil : unitPart)
+        }
+
+        private static func millimetersPerUnit(_ unit: String?) -> Double {
+            switch unit {
+            case "mm": return 1
+            case "cm": return 10
+            case "in": return 25.4
+            case "pt": return 25.4 / 72
+            case "pc": return 25.4 / 6
+            default: return 25.4 / 96 // "px" bzw. unitless (SVG-Default)
+            }
+        }
+
+        /// Manueller Scanner statt `NSRegularExpression` (passt zum übrigen Pfad-Parsing-Stil,
+        /// z.B. `DesignObjectPath`s M/L-Parser) — liest `name(arg, arg, …)`-Aufrufe nacheinander
+        /// und komponiert sie zu einer einzigen `CGAffineTransform`. Siehe `transformStack`-Doku
+        /// für die bewusst unterstützte Untermenge (translate/scale/reines matrix ohne Rotation).
+        private static func parseTransform(_ string: String?) -> CGAffineTransform {
+            guard let string else { return .identity }
+            var transform = CGAffineTransform.identity
+            var remainder = Substring(string)
+            while let openParen = remainder.firstIndex(of: "("), let closeParen = remainder.firstIndex(of: ")"), openParen < closeParen {
+                let name = remainder[remainder.startIndex..<openParen].trimmingCharacters(in: .whitespaces)
+                let argsString = remainder[remainder.index(after: openParen)..<closeParen]
+                let args = argsString.split(whereSeparator: { $0 == "," || $0 == " " }).compactMap { Double($0) }
+                // SVG-Transform-Listen wirken wie verschachtelte Gruppen: das RECHTESTE Funktionsargument
+                // wirkt auf einen Punkt zuerst, das linkeste zuletzt (`translate(10,20) scale(2)` skaliert
+                // zuerst, verschiebt danach) — deshalb wird jede neu geparste Funktion VOR die bisher
+                // akkumulierte Transformation gesetzt (`newT.concatenating(transform)`), nicht dahinter.
+                switch name {
+                case "translate":
+                    let tx = args.first ?? 0
+                    let ty = args.count > 1 ? args[1] : 0
+                    transform = CGAffineTransform(translationX: tx, y: ty).concatenating(transform)
+                case "scale":
+                    let sx = args.first ?? 1
+                    let sy = args.count > 1 ? args[1] : sx
+                    transform = CGAffineTransform(scaleX: sx, y: sy).concatenating(transform)
+                case "matrix":
+                    if args.count == 6, args[1] == 0, args[2] == 0 {
+                        transform = CGAffineTransform(a: args[0], b: 0, c: 0, d: args[3], tx: args[4], ty: args[5]).concatenating(transform)
+                    }
+                // `rotate`/`skewX`/`skewY`/ein `matrix()` mit Rotations-/Scherungsanteil: bewusst
+                // ignoriert (Identität) statt eine vollständige Dekomposition zu versuchen.
+                default:
+                    break
+                }
+                remainder = remainder[remainder.index(after: closeParen)...]
+            }
+            return transform
+        }
+
+        /// `points="x1,y1 x2,y2 …"` (Komma und/oder Whitespace getrennt, beides kommt in freier
+        /// Wildbahn vor) → Punktliste in SVG-user-units (noch ohne Transform/Einheiten-Umrechnung).
+        private static func parsePointsList(_ string: String) -> [CGPoint] {
+            let numbers = string.split(whereSeparator: { $0 == "," || $0 == " " || $0 == "\n" || $0 == "\t" }).compactMap { Double($0) }
+            var points: [CGPoint] = []
+            var index = 0
+            while index + 1 < numbers.count {
+                points.append(CGPoint(x: numbers[index], y: numbers[index + 1]))
+                index += 2
+            }
+            return points
+        }
+
+        /// Issue #6: Füllfarbe auch aus einem CSS-`style="fill:#…"`-Attribut lesen, nicht nur aus
+        /// dem Präsentationsattribut `fill="…"` — Illustrator/Inkscape exportieren beides, je nach
+        /// Einstellung. `style` hat Vorrang (SVG-Kaskadierungsregel: Inline-Style schlägt Präsentations-
+        /// attribut). Benannte CSS-Farben (z.B. "red") werden bewusst nicht aufgelöst — nur Hex-Werte.
+        private static func resolvedFillHex(_ attrs: [String: String]) -> String? {
+            if let style = attrs["style"] {
+                for rule in style.split(separator: ";") {
+                    let parts = rule.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+                    if parts.count == 2, parts[0] == "fill", parts[1].hasPrefix("#") {
+                        return parts[1]
+                    }
+                }
+            }
+            if let fill = attrs["fill"], fill.hasPrefix("#") {
+                return fill
+            }
+            return nil
+        }
+
+        /// Erkennt `fill:none`/`fill="none"` (Style hat wieder Vorrang) — häufig bei reinen
+        /// Strichzeichnungen/Icons. Nur relevant für fremde SVGs (kein `data-ss-has-fill`), unser
+        /// eigenes Schema persistiert `hasFill` bereits explizit.
+        private static func isFillExplicitlyNone(_ attrs: [String: String]) -> Bool {
+            if let style = attrs["style"] {
+                for rule in style.split(separator: ";") {
+                    let parts = rule.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+                    if parts.count == 2, parts[0] == "fill" {
+                        return parts[1] == "none"
+                    }
+                }
+            }
+            return attrs["fill"] == "none"
         }
     }
 }

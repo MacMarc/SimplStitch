@@ -93,7 +93,7 @@ struct ContentView: View {
                 switch result {
                 case .success(let urls):
                     if let url = urls.first {
-                        importEmbroideryFile(at: url)
+                        importFile(at: url)
                     }
                 case .failure(let error):
                     importErrorMessage = error.localizedDescription
@@ -101,7 +101,7 @@ struct ContentView: View {
             }
             .dropDestination(for: URL.self) { urls, _ in
                 guard let url = urls.first else { return false }
-                importEmbroideryFile(at: url)
+                importFile(at: url)
                 return true
             }
             .alert(
@@ -126,10 +126,41 @@ struct ContentView: View {
     /// Kuratierte Auswahl der gängigsten der 46 von pyembroidery unterstützten Formate fürs
     /// `.fileImporter`-Panel (siehe FileImportService) — `.data` als Fallback, damit auch seltenere
     /// Formate ohne registrierten UTType wählbar bleiben, statt die Liste auf alle 46 aufzublähen.
+    /// `.svg` zusätzlich für den generischen SVG-Import (Issue #6, `SVGDesignSerializer`).
     private static let embroideryContentTypes: [UTType] = {
         let extensions = ["vp3", "pes", "jef", "exp", "dst", "xxx", "hus", "jsf", "pcs", "csd", "u01", "10o", "vip", "sew"]
-        return extensions.compactMap { UTType(filenameExtension: $0) } + [.data]
+        return extensions.compactMap { UTType(filenameExtension: $0) } + [.data, .svg]
     }()
+
+    /// Dispatcht anhand der Dateiendung: `.svg` läuft über `SVGDesignSerializer` (rein Swift, kein
+    /// Python-Subprocess — Issue #6), alles andere über die bestehende `FileImportService`-Bridge
+    /// (Issue #7). Beide Wege (Menü/Drag&Drop) rufen dieselbe Methode auf.
+    private func importFile(at url: URL) {
+        if url.pathExtension.lowercased() == "svg" {
+            importSVGFile(at: url)
+        } else {
+            importEmbroideryFile(at: url)
+        }
+    }
+
+    /// Issue #6: eigenständiger SVG-Import (kein pyembroidery/InkStitch-Umweg) — beliebige
+    /// Illustrator/Inkscape-Dateien, nicht nur unser eigenes `content.svg`-Schema. Synchron, da
+    /// `SVGDesignSerializer.decode` reines `XMLParser`-Parsing ist, kein Subprocess-Aufruf.
+    private func importSVGFile(at url: URL) {
+        let didAccess = url.startAccessingSecurityScopedResource()
+        defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let svgString = try String(contentsOf: url, encoding: .utf8)
+            let decoded = try SVGDesignSerializer().decode(svg: svgString)
+            guard !decoded.objects.isEmpty else {
+                importErrorMessage = String(localized: "import.svg.empty")
+                return
+            }
+            canvasStore.importObjects(decoded.objects)
+        } catch {
+            importErrorMessage = error.localizedDescription
+        }
+    }
 
     private func importEmbroideryFile(at url: URL) {
         let didAccess = url.startAccessingSecurityScopedResource()

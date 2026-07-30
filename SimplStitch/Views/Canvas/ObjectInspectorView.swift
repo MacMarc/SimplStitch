@@ -36,6 +36,7 @@
 //  - Sektionsüberschriften grösser/fetter (`.headline` statt Form-Standard).
 //
 
+import AppKit
 import SwiftData
 import SwiftUI
 
@@ -82,6 +83,24 @@ struct ObjectInspectorView: View {
                         }
                     } label: {
                         unitLabel("inspector.object.cornerRadius")
+                    }
+                }
+                // Issue #29 (Punkt 9): Font-Picker nur bei Text-Objekten sichtbar — Backend
+                // (Rendering, Persistenz, Glyphen-Stichgenerierung) liest object.fontName/fontSize
+                // bereits überall, es fehlte nur diese Auswahl-UI.
+                if object.kind == .text {
+                    Picker("inspector.text.font", selection: fontNameBinding) {
+                        ForEach(fontFamilies, id: \.self) { family in
+                            Text(family).tag(family)
+                        }
+                    }
+                    LabeledContent {
+                        HStack {
+                            Slider(value: fontSizeBinding, in: max(unit.value(fromMillimeters: 2), 0.1)...unit.value(fromMillimeters: 100))
+                            numberField(fontSizeBinding)
+                        }
+                    } label: {
+                        unitLabel("inspector.text.fontSize")
                     }
                 }
             } header: {
@@ -280,6 +299,28 @@ struct ObjectInspectorView: View {
         Binding(
             get: { unit.value(fromMillimeters: object.cornerRadius) },
             set: { object.cornerRadius = min(max(unit.millimeters(from: $0), 0), maxCornerRadius) }
+        )
+    }
+
+    // MARK: Schrift (Issue #29, Punkt 9)
+
+    /// Installierte Vektorfonts des Systems — dieselbe Quelle, die auch der native macOS-
+    /// Schriftauswahl-Dialog nutzt. Sortiert für eine stabile, durchsuchbare Reihenfolge.
+    private var fontFamilies: [String] {
+        NSFontManager.shared.availableFontFamilies.sorted()
+    }
+
+    private var fontNameBinding: Binding<String> {
+        Binding(
+            get: { object.fontName ?? "Helvetica" },
+            set: { object.fontName = $0; store.refreshStitchPreview() }
+        )
+    }
+
+    private var fontSizeBinding: Binding<Double> {
+        Binding(
+            get: { unit.value(fromMillimeters: object.fontSize ?? CanvasStore.defaultTextFontSize) },
+            set: { object.fontSize = max(unit.millimeters(from: $0), 1); store.refreshStitchPreview() }
         )
     }
 

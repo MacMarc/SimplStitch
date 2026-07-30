@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @ObservedObject var document: StitchDesignDocument
@@ -14,11 +15,16 @@ struct ContentView: View {
     @State private var canvasStore: CanvasStore
     @State private var isInspectorPresented = true
     @State private var isExportDialogPresented = false
+    @State private var isImportDialogPresented = false
+    @State private var importErrorMessage: String?
     // Eigener Subprocess statt canvasStores internem — der ist private (siehe CanvasStore-Kommentar
     // zu "ein PythonBridge-Subprocess pro CanvasStore reicht"). Einmalig hier gehalten (nicht pro
     // Sheet-Präsentation neu erzeugt), sonst würde jedes Öffnen des Export-Dialogs einen weiteren,
     // nie beendeten Subprocess starten.
     @State private var exportService = FileExportService(bridge: PythonBridge())
+    // Issue #7: eigener Subprocess wie exportService — Import und Export teilen sich bewusst
+    // keinen Bridge-Prozess, derselbe Grund wie oben (Lebenszyklus/Fehlerisolation pro Feature).
+    @State private var importService = FileImportService(bridge: PythonBridge())
 
     init(document: StitchDesignDocument) {
         self.document = document
@@ -72,12 +78,69 @@ struct ContentView: View {
                     exportService: exportService
                 )
             }
+            // Issue #7: Stickdatei-Import ans Menü (Ablage > Importieren…, SimplStitchCommands)
+            // und an Drag&Drop direkt auf den Canvas angebunden — FileImportService selbst ist seit
+            // Phase 7 fertig, es fehlte nur die UI-Anbindung.
+            .fileImporter(
+                isPresented: $isImportDialogPresented,
+                allowedContentTypes: Self.embroideryContentTypes,
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    if let url = urls.first {
+                        importEmbroideryFile(at: url)
+                    }
+                case .failure(let error):
+                    importErrorMessage = error.localizedDescription
+                }
+            }
+            .dropDestination(for: URL.self) { urls, _ in
+                guard let url = urls.first else { return false }
+                importEmbroideryFile(at: url)
+                return true
+            }
+            .alert(
+                "import.embroidery.error.title",
+                isPresented: Binding(get: { importErrorMessage != nil }, set: { if !$0 { importErrorMessage = nil } })
+            ) {
+                Button("import.embroidery.error.dismiss") { importErrorMessage = nil }
+            } message: {
+                Text(importErrorMessage ?? "")
+            }
             // Macht canvasStore/die Sheet-Bindings für die Menüleiste erreichbar (SimplStitchCommands,
             // Phase 8b) — .commands ist auf Scene-Ebene deklariert, hat also keinen direkten Zugriff
             // auf pro-Fenster-Zustand.
             .focusedSceneValue(\.canvasStore, canvasStore)
             .focusedSceneValue(\.isExportDialogPresented, $isExportDialogPresented)
+            .focusedSceneValue(\.isImportDialogPresented, $isImportDialogPresented)
             .focusedSceneValue(\.isInspectorPresented, $isInspectorPresented)
+        }
+    }
+
+    /// Kuratierte Auswahl der gängigsten der 46 von pyembroidery unterstützten Formate fürs
+    /// `.fileImporter`-Panel (siehe FileImportService) — `.data` als Fallback, damit auch seltenere
+    /// Formate ohne registrierten UTType wählbar bleiben, statt die Liste auf alle 46 aufzublähen.
+    private static let embroideryContentTypes: [UTType] = {
+        let extensions = ["vp3", "pes", "jef", "exp", "dst", "xxx", "hus", "jsf", "pcs", "csd", "u01", "10o", "vip", "sew"]
+        return extensions.compactMap { UTType(filenameExtension: $0) } + [.data]
+    }()
+
+    private func importEmbroideryFile(at url: URL) {
+        let didAccess = url.startAccessingSecurityScopedResource()
+        Task {
+            defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
+            do {
+                let pattern = try await importService.importEmbroideryFile(at: url)
+                let newObjects = importService.designObjects(from: pattern)
+                guard !newObjects.isEmpty else {
+                    importErrorMessage = String(localized: "import.embroidery.empty")
+                    return
+                }
+                canvasStore.importObjects(newObjects)
+            } catch {
+                importErrorMessage = error.localizedDescription
+            }
         }
     }
 

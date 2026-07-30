@@ -664,6 +664,30 @@ struct CanvasStoreTests {
         #expect(store.selectedObjectID == nil)
     }
 
+    @Test func importObjectsAppendsAtTopOfZOrderAndSelectsThem() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let existing = makeRectangle(in: store)
+        #expect(existing.zIndex == 0)
+
+        let imported = DesignObject(name: "Imported", kind: .path, positionX: 5, positionY: 5, width: 10, height: 10)
+        store.importObjects([imported])
+
+        #expect(store.objects.count == 2)
+        #expect(imported.zIndex == 1)
+        #expect(imported.project === existing.project)
+        #expect(store.selectedObjectIDs == [imported.id])
+    }
+
+    @Test func importObjectsWithEmptyArrayDoesNothing() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let existing = makeRectangle(in: store)
+
+        store.importObjects([])
+
+        #expect(store.objects.count == 1)
+        #expect(store.selectedObjectIDs == [existing.id])
+    }
+
     @Test func deleteObjectLeavesSelectionUntouchedForOtherObjects() {
         let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
         let first = makeRectangle(in: store, from: CGPoint(x: 10, y: 10), to: CGPoint(x: 20, y: 20))

@@ -25,6 +25,7 @@ import SwiftUI
 struct SimplStitchCommands: Commands {
     @FocusedValue(\.canvasStore) private var canvasStore
     @FocusedValue(\.isExportDialogPresented) private var isExportDialogPresented
+    @FocusedValue(\.isImportDialogPresented) private var isImportDialogPresented
     @FocusedValue(\.isInspectorPresented) private var isInspectorPresented
     @FocusedValue(\.zoomToFitAction) private var zoomToFitAction
 
@@ -37,6 +38,14 @@ struct SimplStitchCommands: Commands {
             }
             .keyboardShortcut("e", modifiers: .command)
             .disabled(isExportDialogPresented == nil)
+
+            Button {
+                isImportDialogPresented?.wrappedValue = true
+            } label: {
+                Text("menu.file.import")
+            }
+            .keyboardShortcut("i", modifiers: .command)
+            .disabled(isImportDialogPresented == nil)
         }
 
         CommandGroup(after: .pasteboard) {

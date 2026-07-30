@@ -1091,6 +1091,23 @@ final class CanvasStore {
         }
     }
 
+    /// Issue #7: fügt importierte Objekte (`FileImportService.designObjects(from:)`) dem Canvas
+    /// hinzu — an die Z-Order oben (nach den bestehenden Objekten), als neue Selektion.
+    func importObjects(_ newObjects: [DesignObject]) {
+        guard !newObjects.isEmpty else { return }
+        // zIndex muss VOR der `.project`-Zuweisung berechnet werden: SwiftData synchronisiert die
+        // Inverse-Relationship sofort, `objects.count` würde das neue Objekt sonst schon mitzählen
+        // (dieselbe Reihenfolge wie `makeShapeObject`/`commitDraft`).
+        var nextZIndex = objects.count
+        for object in newObjects {
+            object.zIndex = nextZIndex
+            nextZIndex += 1
+            object.project = project
+            objects.append(object)
+        }
+        replaceSelection(Set(newObjects.map(\.id)))
+    }
+
     private func isPartOfActiveTransform(_ id: UUID) -> Bool {
         switch activeTransform {
         case .single(let objectID, _): return objectID == id

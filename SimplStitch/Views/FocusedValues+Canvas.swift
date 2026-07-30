@@ -19,6 +19,10 @@ private struct ExportDialogPresentedFocusedValueKey: FocusedValueKey {
     typealias Value = Binding<Bool>
 }
 
+private struct ImportDialogPresentedFocusedValueKey: FocusedValueKey {
+    typealias Value = Binding<Bool>
+}
+
 private struct InspectorPresentedFocusedValueKey: FocusedValueKey {
     typealias Value = Binding<Bool>
 }
@@ -39,6 +43,11 @@ extension FocusedValues {
     var isExportDialogPresented: Binding<Bool>? {
         get { self[ExportDialogPresentedFocusedValueKey.self] }
         set { self[ExportDialogPresentedFocusedValueKey.self] = newValue }
+    }
+
+    var isImportDialogPresented: Binding<Bool>? {
+        get { self[ImportDialogPresentedFocusedValueKey.self] }
+        set { self[ImportDialogPresentedFocusedValueKey.self] = newValue }
     }
 
     var isInspectorPresented: Binding<Bool>? {

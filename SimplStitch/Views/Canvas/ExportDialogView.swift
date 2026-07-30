@@ -26,8 +26,7 @@ struct ExportDialogView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("export.dialog.title")
-                .font(.headline)
+            SectionHeader("export.dialog.title")
 
             Picker("export.dialog.formatPicker.label", selection: $format) {
                 ForEach(EmbroideryFileFormat.allCases) { format in

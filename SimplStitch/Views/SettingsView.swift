@@ -9,14 +9,44 @@
 //
 //  Issue #21: ursprünglich ein einziges `Form` mit `.fixedSize(vertical: true)` — bei den
 //  74 mitgelieferten Garnlisten (Issue #20) wuchs das Fenster über den Bildschirm hinaus statt
-//  zu scrollen. Jetzt zwei Bereiche wie in den macOS-Systemeinstellungen (`TabView` mit
-//  `.sidebarAdaptable`, feste Fenstergrösse): "Allgemein" (kurzes Form, passt immer) und
-//  "Garnlisten" (eigenständige `List`, scrollt intern statt das Fenster zu strecken).
+//  zu scrollen. Danach zwei Bereiche wie in den macOS-Systemeinstellungen (`TabView` mit
+//  `.sidebarAdaptable`, feste Fenstergrösse).
+//
+//  Issue #26 (Bug 3): `.tabViewStyle(.sidebarAdaptable)` sieht den echten Systemeinstellungen zwar
+//  ähnlich, ist aber technisch eine einklappbare Sidebar mit Toggle-Button — echte
+//  Systemeinstellungen haben eine feste, nicht einklappbare Sidebar. Ausserdem waren die
+//  Garnlisten-/Stickrahmen-Panes reine `VStack`s ohne Top-Alignment, ihr Inhalt zentrierte sich
+//  vertikal im Fenster statt oben zu beginnen. Fix: echte `NavigationSplitView` mit fest breiter
+//  `List`-Sidebar (nicht ausblendbar) statt `TabView`, jede Detail-Pane explizit oben ausgerichtet.
 //
 
 import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
+
+private enum SettingsSection: String, CaseIterable, Identifiable {
+    case general
+    case palettes
+    case hoopSizes
+
+    var id: String { rawValue }
+
+    var titleKey: LocalizedStringKey {
+        switch self {
+        case .general: return "settings.tab.general"
+        case .palettes: return "settings.tab.palettes"
+        case .hoopSizes: return "settings.tab.hoopSizes"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .general: return "gearshape"
+        case .palettes: return "swatchpalette"
+        case .hoopSizes: return "square.dashed"
+        }
+    }
+}
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
@@ -34,6 +64,8 @@ struct SettingsView: View {
 
     private let paletteImporter: GPLPaletteImporting
 
+    @State private var selectedSection: SettingsSection = .general
+
     private var unit: MeasurementUnit {
         settingsList.first?.preferredMeasurementUnit ?? .millimeters
     }
@@ -43,21 +75,33 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        TabView {
-            Tab("settings.tab.general", systemImage: "gearshape") {
-                if let settings = settingsList.first {
-                    generalForm(settings)
+        NavigationSplitView {
+            List(SettingsSection.allCases, selection: $selectedSection) { section in
+                Label(section.titleKey, systemImage: section.systemImage).tag(section)
+            }
+            // Feste Breite (min == ideal == max): die Sidebar lässt sich weder ziehen noch
+            // einklappen — wie in den echten macOS-Systemeinstellungen (Issue #26, Bug 3a).
+            .navigationSplitViewColumnWidth(DesignSystem.settingsSidebarWidth)
+            .toolbar(removing: .sidebarToggle)
+        } detail: {
+            Group {
+                switch selectedSection {
+                case .general:
+                    if let settings = settingsList.first {
+                        generalForm(settings)
+                    }
+                case .palettes:
+                    palettesPane
+                case .hoopSizes:
+                    hoopSizesPane
                 }
             }
-            Tab("settings.tab.palettes", systemImage: "swatchpalette") {
-                palettesPane
-            }
-            Tab("settings.tab.hoopSizes", systemImage: "square.dashed") {
-                hoopSizesPane
-            }
+            // Issue #26, Bug 3b: Inhalt beginnt jetzt oben statt sich bei kurzem Inhalt vertikal
+            // im Fenster zu zentrieren.
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .tabViewStyle(.sidebarAdaptable)
-        .frame(width: 520, height: 420)
+        .navigationSplitViewStyle(.balanced)
+        .frame(width: 560, height: 420)
         .onAppear(perform: ensureSettingsExist)
         .fileImporter(
             isPresented: $isImporterPresented,
@@ -88,22 +132,6 @@ struct SettingsView: View {
                 ) {
                     Text("settings.unit.millimeters").tag(MeasurementUnit.millimeters)
                     Text("settings.unit.inches").tag(MeasurementUnit.inches)
-                }
-            }
-
-            // Issue #25: Icon-/Textgrösse der Werkzeug-Toolbar war fest verdrahtet ("Tableiste zu
-            // klein") — jetzt drei Stufen, angewendet in ContentView.iconButton.
-            Section("settings.section.toolbar") {
-                Picker(
-                    "settings.toolbarSize",
-                    selection: Binding(
-                        get: { settings.toolbarSize ?? .medium },
-                        set: { settings.toolbarSize = $0 }
-                    )
-                ) {
-                    Text("settings.toolbarSize.small").tag(ToolbarSize.small)
-                    Text("settings.toolbarSize.medium").tag(ToolbarSize.medium)
-                    Text("settings.toolbarSize.large").tag(ToolbarSize.large)
                 }
             }
 
@@ -139,7 +167,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .formStyle(.grouped)
+        .inspectorForm()
     }
 
     /// Issue #20: Garnlisten aktivieren/deaktivieren (deaktivierte Paletten werden im
@@ -220,16 +248,11 @@ struct SettingsView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("settings.hoopSizes.add").font(.headline)
+                SectionHeader("settings.hoopSizes.add")
                 TextField("settings.hoopSizes.name", text: $newHoopName)
                 HStack {
-                    TextField("W", value: $newHoopWidth, format: .number.precision(.fractionLength(0...2)))
-                        .labelsHidden()
-                        .frame(width: 60)
-                    Text("×")
-                    TextField("H", value: $newHoopHeight, format: .number.precision(.fractionLength(0...2)))
-                        .labelsHidden()
-                        .frame(width: 60)
+                    AxisField("W", binding: $newHoopWidth)
+                    AxisField("H", binding: $newHoopHeight)
                     Text(unit.symbol).foregroundStyle(.secondary)
                     Spacer()
                     Button("settings.hoopSizes.addButton") { addHoopSize() }

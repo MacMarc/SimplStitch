@@ -15,11 +15,21 @@
 //  sondern die umgebende `.inspector()`-Spalte hat den GESAMTEN VStack
 //  (Picker inklusive) als einen Block gescrollt, weil der VStack ohne
 //  explizite Höhenvorgabe keine verlässliche Scroll-Grenze für sein Kind-List
-//  darstellt. Fix: Picker+Divider hängen jetzt als `.safeAreaInset(edge: .top)`
-//  am jeweiligen Panel — das Panel (List/Form) ist damit der alleinige Root-
-//  Inhalt und bekommt die volle verfügbare Höhe (scrollt zuverlässig intern),
-//  der Picker liegt strukturell ausserhalb der Scroll-Hierarchie und kann
-//  dadurch gar nicht mehr mitscrollen.
+//  darstellt.
+//
+//  Issue #26 (Bug 2): der Fix von #14 (`.safeAreaInset(edge: .top)` auf einer
+//  `Group`, deren `switch` zu Panes mit UNTERSCHIEDLICHEN Root-Containern
+//  auflöst — mehrere `Form`s, aber `LayersPanelView` ein `VStack{List}`) löste
+//  das Scroll-Problem, behielt aber ein zweites: das Inset wird pro Pane neu
+//  reserviert, und da `Form`/`List` jeweils ihr eigenes oberes Content-Inset
+//  mitbringen, verschob sich der sichtbare Header/Content-Start beim
+//  Tab-Wechsel ("hüpft"). Fix: der Picker ist jetzt ein echtes Geschwister-
+//  Element in einem `VStack`, NICHT mehr an eine `Group`/`safeAreaInset`
+//  gehängt; die aktive Pane bekommt explizit `.frame(maxWidth: .infinity,
+//  maxHeight: .infinity)`, damit sie (nicht die äussere Spalte) die verfügbare
+//  Höhe bekommt und intern scrollt — unabhängig davon, ob die Pane ein `Form`,
+//  eine `List` oder ein einfacher `VStack` ist, ist der Startpunkt jetzt für
+//  alle identisch.
 //
 
 import SwiftUI
@@ -46,56 +56,65 @@ struct CanvasInspectorView: View {
     @State private var selectedTab: InspectorTab = .layers
 
     var body: some View {
-        Group {
-            switch selectedTab {
-            case .layers:
-                LayersPanelView(store: store)
-            case .object:
-                if let object = store.selectedObject {
-                    ObjectInspectorView(object: object, store: store)
-                        .id(object.id)
-                } else if let groupID = store.selectedGroupID {
-                    GroupInspectorView(groupID: groupID, memberCount: store.selectedObjects.count, store: store)
-                } else if store.selectedObjectIDs.count > 1 {
-                    // Issue #23: eine Mehrfachauswahl aus (noch) nicht gruppierten Objekten zeigte
-                    // bisher denselben "Kein Objekt ausgewählt"-Leerzustand wie gar keine Selektion —
-                    // dort fehlte die Möglichkeit zu gruppieren, obwohl "Gruppierung aufheben" für
-                    // eine bestehende Gruppe längst im Inspector verfügbar ist (GroupInspectorView).
-                    MultiSelectionInspectorView(memberCount: store.selectedObjectIDs.count, store: store)
-                } else {
-                    ContentUnavailableView(
-                        "inspector.object.empty",
-                        systemImage: "square.dashed.inset.filled",
-                        description: Text("inspector.object.empty.description")
-                    )
-                }
-            case .project:
-                ProjectInspectorView(store: store)
-            }
-        }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            VStack(spacing: 0) {
-                // Issue #20: Pulldown statt Segmented Control — "Ebenen"/"Objekt-Eigenschaften"/
-                // "Projekt-Eigenschaften" sind als deutsche Komposita zu lang für drei Segmente in
-                // der schmalen Inspector-Spalte (240–280pt). Ein Menü-Picker bleibt bei jeder
-                // Fensterbreite lesbar.
-                Picker("", selection: $selectedTab) {
-                    ForEach(InspectorTab.allCases) { tab in
-                        Text(tab.displayName).tag(tab)
-                    }
-                }
-                .pickerStyle(.menu)
-                .labelsHidden()
-                .padding(8)
+        VStack(spacing: 0) {
+            header
 
-                Divider()
-            }
-            .background(.bar)
+            Divider()
+
+            activePane
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onChange(of: store.selectedObjectIDs) { _, newValue in
             if !newValue.isEmpty {
                 selectedTab = .object
             }
+        }
+    }
+
+    /// Echtes Geschwister-Element statt eines `.safeAreaInset` auf der `Group` darunter (Issue #26,
+    /// Bug 2) — bleibt dadurch unabhängig vom Root-Container der jeweils aktiven Pane fixiert.
+    private var header: some View {
+        // Issue #20: Pulldown statt Segmented Control — "Ebenen"/"Objekt-Eigenschaften"/
+        // "Projekt-Eigenschaften" sind als deutsche Komposita zu lang für drei Segmente in
+        // der schmalen Inspector-Spalte (240–280pt). Ein Menü-Picker bleibt bei jeder
+        // Fensterbreite lesbar.
+        Picker("", selection: $selectedTab) {
+            ForEach(InspectorTab.allCases) { tab in
+                Text(tab.displayName).tag(tab)
+            }
+        }
+        .pickerStyle(.menu)
+        .labelsHidden()
+        .padding(8)
+        .background(.bar)
+    }
+
+    @ViewBuilder
+    private var activePane: some View {
+        switch selectedTab {
+        case .layers:
+            LayersPanelView(store: store)
+        case .object:
+            if let object = store.selectedObject {
+                ObjectInspectorView(object: object, store: store)
+                    .id(object.id)
+            } else if let groupID = store.selectedGroupID {
+                GroupInspectorView(groupID: groupID, memberCount: store.selectedObjects.count, store: store)
+            } else if store.selectedObjectIDs.count > 1 {
+                // Issue #23: eine Mehrfachauswahl aus (noch) nicht gruppierten Objekten zeigte
+                // bisher denselben "Kein Objekt ausgewählt"-Leerzustand wie gar keine Selektion —
+                // dort fehlte die Möglichkeit zu gruppieren, obwohl "Gruppierung aufheben" für
+                // eine bestehende Gruppe längst im Inspector verfügbar ist (GroupInspectorView).
+                MultiSelectionInspectorView(memberCount: store.selectedObjectIDs.count, store: store)
+            } else {
+                ContentUnavailableView(
+                    "inspector.object.empty",
+                    systemImage: "square.dashed.inset.filled",
+                    description: Text("inspector.object.empty.description")
+                )
+            }
+        case .project:
+            ProjectInspectorView(store: store)
         }
     }
 }

@@ -62,6 +62,13 @@ struct SimplStitchApp: App {
         DocumentGroup(newDocument: { StitchDesignDocument() }) { configuration in
             ContentView(document: configuration.document)
         }
+        // Issue #26 (Bug 4): ohne explizite Grösse liess SwiftUI ein neues Dokumentfenster aus den
+        // Content-Idealwerten bemessen (Sidebar ideal:200 + Inspector min:240, Canvas ohne
+        // Idealgrösse) — das ergab ein viel zu enges Fenster, in dem der Canvas dann klein
+        // eingepasst wurde. Grosszügige Standardgrösse wie bei nativen Dokument-Apps
+        // (Pages/Sketch/…), kein echtes Vollbild (das wäre kein natives macOS-Standardverhalten).
+        .defaultSize(width: 1400, height: 900)
+        .windowResizability(.contentMinSize)
         .modelContainer(sharedModelContainer)
         .commands {
             SimplStitchCommands()

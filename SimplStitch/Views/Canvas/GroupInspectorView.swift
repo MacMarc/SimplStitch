@@ -19,14 +19,16 @@ struct GroupInspectorView: View {
 
     var body: some View {
         Form {
-            Section("inspector.group.section") {
+            Section {
                 LabeledContent("inspector.group.memberCount", value: String(memberCount))
                 Button("inspector.group.ungroup") {
                     store.ungroup(groupID: groupID)
                 }
+            } header: {
+                SectionHeader("inspector.group.section")
             }
         }
-        .formStyle(.grouped)
+        .inspectorForm()
     }
 }
 

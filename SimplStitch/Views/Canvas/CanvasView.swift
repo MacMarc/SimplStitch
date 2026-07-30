@@ -38,13 +38,16 @@ struct CanvasView: View {
     @GestureState private var liveDragTranslation: CGSize = .zero
     @State private var selectionDrag = SelectionDragState()
     @FocusState private var isTextEditorFocused: Bool
-    /// Issue #15: `.onAppear` allein reicht nicht — bei einem frisch von `DocumentGroup` geöffneten
-    /// Fenster ist die `GeometryReader`-Grösse zu diesem Zeitpunkt teils noch (0,0) oder eine
-    /// transiente Zwischengrösse, bevor macOS das Fenster auf seine endgültige Grösse bringt. Der
-    /// Flag sorgt dafür, dass `zoomToFit` trotzdem nur EINMAL passiert (nicht bei jeder späteren
-    /// manuellen Fenstergrössenänderung) — beim ersten validen (nicht-Null) `proxy.size`, egal ob
-    /// das schon in `onAppear` oder erst in einem folgenden `onChange` ist.
-    @State private var hasPerformedInitialZoomToFit = false
+    /// Issue #15/#26: `.onAppear` allein reicht nicht — bei einem frisch von `DocumentGroup`
+    /// geöffneten Fenster durchläuft die `GeometryReader`-Grösse mehrere Zwischenwerte, bevor
+    /// macOS das Fenster auf seine endgültige (jetzt grosszügige, siehe `.defaultSize` in
+    /// SimplStitchApp) Grösse bringt. Ein einmaliges "beim ersten Nicht-Null-Wert einrasten"
+    /// (die alte `hasPerformedInitialZoomToFit`-Logik) passte sich dadurch oft an eine noch
+    /// transiente, zu kleine Zwischengrösse an und blieb dann für immer klein (Issue #26, Bug 4).
+    /// Stattdessen: automatisch neu einpassen bei JEDER Grössenänderung, bis der Nutzer selbst
+    /// pannt/zoomt/"Ganze Seite einpassen" wählt — danach hört das automatische Einpassen auf,
+    /// um den Nutzer nicht zu überschreiben.
+    @State private var hasUserAdjustedView = false
 
     private var effectiveZoomScale: CGFloat {
         store.zoomScale * liveMagnification
@@ -76,13 +79,14 @@ struct CanvasView: View {
                 .gesture(magnificationGesture)
                 .simultaneousGesture(doubleTapToEditGesture)
                 .onAppear {
-                    performInitialZoomToFitIfNeeded(proxy.size)
+                    autoFitIfNeeded(proxy.size)
                 }
                 .onChange(of: proxy.size) { _, newSize in
-                    performInitialZoomToFitIfNeeded(newSize)
+                    autoFitIfNeeded(newSize)
                 }
                 .focusedSceneValue(\.zoomToFitAction) {
                     store.zoomToFit(viewportSize: proxy.size)
+                    hasUserAdjustedView = true
                 }
 
                 if let editingObject = store.editingTextObject {
@@ -92,12 +96,11 @@ struct CanvasView: View {
         }
     }
 
-    /// Issue #15: einmaliger Auto-`zoomToFit` beim Öffnen, siehe Kommentar bei
-    /// `hasPerformedInitialZoomToFit`.
-    private func performInitialZoomToFitIfNeeded(_ size: CGSize) {
-        guard !hasPerformedInitialZoomToFit, size.width > 0, size.height > 0 else { return }
+    /// Issue #15/#26: automatisches Einpassen bei jeder Grössenänderung, solange der Nutzer noch
+    /// nicht selbst eingegriffen hat — siehe Kommentar bei `hasUserAdjustedView`.
+    private func autoFitIfNeeded(_ size: CGSize) {
+        guard !hasUserAdjustedView, size.width > 0, size.height > 0 else { return }
         store.zoomToFit(viewportSize: size)
-        hasPerformedInitialZoomToFit = true
     }
 
     /// Doppelklick auf ein Text-Objekt mit dem Auswahl-Werkzeug startet die Inline-Bearbeitung.
@@ -148,6 +151,7 @@ struct CanvasView: View {
             }
             .onEnded { value in
                 store.zoom(by: value)
+                hasUserAdjustedView = true
             }
     }
 
@@ -179,6 +183,7 @@ struct CanvasView: View {
                 switch selectionDrag.mode {
                 case .pan:
                     store.pan(by: value.translation)
+                    hasUserAdjustedView = true
                 case .moveObject, .handle:
                     store.endTransformDrag()
                 case .marquee:

@@ -67,6 +67,22 @@ struct CanvasStoreTests {
         #expect(abs(store.panOffset.width - 0) < 0.0001)
     }
 
+    // Issue #26 (Bug 4): das neue grosszügige Standard-Fenster (1400×900, SimplStitchApp) lässt
+    // nach Abzug von Sidebar/Inspector einen deutlich grösseren Canvas-Viewport übrig als das
+    // vorherige, zu kleine Default-Fenster — hier mit realistischen Massen gegengerechnet, dass
+    // `zoomToFit` dafür weiterhin korrekt skaliert (die eigentliche Bug-Ursache lag im Timing der
+    // Aufrufe in CanvasView, nicht in dieser Berechnung selbst).
+    @Test func zoomToFitScalesUpForLargeViewport() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 130, height: 180))
+        store.zoomToFit(viewportSize: CGSize(width: 900, height: 700), margin: 24)
+
+        #expect(store.zoomScale > 3)
+        let scaledWidth = 130 * store.zoomScale
+        let scaledHeight = 180 * store.zoomScale
+        #expect(abs(store.panOffset.width - (900 - scaledWidth) / 2) < 0.0001)
+        #expect(abs(store.panOffset.height - (700 - scaledHeight) / 2) < 0.0001)
+    }
+
     @Test func resetViewRestoresDefaults() {
         let store = CanvasStore(
             canvasSizeMillimeters: CGSize(width: 100, height: 100),

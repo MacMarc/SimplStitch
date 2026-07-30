@@ -15,13 +15,6 @@ struct ContentView: View {
     // verdrahteten UndoManager bereit (Bearbeiten-Menü, ⌘Z/⌘⇧Z) — CanvasStore ist keine View und
     // hat daher keinen eigenen Environment-Zugriff, bekommt ihn also von hier durchgereicht.
     @Environment(\.undoManager) private var undoManager
-    // Issue #25: Icon-/Textgrösse der Werkzeug-Toolbar ist jetzt in den Einstellungen wählbar
-    // (AppSettings.toolbarSize) statt eines einzigen fest verdrahteten Werts.
-    @Query private var appSettingsList: [AppSettings]
-
-    private var toolbarSize: ToolbarSize {
-        appSettingsList.first?.toolbarSize ?? .medium
-    }
 
     @State private var canvasStore: CanvasStore
     @State private var isInspectorPresented = true
@@ -55,14 +48,28 @@ struct ContentView: View {
                 // Icon+Text erzwungen (.labelStyle(.titleAndIcon)) statt der macOS-Standardregel zu
                 // folgen, die eine Toolbar-Label meist auf reines Icon reduziert — CLAUDE.md verlangt
                 // hier explizit "Icon + Text-Label (kein Icon-Raten)".
-                // Issue #25: Exportieren zieht als letztes Element in dieselbe Icon-Gruppe ein
-                // (vorher ein separater, anders gestylter Toolbar-Button neben Inspektor).
+                //
+                // Issue #26 (Bug 1): der zwischenzeitliche "Apple-Mail-Stil" (Issue #5, handgebaute
+                // VStack-Buttons mit fester Pixel-Höhe) war höher als die System-Titlebar/Toolbar
+                // und lief in den Fensterinhalt über ("Toolbar überlagert Fenster"). Zurück auf
+                // native Toolbar-Buttons (`Label` + `.buttonStyle`) — die werden von AppKit selbst
+                // auf Toolbar-Höhe begrenzt und können nicht mehr überlaufen. `AppSettings.
+                // toolbarSize` (Issue #25) war ein Workaround genau für diesen Bug und wird nicht
+                // mehr genutzt (Feld bleibt im Modell, keine Migration nötig).
                 ToolbarItemGroup(placement: .principal) {
                     ForEach(CanvasTool.allCases) { tool in
                         toolButton(for: tool)
                     }
-                    iconButton(systemImage: "square.and.arrow.up", label: String(localized: "export.toolbar.button")) {
+                }
+
+                // Exportieren ist eine Aktion, kein Werkzeug-Modus — gehört nicht in dieselbe
+                // Gruppe wie die Werkzeugauswahl (Issue #26).
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
                         isExportDialogPresented = true
+                    } label: {
+                        Label("export.toolbar.button", systemImage: "square.and.arrow.up")
+                            .labelStyle(.titleAndIcon)
                     }
                 }
 
@@ -184,53 +191,25 @@ struct ContentView: View {
         }
     }
 
-    /// Apple-Mail-Stil (Issue #5): Icon mit kleinerem Text darunter statt Icon+Text nebeneinander
-    /// in einer `.bordered`/`.borderedProminent`-Kapsel.
+    /// Native Toolbar-Buttons (Issue #26 — zurück auf Phase-8c-Verhalten nach dem gescheiterten
+    /// "Apple-Mail-Stil"-Zwischenstand aus Issue #5, siehe Kommentar am Aufrufer): `.borderedProminent`
+    /// nur für das aktive Werkzeug — als `if`/`else` statt eines Ternarys zwischen zwei
+    /// ButtonStyle-Typen, da `.borderedProminent`/`.bordered` unterschiedliche konkrete Typen sind
+    /// und sich nicht direkt in einem Ausdruck vereinen lassen.
     @ViewBuilder
     private func toolButton(for tool: CanvasTool) -> some View {
-        iconButton(systemImage: tool.systemImageName, label: tool.displayName, isActive: canvasStore.currentTool == tool) {
+        let button = Button {
             canvasStore.selectTool(tool)
+        } label: {
+            Label(tool.displayName, systemImage: tool.systemImageName)
+                .labelStyle(.titleAndIcon)
         }
-    }
 
-    /// Gemeinsamer Baustein für alle Icon+Text-Toolbar-Buttons (Werkzeuge + Exportieren, Issue #25).
-    ///
-    /// Grösse kommt aus `AppSettings.toolbarSize` statt fester Werte (Issue #25: "Tableiste zu
-    /// klein", jetzt in den Einstellungen anpassbar).
-    ///
-    /// Auswahl-Optik (Issue #25, Nachbesserung): ein solider blauer Kreis nur hinter dem Icon
-    /// wurde als "optisch nicht schön" empfunden. Jetzt eine sanft eingefärbte, abgerundete
-    /// Fläche hinter Icon UND Text zusammen (`Color.accentColor.opacity(0.15)`, wie macOS'
-    /// eigene dezente Selektions-Hervorhebungen z.B. in Listen/Segmented Controls) statt einer
-    /// harten Vollfarbe — Icon/Text färben sich zusätzlich in der Akzentfarbe statt weiss auf blau.
-    ///
-    /// `.contentShape(Rectangle())` auf dem gesamten Label: ohne das reagiert ein `.plain`-Button
-    /// mit nicht-opakem Inhalt (der Hintergrund ist im inaktiven Zustand `Color.clear`) nur auf
-    /// Klicks innerhalb der tatsächlich gezeichneten Pixel (SF-Symbol-Glyph, Text) — der Leerraum
-    /// dazwischen war klickunempfindlich.
-    @ViewBuilder
-    private func iconButton(systemImage: String, label: String, isActive: Bool = false, action: @escaping () -> Void) -> some View {
-        let size = toolbarSize
-        Button(action: action) {
-            VStack(spacing: 2) {
-                Image(systemName: systemImage)
-                    .font(.system(size: size.symbolFontSize, weight: .medium))
-                    .frame(width: size.iconDiameter, height: size.iconDiameter)
-                    .foregroundStyle(isActive ? Color.accentColor : Color.primary)
-                Text(label)
-                    .font(.system(size: size.textFontSize))
-                    .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
-            }
-            .frame(width: size.buttonWidth)
-            .padding(.vertical, 4)
-            .background {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(isActive ? Color.accentColor.opacity(0.15) : Color.clear)
-            }
-            .contentShape(Rectangle())
+        if canvasStore.currentTool == tool {
+            button.buttonStyle(.borderedProminent)
+        } else {
+            button.buttonStyle(.bordered)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(label))
     }
 }
 

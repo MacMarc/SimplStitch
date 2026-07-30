@@ -83,7 +83,7 @@ struct ProjectInspectorView: View {
             Section {
                 TextField("project.name.label", text: nameBinding)
             } header: {
-                Text("project.name.section").font(.headline)
+                SectionHeader("project.name.section")
             }
 
             Section {
@@ -115,14 +115,14 @@ struct ProjectInspectorView: View {
 
                 LabeledContent {
                     HStack {
-                        axisField("inspector.object.size.width", binding: canvasWidthBinding())
-                        axisField("inspector.object.size.height", binding: canvasHeightBinding())
+                        AxisField("inspector.object.size.width", binding: canvasWidthBinding())
+                        AxisField("inspector.object.size.height", binding: canvasHeightBinding())
                     }
                 } label: {
                     Text("project.hoopSize.manual") + Text(" (\(unit.symbol))")
                 }
             } header: {
-                Text("project.hoopSize.section").font(.headline)
+                SectionHeader("project.hoopSize.section")
             }
 
             Section {
@@ -140,20 +140,11 @@ struct ProjectInspectorView: View {
                 }
                 .labelsHidden()
             } header: {
-                Text("project.defaultPalette.section").font(.headline)
+                SectionHeader("project.defaultPalette.section")
             }
         }
-        .formStyle(.grouped)
+        .inspectorForm()
         .navigationTitle(Text("project.threads.panel.title"))
-    }
-
-    private func axisField(_ labelKey: LocalizedStringKey, binding: Binding<Double>) -> some View {
-        HStack(spacing: 3) {
-            Text(labelKey).font(.caption2).foregroundStyle(.secondary)
-            TextField("", value: binding, format: .number.precision(.fractionLength(0...2)))
-                .labelsHidden()
-                .frame(width: 50)
-        }
     }
 }
 

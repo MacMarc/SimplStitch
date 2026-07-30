@@ -22,10 +22,10 @@ struct MultiSelectionInspectorView: View {
                     store.groupSelectedObjects()
                 }
             } header: {
-                Text("inspector.multiSelection.section").font(.headline)
+                SectionHeader("inspector.multiSelection.section")
             }
         }
-        .formStyle(.grouped)
+        .inspectorForm()
     }
 }
 

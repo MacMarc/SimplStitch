@@ -57,16 +57,16 @@ struct ObjectInspectorView: View {
 
                 LabeledContent {
                     HStack {
-                        axisField("X", binding: positionXBinding)
-                        axisField("Y", binding: positionYBinding)
+                        AxisField("X", binding: positionXBinding)
+                        AxisField("Y", binding: positionYBinding)
                     }
                 } label: {
                     unitLabel("inspector.object.position")
                 }
                 LabeledContent {
                     HStack {
-                        axisField("inspector.object.size.width", binding: widthBinding)
-                        axisField("inspector.object.size.height", binding: heightBinding)
+                        AxisField("inspector.object.size.width", binding: widthBinding)
+                        AxisField("inspector.object.size.height", binding: heightBinding)
                     }
                 } label: {
                     unitLabel("inspector.object.size")
@@ -85,7 +85,7 @@ struct ObjectInspectorView: View {
                     }
                 }
             } header: {
-                sectionHeader("inspector.section.object")
+                SectionHeader("inspector.section.object")
             }
 
             // Issue #23: Füllung (Farbe + Sticheinstellungen) als eine Sektion, symmetrisch zur
@@ -131,7 +131,7 @@ struct ObjectInspectorView: View {
                     }
                 }
             } header: {
-                sectionHeader("inspector.section.fill")
+                SectionHeader("inspector.section.fill")
             }
 
             Section {
@@ -177,18 +177,13 @@ struct ObjectInspectorView: View {
                     }
                 }
             } header: {
-                sectionHeader("inspector.section.border")
+                SectionHeader("inspector.section.border")
             }
         }
-        .formStyle(.grouped)
+        .inspectorForm()
     }
 
     // MARK: Gemeinsame Bausteine
-
-    @ViewBuilder
-    private func sectionHeader(_ key: LocalizedStringKey) -> some View {
-        Text(key).font(.headline)
-    }
 
     /// Sektions-/Feldtitel mit dynamisch angehängter Einheit (Issue #23: vorher war "(mm)" fest
     /// in den lokalisierten Strings verdrahtet, obwohl `AppSettings.preferredMeasurementUnit`
@@ -197,19 +192,10 @@ struct ObjectInspectorView: View {
         Text(key) + Text(" (\(unit.symbol))")
     }
 
-    /// Kurzes Achsen-Label ("X"/"Y"/"B"/"H") VOR dem Zahlenfeld — vorher über `.labelsHidden()`
-    /// unsichtbar, obwohl der Code die Labels längst mitführte.
-    private func axisField(_ labelKey: LocalizedStringKey, binding: Binding<Double>) -> some View {
-        HStack(spacing: 3) {
-            Text(labelKey).font(.caption2).foregroundStyle(.secondary)
-            numberField(binding)
-        }
-    }
-
     private func numberField(_ binding: Binding<Double>) -> some View {
         TextField("", value: binding, format: .number.precision(.fractionLength(0...2)))
             .labelsHidden()
-            .frame(width: 46)
+            .frame(width: DesignSystem.numberFieldWidth)
     }
 
     /// Slider + editierbares Zahlenfeld nebeneinander (Issue #23: vorher nur Slider ohne

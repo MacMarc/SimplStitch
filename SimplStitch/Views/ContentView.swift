@@ -36,43 +36,55 @@ struct ContentView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
-            List {
-                Text("sidebar.noProjects")
-            }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
-        } detail: {
-            CanvasView(store: canvasStore)
+        // Issue #26 (Opus-Konsultation, Nachbesserung 2): die linke Seitenleiste war seit Phase 8a
+        // reine, nie verdrahtete Platzhalter-UI (zeigte immer nur "Noch keine Projekte", ohne
+        // @Query/Auswahl/Funktion) — kein Produkt-Requirement dafür in CLAUDE.md auffindbar. Die
+        // App ist über `DocumentGroup` ohnehin dokumentbasiert (jedes Projekt = eigenes Fenster,
+        // "Zuletzt geöffnet" kommt nativ vom Ablage-Menü) — ein zweiter Navigator hier hätte nur
+        // den Canvas beengt, ohne echten Nutzen. Entfernt: `CanvasView` ist jetzt direkt der
+        // Wurzel-Inhalt des Fensters statt einer `NavigationSplitView`-Detail-Spalte.
+        CanvasView(store: canvasStore)
             .toolbar {
-                // Werkzeugauswahl (8c) — dieselben 6 CanvasTool-Fälle wie das Werkzeug-Menü (8b),
-                // Icon+Text erzwungen (.labelStyle(.titleAndIcon)) statt der macOS-Standardregel zu
-                // folgen, die eine Toolbar-Label meist auf reines Icon reduziert — CLAUDE.md verlangt
-                // hier explizit "Icon + Text-Label (kein Icon-Raten)".
-                //
-                // Issue #26 (Bug 1): der "Apple-Mail-Stil" (Issue #5) war insgesamt höher als die
-                // System-Titlebar/Toolbar und lief in den Fensterinhalt über. Die erste
-                // Nachbesserung ersetzte das fälschlich durch native `Label`+`.buttonStyle`-Buttons
-                // (Icon+Text NEBENEINANDER) — der Nutzer wollte aber ausdrücklich Text UNTER dem
-                // Icon, wie in Mail/Notizen. Fix: `ToolbarIconLabel` (DesignSystem.swift) liefert
-                // genau dieses Layout, aber mit fest bemessenen, bewusst kleinen Massen, die sicher
-                // innerhalb der Toolbar-Höhe bleiben, statt der vormals konfigurierbaren (bis 34pt
-                // Icon) `AppSettings.toolbarSize`-Werte, die die eigentliche Überlauf-Ursache waren.
-                ToolbarItemGroup(placement: .principal) {
-                    ForEach(CanvasTool.allCases) { tool in
-                        toolButton(for: tool)
+                // Issue #26 (Opus-Konsultation, Nachbesserung 2): sieben einzelne, handgebaute
+                // Icon+Beschriftungs-Buttons (vorherige Fassung) wirkten als lose Ansammlung statt
+                // "aus einem Guss", da `.buttonStyle(.plain)` explizit jede native Toolbar-Chrome
+                // (Hover/Pressed/Fokus/Inaktiv-Dimmen) abbestellt. Ein einziger nativer segmentierter
+                // `Picker` ist dagegen EIN zusammenhängendes Element mit nativer Auswahl-Optik —
+                // löst "nicht aus einem Guss" strukturell, nicht nur kosmetisch. Bewusste,
+                // besprochene Abweichung von der sonst geltenden CLAUDE.md-Regel "Icon + Text-Label
+                // (kein Icon-Raten)": Beschriftung nur noch als Mouseover-Tooltip (`.help`), nicht
+                // mehr permanent sichtbarer Text — siehe CLAUDE.md-Eintrag zu Issue #26,
+                // Nachbesserung 2 für die Begründung/Nutzerentscheidung.
+                ToolbarItem(placement: .principal) {
+                    Picker(
+                        "canvas.tool.picker",
+                        selection: Binding(
+                            get: { canvasStore.currentTool },
+                            set: { canvasStore.selectTool($0) }
+                        )
+                    ) {
+                        ForEach(CanvasTool.allCases) { tool in
+                            Image(systemName: tool.systemImageName)
+                                .help(Text(tool.displayName))
+                                .tag(tool)
+                        }
                     }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .controlSize(.large)
                 }
 
-                // Exportieren ist eine Aktion, kein Werkzeug-Modus — gehört nicht in dieselbe
-                // Gruppe wie die Werkzeugauswahl (Issue #26). Gleiches Icon-über-Text-Layout wie
-                // die Werkzeuge, für ein einheitliches Erscheinungsbild der gesamten Toolbar.
+                // Exportieren/Inspektor sind Aktionen bzw. ein View-Toggle, keine Werkzeug-Modi —
+                // bewusst NICHT im selben Segmented-Control, sondern als eigenständige, schlichte
+                // Icon-Buttons am Rand (führende Werkzeug-Auswahl / abschliessende Aktionen ist das
+                // übliche Muster nativer Dokument-Toolbars, z.B. Vorschau/Notizen).
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         isExportDialogPresented = true
                     } label: {
-                        ToolbarIconLabel(systemImage: "square.and.arrow.up", title: String(localized: "export.toolbar.button"))
+                        Image(systemName: "square.and.arrow.up")
                     }
-                    .buttonStyle(.plain)
+                    .help(Text("export.toolbar.button"))
                     .accessibilityLabel(Text("export.toolbar.button"))
                 }
 
@@ -80,9 +92,9 @@ struct ContentView: View {
                     Button {
                         isInspectorPresented.toggle()
                     } label: {
-                        ToolbarIconLabel(systemImage: "sidebar.trailing", title: String(localized: "inspector.toggle"), isActive: isInspectorPresented)
+                        Image(systemName: "sidebar.trailing")
                     }
-                    .buttonStyle(.plain)
+                    .help(Text("inspector.toggle"))
                     .accessibilityLabel(Text("inspector.toggle"))
                 }
             }
@@ -135,7 +147,6 @@ struct ContentView: View {
             .focusedSceneValue(\.isImportDialogPresented, $isImportDialogPresented)
             .focusedSceneValue(\.isInspectorPresented, $isInspectorPresented)
             .onAppear { canvasStore.undoManager = undoManager }
-        }
     }
 
     /// Kuratierte Auswahl der gängigsten der 46 von pyembroidery unterstützten Formate fürs
@@ -195,19 +206,6 @@ struct ContentView: View {
         }
     }
 
-    /// Werkzeugauswahl-Button — Icon über Text (`ToolbarIconLabel`, siehe DesignSystem.swift),
-    /// exakt wie vom Nutzer gewünscht (Mail/Notizen-Stil), aber mit fest bemessenen, absichtlich
-    /// kleinen Massen statt der vormals konfigurierbaren `AppSettings.toolbarSize`-Werte, die zum
-    /// Überlauf über die Titlebar geführt hatten (Issue #26, Bug 1).
-    private func toolButton(for tool: CanvasTool) -> some View {
-        Button {
-            canvasStore.selectTool(tool)
-        } label: {
-            ToolbarIconLabel(systemImage: tool.systemImageName, title: tool.displayName, isActive: canvasStore.currentTool == tool)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(tool.displayName))
-    }
 }
 
 #Preview {

@@ -2141,22 +2141,6 @@
         }
       }
     },
-    "sidebar.noProjects" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Noch keine Projekte"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No projects yet"
-          }
-        }
-      }
-    },
     "threads.import.button" : {
       "localizations" : {
         "de" : {

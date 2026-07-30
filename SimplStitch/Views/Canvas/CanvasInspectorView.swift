@@ -38,6 +38,15 @@
 //  Problem mehr (der ursprüngliche Grund für den Menü-Pulldown), da Icons
 //  keine variable Breite je nach Sprache haben.
 //
+//  Issue #26 (Nachbesserung 2, Opus-Konsultation): das Segmented-Control
+//  selbst war schon richtig, aber `.background(.bar)` auf dem umgebenden
+//  Header-VStack erzeugte eine SICHTBARE zweite Fläche (Control-eigene
+//  Kapsel-Optik + `.bar`-Material + Inspector-Material darunter — drei
+//  gestapelte Flächen), die als "weisses Rechteck hinter den Icons" auffiel.
+//  Fix: kein eigener Hintergrund mehr, der Header sitzt bündig auf dem
+//  Inspector-Hintergrund (wie Pages/Keynote/Numbers' Format-Tab-Leiste).
+//  `.controlSize(.large)` behebt "Icons wirken zu klein".
+//
 
 import SwiftUI
 
@@ -104,8 +113,9 @@ struct CanvasInspectorView: View {
         }
         .pickerStyle(.segmented)
         .labelsHidden()
-        .padding(8)
-        .background(.bar)
+        .controlSize(.large)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
     }
 
     @ViewBuilder

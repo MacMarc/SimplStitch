@@ -22,6 +22,15 @@
 //
 //  Eingebunden in ContentView über `.inspector(isPresented:)`.
 //
+//  Sichtbarkeits-/Sperr-Icons on demand (Nutzer-Feedback, Opus-Konsultation): die beiden
+//  Icon-Buttons pro Zeile waren bisher permanent sichtbar, auch im (häufigsten) Normalzustand
+//  sichtbar+entsperrt — das erzeugte bei vielen Ebenen unnötige visuelle Unruhe. Jetzt blendet
+//  `LayerRow` die Buttons nur ein, wenn die Zeile gehovert oder selektiert ist ("wir brauchen sie
+//  gerade") — EIN Nicht-Standard-Zustand (ausgeblendet/gesperrt) bleibt davon unabhängig immer als
+//  stiller Indikator sichtbar, damit man beim Scannen der Liste nicht verliert, welche Ebenen
+//  betroffen sind. Reserviert per `.opacity`/fester Breite weiterhin den Platz (kein Reflow/Jitter
+//  des Namens, VoiceOver/Tastaturnutzer erreichen die Buttons weiterhin über Selektion).
+//
 
 import SwiftUI
 
@@ -76,14 +85,22 @@ struct LayersPanelView: View {
                     ForEach(rows) { row in
                         switch row {
                         case .object(let object):
-                            LayerRow(object: object, store: store)
-                                .tag(object.id)
+                            LayerRow(
+                                object: object,
+                                store: store,
+                                isSelected: store.selectedObjectIDs.contains(object.id)
+                            )
+                            .tag(object.id)
                         case .group(let groupID, let members):
                             DisclosureGroup(isExpanded: expandedBinding(for: groupID)) {
                                 ForEach(members, id: \.id) { member in
-                                    LayerRow(object: member, store: store)
-                                        .tag(member.id)
-                                        .padding(.leading, 16)
+                                    LayerRow(
+                                        object: member,
+                                        store: store,
+                                        isSelected: store.selectedObjectIDs.contains(member.id)
+                                    )
+                                    .tag(member.id)
+                                    .padding(.leading, 16)
                                 }
                             } label: {
                                 GroupRow(groupID: groupID, memberCount: members.count, store: store)
@@ -191,32 +208,68 @@ struct LayersPanelView: View {
 private struct LayerRow: View {
     let object: DesignObject
     let store: CanvasStore
+    let isSelected: Bool
+
+    @State private var isHovered = false
+
+    /// Zeile "in Benutzung" — Hover ODER Selektion. Selektion ist bewusst mit eingeschlossen,
+    /// nicht nur Hover: sonst kämen Tastatur-/VoiceOver-Nutzer (die nie hovern) nie an die Buttons,
+    /// und ein gerade angeklicktes Objekt soll seine Bedienelemente behalten, während man
+    /// entscheidet, ob man es sperrt/ausblendet.
+    private var revealsControls: Bool { isHovered || isSelected }
 
     var body: some View {
         HStack(spacing: 8) {
-            Button {
+            iconButton(
+                systemName: object.isVisible ? "eye" : "eye.slash",
+                isNonDefault: !object.isVisible,
+                helpKey: object.isVisible ? "layers.hide" : "layers.show"
+            ) {
                 store.toggleVisibility(of: object.id)
-            } label: {
-                Image(systemName: object.isVisible ? "eye" : "eye.slash")
-                    .foregroundStyle(object.isVisible ? Color.primary : Color.secondary)
             }
-            .buttonStyle(.plain)
-            .help(object.isVisible ? "layers.hide" : "layers.show")
 
             Text(object.name)
                 .foregroundStyle(object.isVisible ? Color.primary : Color.secondary)
                 .lineLimit(1)
 
-            Spacer()
+            Spacer(minLength: 8)
 
-            Button {
+            iconButton(
+                systemName: object.isLocked ? "lock.fill" : "lock.open",
+                isNonDefault: object.isLocked,
+                helpKey: object.isLocked ? "layers.unlock" : "layers.lock"
+            ) {
                 store.toggleLock(of: object.id)
-            } label: {
-                Image(systemName: object.isLocked ? "lock.fill" : "lock.open")
             }
-            .buttonStyle(.plain)
-            .help(object.isLocked ? "layers.unlock" : "layers.lock")
         }
+        .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
+        .animation(.easeInOut(duration: 0.12), value: revealsControls)
+    }
+
+    /// Standardzustand (sichtbar+entsperrt) bleibt unsichtbar, bis die Zeile gebraucht wird
+    /// (Hover/Selektion) — ein Nicht-Standard-Zustand (ausgeblendet/gesperrt) bleibt dagegen immer
+    /// als stiller Indikator sichtbar, unabhängig von Hover/Selektion, damit man beim Scannen der
+    /// Liste nicht verliert, welche Ebenen betroffen sind. `.opacity` statt bedingtem Einfügen hält
+    /// die Zeilenbreite stabil (kein Reflow des Namens) und den Button weiterhin für VoiceOver
+    /// erreichbar.
+    @ViewBuilder
+    private func iconButton(
+        systemName: String,
+        isNonDefault: Bool,
+        helpKey: LocalizedStringKey,
+        action: @escaping () -> Void
+    ) -> some View {
+        let shouldShow = revealsControls || isNonDefault
+        Button(action: action) {
+            Image(systemName: systemName)
+                .foregroundStyle(isNonDefault ? Color.secondary : Color.primary)
+        }
+        .buttonStyle(.plain)
+        .help(helpKey)
+        .frame(width: 20)
+        .opacity(shouldShow ? 1 : 0)
+        .allowsHitTesting(shouldShow)
     }
 }
 

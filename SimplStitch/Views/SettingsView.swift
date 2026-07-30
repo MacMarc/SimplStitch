@@ -22,11 +22,21 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var settingsList: [AppSettings]
     @Query(sort: \ThreadPalette.name) private var palettes: [ThreadPalette]
+    @Query(sort: \CustomHoopSize.name) private var customHoopSizes: [CustomHoopSize]
 
     @State private var isImporterPresented = false
     @State private var importError: String?
 
+    // Issue #22: Formular zum Anlegen eigener Stickrahmen-Grössen.
+    @State private var newHoopName = ""
+    @State private var newHoopWidth: Double = 100
+    @State private var newHoopHeight: Double = 100
+
     private let paletteImporter: GPLPaletteImporting
+
+    private var unit: MeasurementUnit {
+        settingsList.first?.preferredMeasurementUnit ?? .millimeters
+    }
 
     init(paletteImporter: GPLPaletteImporting = GPLPaletteImporter()) {
         self.paletteImporter = paletteImporter
@@ -41,6 +51,9 @@ struct SettingsView: View {
             }
             Tab("settings.tab.palettes", systemImage: "swatchpalette") {
                 palettesPane
+            }
+            Tab("settings.tab.hoopSizes", systemImage: "square.dashed") {
+                hoopSizesPane
             }
         }
         .tabViewStyle(.sidebarAdaptable)
@@ -179,6 +192,74 @@ struct SettingsView: View {
         }
     }
 
+    /// Issue #22: eigene Stickrahmen-Grössen — appweit verwaltet (wie Garnlisten), im Projekt-
+    /// Eigenschaften-Tab (`ProjectInspectorView`) neben den kuratierten Standardgrössen wählbar.
+    @ViewBuilder
+    private var hoopSizesPane: some View {
+        VStack(spacing: 0) {
+            if customHoopSizes.isEmpty {
+                ContentUnavailableView(
+                    "settings.hoopSizes.empty",
+                    systemImage: "square.dashed",
+                    description: Text("settings.hoopSizes.empty.description")
+                )
+            } else {
+                List {
+                    ForEach(customHoopSizes) { size in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(size.name)
+                            Text("\(Int(size.widthMillimeters)) × \(Int(size.heightMillimeters)) mm")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .onDelete(perform: deleteHoopSizes)
+                }
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("settings.hoopSizes.add").font(.headline)
+                TextField("settings.hoopSizes.name", text: $newHoopName)
+                HStack {
+                    TextField("W", value: $newHoopWidth, format: .number.precision(.fractionLength(0...2)))
+                        .labelsHidden()
+                        .frame(width: 60)
+                    Text("×")
+                    TextField("H", value: $newHoopHeight, format: .number.precision(.fractionLength(0...2)))
+                        .labelsHidden()
+                        .frame(width: 60)
+                    Text(unit.symbol).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("settings.hoopSizes.addButton") { addHoopSize() }
+                        .disabled(newHoopName.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+            .padding(12)
+        }
+    }
+
+    private func addHoopSize() {
+        let trimmedName = newHoopName.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else { return }
+        let size = CustomHoopSize(
+            name: trimmedName,
+            widthMillimeters: unit.millimeters(from: newHoopWidth),
+            heightMillimeters: unit.millimeters(from: newHoopHeight)
+        )
+        modelContext.insert(size)
+        newHoopName = ""
+        newHoopWidth = unit.value(fromMillimeters: 100)
+        newHoopHeight = unit.value(fromMillimeters: 100)
+    }
+
+    private func deleteHoopSizes(at offsets: IndexSet) {
+        for index in offsets {
+            modelContext.delete(customHoopSizes[index])
+        }
+    }
+
     private func handleImportResult(_ result: Result<URL, Error>) {
         do {
             let url = try result.get()
@@ -200,5 +281,5 @@ struct SettingsView: View {
 
 #Preview {
     SettingsView()
-        .modelContainer(for: [AppSettings.self, ThreadPalette.self, ThreadColor.self], inMemory: true)
+        .modelContainer(for: [AppSettings.self, ThreadPalette.self, ThreadColor.self, CustomHoopSize.self], inMemory: true)
 }

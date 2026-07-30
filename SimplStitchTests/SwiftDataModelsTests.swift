@@ -19,6 +19,7 @@ struct SwiftDataModelsTests {
             ThreadColor.self,
             ThreadPalette.self,
             AppSettings.self,
+            CustomHoopSize.self,
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [configuration])
@@ -126,5 +127,27 @@ struct SwiftDataModelsTests {
     @Test func measurementUnitSymbols() {
         #expect(MeasurementUnit.millimeters.symbol == "mm")
         #expect(MeasurementUnit.inches.symbol == "in")
+    }
+
+    // Issue #22: Canvas-Grösse per Stickrahmen-Voreinstellung — kuratierte Liste + eigene,
+    // persistierte Grössen.
+    @Test func builtInHoopSizesAreNonEmptyAndUnique() {
+        #expect(!HoopSize.builtIn.isEmpty)
+        #expect(Set(HoopSize.builtIn.map(\.name)).count == HoopSize.builtIn.count)
+        for size in HoopSize.builtIn {
+            #expect(size.widthMillimeters > 0)
+            #expect(size.heightMillimeters > 0)
+        }
+    }
+
+    @Test func customHoopSizeRoundtripsAndConvertsToHoopSize() throws {
+        let context = try makeInMemoryContext()
+        let custom = CustomHoopSize(name: "Mein Rahmen", widthMillimeters: 120, heightMillimeters: 90)
+        context.insert(custom)
+        try context.save()
+
+        let fetched = try #require(try context.fetch(FetchDescriptor<CustomHoopSize>()).first)
+        #expect(fetched.name == "Mein Rahmen")
+        #expect(fetched.asHoopSize == HoopSize(name: "Mein Rahmen", widthMillimeters: 120, heightMillimeters: 90))
     }
 }

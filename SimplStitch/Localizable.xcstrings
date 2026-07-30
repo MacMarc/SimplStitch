@@ -4,6 +4,9 @@
     "" : {
 
     },
+    " (%@)" : {
+
+    },
     "canvas.tool.circle" : {
       "localizations" : {
         "de" : {
@@ -405,8 +408,21 @@
         }
       }
     },
-    "H" : {
-
+    "import.embroidery.empty" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Datei enthält keine lesbaren Stichdaten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file contains no readable stitch data."
+          }
+        }
+      }
     },
     "import.embroidery.error.dismiss" : {
       "localizations" : {
@@ -420,22 +436,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "OK"
-          }
-        }
-      }
-    },
-    "import.embroidery.empty" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die Datei enthält keine lesbaren Stichdaten."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The file contains no readable stitch data."
           }
         }
       }
@@ -456,22 +456,6 @@
         }
       }
     },
-    "import.svg.empty" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die Datei enthält keine unterstützten Formen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The file contains no supported shapes."
-          }
-        }
-      }
-    },
     "import.object.defaultName" : {
       "localizations" : {
         "de" : {
@@ -484,6 +468,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Imported Pattern"
+          }
+        }
+      }
+    },
+    "import.svg.empty" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Datei enthält keine unterstützten Formen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file contains no supported shapes."
           }
         }
       }
@@ -648,22 +648,6 @@
         }
       }
     },
-    "inspector.object.cornerRadius" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Eckenradius"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Corner Radius"
-          }
-        }
-      }
-    },
     "inspector.multiSelection.section" : {
       "localizations" : {
         "de" : {
@@ -676,6 +660,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Multiple Selection"
+          }
+        }
+      }
+    },
+    "inspector.object.cornerRadius" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eckenradius"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Corner Radius"
           }
         }
       }
@@ -857,6 +857,7 @@
       }
     },
     "inspector.section.color" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -868,22 +869,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Color"
-          }
-        }
-      }
-    },
-    "inspector.section.object" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Objekt"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Object"
           }
         }
       }
@@ -904,7 +889,24 @@
         }
       }
     },
+    "inspector.section.object" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Objekt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Object"
+          }
+        }
+      }
+    },
     "inspector.section.stitch" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -1561,11 +1563,124 @@
       }
     },
     "project.defaultPalette.label" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Standard Garnliste"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default Palette"
+          }
+        }
+      }
+    },
+    "project.hoopSize.builtIn" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standardgrössen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standard Sizes"
+          }
+        }
+      }
+    },
+    "project.hoopSize.custom" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Benutzerdefiniert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom"
+          }
+        }
+      }
+    },
+    "project.hoopSize.custom.section" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eigene Grössen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom Sizes"
+          }
+        }
+      }
+    },
+    "project.hoopSize.manual" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manuell"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manual"
+          }
+        }
+      }
+    },
+    "project.hoopSize.section" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stickrahmen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoop"
+          }
+        }
+      }
+    },
+    "project.defaultPalette.none" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
+          }
+        }
+      }
+    },
+    "project.defaultPalette.section" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standard-Garnliste"
           }
         },
         "en" : {
@@ -1604,38 +1719,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Project"
-          }
-        }
-      }
-    },
-    "project.defaultPalette.none" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Keine"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "None"
-          }
-        }
-      }
-    },
-    "project.defaultPalette.section" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Standard-Garnliste"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Default Palette"
           }
         }
       }
@@ -1768,86 +1851,6 @@
         }
       }
     },
-    "settings.section.toolbar" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Werkzeugleiste"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Toolbar"
-          }
-        }
-      }
-    },
-    "settings.toolbarSize" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Grösse"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Size"
-          }
-        }
-      }
-    },
-    "settings.toolbarSize.small" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Klein"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Small"
-          }
-        }
-      }
-    },
-    "settings.toolbarSize.medium" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mittel"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Medium"
-          }
-        }
-      }
-    },
-    "settings.toolbarSize.large" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gross"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Large"
-          }
-        }
-      }
-    },
     "settings.section.threads" : {
       "localizations" : {
         "de" : {
@@ -1864,6 +1867,22 @@
         }
       }
     },
+    "settings.section.toolbar" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Werkzeugleiste"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toolbar"
+          }
+        }
+      }
+    },
     "settings.section.units" : {
       "localizations" : {
         "de" : {
@@ -1876,6 +1895,86 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Units"
+          }
+        }
+      }
+    },
+    "settings.hoopSizes.add" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neue Grösse hinzufügen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add New Size"
+          }
+        }
+      }
+    },
+    "settings.hoopSizes.addButton" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hinzufügen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add"
+          }
+        }
+      }
+    },
+    "settings.hoopSizes.empty" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine eigenen Stickrahmen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Custom Hoop Sizes"
+          }
+        }
+      }
+    },
+    "settings.hoopSizes.empty.description" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Füge unten eigene Stickrahmen-Grössen hinzu."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add your own hoop sizes below."
+          }
+        }
+      }
+    },
+    "settings.hoopSizes.name" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
           }
         }
       }
@@ -1908,6 +2007,86 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Thread Palettes"
+          }
+        }
+      }
+    },
+    "settings.tab.hoopSizes" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stickrahmen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoop Sizes"
+          }
+        }
+      }
+    },
+    "settings.toolbarSize" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grösse"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Size"
+          }
+        }
+      }
+    },
+    "settings.toolbarSize.large" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gross"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Large"
+          }
+        }
+      }
+    },
+    "settings.toolbarSize.medium" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mittel"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medium"
+          }
+        }
+      }
+    },
+    "settings.toolbarSize.small" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klein"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Small"
           }
         }
       }
@@ -2119,9 +2298,6 @@
           }
         }
       }
-    },
-    "W" : {
-
     },
     "X" : {
 

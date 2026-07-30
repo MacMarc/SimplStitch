@@ -598,9 +598,12 @@ struct CanvasStoreTests {
         #expect(created?.text == "")
         #expect(store.selectedObjectID == created?.id)
         #expect(store.editingTextObjectID == created?.id)
-        // Text bekommt bewusst keine Default-Sticheinstellungen — die Text-zu-Stich-Konvertierung
-        // ist noch nicht implementiert (siehe CLAUDE.md Phase 5d), anders als bei Formen/Pfaden.
-        #expect(created?.stitchSettings == nil)
+        // Text embroiderable: Text bekommt jetzt sofort Default-Sticheinstellungen wie Formen/Pfade
+        // (Tatami, nicht die Breite/Höhe-Heuristik — die Bounding-Box eines Worts ist keine
+        // sinnvolle Grundlage für Satin-Schienen-Geometrie) — vorher blieb Text dauerhaft unstickbar.
+        #expect(created?.stitchSettings?.stitchType == .tatami)
+        #expect(created?.stitchSettings?.underlayType == .centerWalk)
+        #expect(created?.hasFill == true)
     }
 
     @Test func clickingTextToolCreatesDefaultSizedBox() {

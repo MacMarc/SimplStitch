@@ -31,6 +31,15 @@ protocol SVGDesignSerializing {
     /// eigener Aufruf für `StitchGenerationService`s zweiten (Rand-)Stichgenerierungs-Pass. `nil`,
     /// wenn das Objekt keine Randeinstellungen hat.
     func borderElement(for object: DesignObject) -> String?
+    /// Text embroiderable: dieselbe Rolle wie `element(for:)`, aber Text wird hier NICHT als
+    /// `<text>` geschrieben, sondern als `<path>` mit den echten Glyphen-Umrissen (siehe
+    /// `GlyphOutlining`) — nur für die Stichgenerierung, `content.svg` bleibt unverändert
+    /// `<text>` (editierbar). `nil`, wenn kein Pfad erzeugt werden kann (z.B. leerer Text).
+    /// Für alle anderen Objektarten identisch zu `element(for:)`.
+    func generationElement(for object: DesignObject) -> String?
+    /// Rand-Pendant zu `generationElement(for:)` — für Text ebenfalls über die echten Glyphen-
+    /// Umrisse, für alle anderen Objektarten identisch zu `borderElement(for:)`.
+    func generationBorderElement(for object: DesignObject) -> String?
 }
 
 struct SVGDecodedDesign {
@@ -57,6 +66,12 @@ enum SVGDesignSerializerError: Error, LocalizedError {
 final class SVGDesignSerializer: SVGDesignSerializing {
 
     static let inkstitchNamespace = "http://inkstitch.org/namespace"
+
+    private let glyphOutlineService: GlyphOutlining
+
+    init(glyphOutlineService: GlyphOutlining = GlyphOutlineService()) {
+        self.glyphOutlineService = glyphOutlineService
+    }
 
     // MARK: Encode
 
@@ -131,6 +146,36 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             // Text hat keinen Rand-Pfad (kein Vektorpfad ohne Text-zu-Pfad-Konvertierung, siehe 5d).
             return nil
         }
+    }
+
+    /// Text embroiderable: für alle Nicht-Text-Objekte identisch zu `element(for:)`. Für Text wird
+    /// statt `<text>` ein `<path>` mit den echten Glyphen-Umrissen geschrieben (`GlyphOutlining`) —
+    /// nur der Stichgenerierungs-Pass sieht das, `content.svg` (`element(for:)`) bleibt `<text>`.
+    func generationElement(for object: DesignObject) -> String? {
+        guard object.kind == .text else { return element(for: object) }
+        guard let glyphPath = glyphOutlineService.glyphOutlinePath(for: object) else { return nil }
+        var attrs = [
+            "id=\"\(object.id.uuidString)\"",
+            "fill=\"\(object.fillColorHex)\"",
+        ]
+        if let settings = object.stitchSettings {
+            attrs.append(contentsOf: stitchAttributes(for: settings))
+        }
+        return "<path d=\"\(xmlEscapeAttribute(glyphPath.svgPathData()))\" \(attrs.joined(separator: " ")) />"
+    }
+
+    /// Rand-Pendant zu `generationElement(for:)` — schliesst dieselbe, bislang dokumentierte Lücke
+    /// ("Text hat keinen Rand-Pfad ohne Text-zu-Pfad-Konvertierung", siehe `borderElement(for:)`)
+    /// jetzt für den Generierungs-Pass: die echten Glyphen-Umrisse sind ein valider Rand-Pfad.
+    func generationBorderElement(for object: DesignObject) -> String? {
+        guard object.kind == .text else { return borderElement(for: object) }
+        guard let settings = object.borderStitchSettings,
+              let glyphPath = glyphOutlineService.glyphOutlinePath(for: object) else { return nil }
+        let attrs = [
+            "id=\"\(object.id.uuidString)\"",
+            "fill=\"\(object.borderColorHex ?? object.fillColorHex)\"",
+        ] + stitchAttributes(for: settings)
+        return "<path d=\"\(xmlEscapeAttribute(glyphPath.svgPathData()))\" \(attrs.joined(separator: " ")) />"
     }
 
     private func borderGenerationAttributes(for object: DesignObject, settings: StitchSettings) -> String {

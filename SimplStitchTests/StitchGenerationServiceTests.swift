@@ -87,6 +87,25 @@ struct StitchGenerationServiceTests {
 
         await bridge.stop()
     }
+
+    /// Text embroiderable: die echte Glyphen-Umriss-Pipeline (`GlyphOutlineService` ->
+    /// `SVGDesignSerializer.generationElement(for:)`) erreicht InkStitch tatsächlich und erzeugt
+    /// Stiche — nicht nur ein durchkompiliertes Payload.
+    @Test func realBridgeGeneratesStitchesForTextObject() async throws {
+        let bridge = PythonBridge()
+        let service = StitchGenerationService(bridge: bridge)
+        let text = DesignObject(name: "Text", kind: .text, positionX: 10, positionY: 10, width: 40, height: 12)
+        text.text = "Hi"
+        text.fontSize = 8
+        text.fontName = "Helvetica"
+        text.stitchSettings = StitchSettings(stitchType: .tatami, density: 0.4, angleDegrees: 0, underlayType: .centerWalk)
+
+        let stitches = try await service.generateStitches(for: text, canvasSize: CGSize(width: 50, height: 50))
+
+        #expect(!stitches.isEmpty)
+
+        await bridge.stop()
+    }
 }
 
 private extension StubBridge {

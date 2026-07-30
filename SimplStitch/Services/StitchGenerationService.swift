@@ -58,15 +58,16 @@ final class StitchGenerationService: StitchGenerationServicing {
     }
 
     func generateStitches(for object: DesignObject, canvasSize: CGSize) async throws -> [StitchPoint] {
-        guard let stitchType = object.stitchSettings?.stitchType else {
+        guard let stitchType = object.stitchSettings?.stitchType,
+              let objectSvg = svgSerializer.generationElement(for: object) else {
             throw StitchGenerationError.missingStitchSettings
         }
-        return try await generate(objectSvg: svgSerializer.element(for: object), stitchType: stitchType, canvasSize: canvasSize)
+        return try await generate(objectSvg: objectSvg, stitchType: stitchType, canvasSize: canvasSize)
     }
 
     func generateBorderStitches(for object: DesignObject, canvasSize: CGSize) async throws -> [StitchPoint] {
         guard let stitchType = object.borderStitchSettings?.stitchType,
-              let objectSvg = svgSerializer.borderElement(for: object) else {
+              let objectSvg = svgSerializer.generationBorderElement(for: object) else {
             throw StitchGenerationError.missingStitchSettings
         }
         return try await generate(objectSvg: objectSvg, stitchType: stitchType, canvasSize: canvasSize)

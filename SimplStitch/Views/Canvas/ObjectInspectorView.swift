@@ -333,7 +333,26 @@ struct ObjectInspectorView: View {
     // MARK: Füllung/Rand (Issue #18)
 
     private var hasFillBinding: Binding<Bool> {
-        Binding(get: { object.hasFill }, set: { object.hasFill = $0; store.refreshStitchPreview() })
+        Binding(
+            get: { object.hasFill },
+            set: { newValue in
+                object.hasFill = newValue
+                // Analog zu hasBorderBinding: Sticheinstellungen bleiben beim Deaktivieren erhalten;
+                // beim ERSTEN Aktivieren ohne bestehende Einstellungen (Text-Objekte hatten bislang
+                // nie welche, siehe CanvasStore.makeTextObject-Kommentar; ebenso importierte Objekte
+                // ohne erkanntes inkstitch:*-Attribut) legen wir sinnvolle Defaults an, statt eine
+                // stumme "Kein"-Stichtyp-Anzeige zurückzulassen.
+                if newValue, object.stitchSettings == nil {
+                    let stitchType: StitchType = object.kind == .text
+                        ? .tatami
+                        : StitchType.suggested(forShapeWidth: object.width, height: object.height)
+                    let settings = StitchSettings(stitchType: stitchType, underlayType: UnderlayType.suggested(for: stitchType))
+                    settings.designObject = object
+                    object.stitchSettings = settings
+                }
+                store.refreshStitchPreview()
+            }
+        )
     }
 
     private var hasBorderBinding: Binding<Bool> {

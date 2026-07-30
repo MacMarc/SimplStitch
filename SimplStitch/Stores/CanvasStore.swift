@@ -370,6 +370,15 @@ final class CanvasStore {
         object.zIndex = objects.count
         object.text = ""
         object.fontSize = Self.defaultTextFontSize
+        // Text embroiderable: Text bekam bislang nie Default-Sticheinstellungen (siehe historischer
+        // Kommentar in CLAUDE.md Phase 5d/8h) — deshalb blieb Text beim Export dauerhaft unstickbar
+        // (`FileExportService.stitchableObjects` filtert auf `stitchSettings != nil`). Text bleibt
+        // weiterhin ein editierbares `<text>`-Element (content.svg, `SVGDesignSerializer.element`);
+        // erst die Stichgenerierung wandelt es serverseitig in echte Glyphen-Umrisse um
+        // (`GlyphOutlineService`, `SVGDesignSerializing.generationElement`). Bewusst immer Tatami
+        // statt der Breite/Höhe-Heuristik (`StitchType.suggested`) — die Bounding-Box eines Worts
+        // ist keine sinnvolle Grundlage für eine Satin-Schienen-Geometrie (Opus-Konsultation).
+        assignDefaultStitchSettings(to: object, stitchType: .tatami)
         return object
     }
 

@@ -189,4 +189,28 @@ struct FileExportServiceTests {
 
         await bridge.stop()
     }
+
+    /// Text embroiderable: ein per Text-Werkzeug erzeugtes Objekt (exakt wie über die UI, kein
+    /// manueller Inspector-Besuch) landet jetzt tatsächlich im Export — vorher fiel Text lautlos
+    /// weg (`stitchableObjects` filtert auf `stitchSettings != nil`, Text hatte nie welche).
+    @Test @MainActor func realBridgeExportsTextObjectDrawnViaCanvasStore() async throws {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 50, height: 50))
+
+        store.selectTool(.text)
+        store.beginDraft(atDesignPoint: CGPoint(x: 5, y: 5))
+        store.updateDraft(toDesignPoint: CGPoint(x: 40, y: 20))
+        let textObject = try #require(store.commitDraft())
+        textObject.text = "Hi"
+
+        let bridge = PythonBridge()
+        let service = FileExportService(bridge: bridge)
+        let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("vp3")
+        defer { try? FileManager.default.removeItem(at: outputURL) }
+
+        let summary = try await service.export(objects: store.objects, canvasSize: store.canvasSizeMillimeters, to: outputURL, format: .vp3)
+
+        #expect(summary.stitchCount > 0)
+
+        await bridge.stop()
+    }
 }

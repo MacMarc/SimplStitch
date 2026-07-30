@@ -10,15 +10,34 @@
 //  mit `C`/`Q`) — `EditablePath` ist nur ein Parse/Editier/Serialisier-
 //  Zwischenschritt, keine SwiftData-Persistenz.
 //
-//  Opus-Konsultation: nur `M`/`L`/`C`/`Q`/`Z`-Kommandos werden unterstützt
-//  (absolute Koordinaten, kein SVG-Kommando-Repeat über Kommas hinweg für
-//  relative Varianten) — dieselbe bewusste Einschränkung wie der bisherige
-//  M/L-only-Parser (`DesignObjectPath.linePath`, "kein vollständiger SVG-
-//  Pfad-Parser"), jetzt nur um `C`/`Q` erweitert. Ein decodiertes `Q`
-//  (quadratische Kurve) wird beim Parsen EXAKT in eine kubische Bézier
-//  überführt (`SVGPathWriter.cubicControlPoints`), damit intern nur ein
-//  Kurventyp gehandhabt werden muss (kubisch) — verlustfrei, keine visuelle
-//  Abweichung.
+//  Issue #28 (RC2, generischer SVG-Import): der Parser unterstützte bis dahin
+//  nur `M`/`L`/`C`/`Q`/`Z`, ausschliesslich absolute Koordinaten, Zahlen durch
+//  Leerzeichen getrennt — genug für unser eigenes `SVGPathWriter`-Ausgabeformat,
+//  aber nicht für reale SVG-Exporte (Illustrator/Inkscape/Figma), die u.a.
+//  `H`/`V`/`S`/`T`/`A`, relative Kommandos (Kleinbuchstaben), implizite
+//  Kommando-Wiederholung (`L10,20 30,40` = zwei Lineto) und an Kommandos
+//  geklebte Zahlen (`M10,20C30,40 …`) verwenden. Jetzt ein echter Tokenizer
+//  (`tokenize(_:)`, Kommando-Buchstaben und Zahlen werden unabhängig vom
+//  Trennzeichen erkannt) plus vollständige Kommando-Unterstützung:
+//  - `H`/`V`: eindimensionale Lineto-Varianten.
+//  - `S`/`T`: "glatte" Kurzformen, deren erster Kontrollpunkt an der aktuellen
+//    Position gespiegelt wird (nur falls das vorherige Kommando aus derselben
+//    Kurvenfamilie stammt, sonst Kontrollpunkt = aktuelle Position, exakt nach
+//    SVG-Spec).
+//  - `A` (elliptischer Bogen): vollständige Endpunkt-zu-Mittelpunkt-
+//    Parametrisierung (SVG-Spec Anhang F.6), in höchstens 90°-Segmente
+//    aufgeteilt und je über die Standard-"Kappa"-Näherung in kubische
+//    Bézier-Kurven überführt — keine neue Geometrie-Primitive, `EditablePath`
+//    kennt weiterhin nur kubische Kurven.
+//  Ein decodiertes `Q`/`T` (quadratische Kurve) wird beim Parsen weiterhin
+//  EXAKT in eine kubische Bézier überführt (`SVGPathWriter.cubicControlPoints`),
+//  damit intern nur ein Kurventyp gehandhabt werden muss — verlustfrei für Q,
+//  eine kontrollierte Näherung für A (keine geschlossene kubische Entsprechung
+//  einer Ellipse, aber praktisch nicht von der echten Kurve unterscheidbar).
+//  Bewusst weiterhin NICHT unterstützt: mehrere Teilpfade (mehrfaches `M`) in
+//  einem einzigen `d`-String — `EditablePath` bildet nur EINEN zusammen-
+//  hängenden Pfad ab (ein `anchors`-Array, ein `isClosed`), dieselbe
+//  Einschränkung wie vor diesem Schritt.
 //
 
 import CoreGraphics
@@ -43,80 +62,306 @@ struct EditablePath: Equatable {
         self.isClosed = isClosed
     }
 
-    /// Parst einen SVG-`d`-String (`M`/`L`/`C`/`Q`/`Z`, absolute Koordinaten) in Anker-Punkte.
-    /// Leerer String -> leerer Pfad (dieselbe Konvention wie `DesignObjectPath.linePath("")`).
-    init(pathData: String) {
-        var anchors: [PathAnchor] = []
-        var isClosed = false
-        var currentCommand: Character?
-        var pendingPoints: [CGPoint] = []
-        var currentPoint = CGPoint.zero
+    private enum PathToken {
+        case command(Character)
+        case number(Double)
+    }
 
-        func requiredPointCount(for command: Character) -> Int? {
-            switch command {
-            case "M", "L": return 1
-            case "Q": return 2
-            case "C": return 3
-            default: return nil
-            }
-        }
+    private static let commandLetters = Set("MmLlHhVvCcSsQqTtAaZz")
 
-        func flushIfComplete() {
-            guard let command = currentCommand, let required = requiredPointCount(for: command),
-                  pendingPoints.count == required else { return }
-            switch command {
-            case "M", "L":
-                let p = pendingPoints[0]
-                anchors.append(PathAnchor(point: p, controlIn: nil, controlOut: nil))
-                currentPoint = p
-            case "Q":
-                let quadControl = pendingPoints[0]
-                let p = pendingPoints[1]
-                let (c1, c2) = SVGPathWriter.cubicControlPoints(start: currentPoint, quadControl: quadControl, end: p)
-                if !anchors.isEmpty { anchors[anchors.count - 1].controlOut = c1 }
-                anchors.append(PathAnchor(point: p, controlIn: c2, controlOut: nil))
-                currentPoint = p
-            case "C":
-                let c1 = pendingPoints[0]
-                let c2 = pendingPoints[1]
-                let p = pendingPoints[2]
-                if !anchors.isEmpty { anchors[anchors.count - 1].controlOut = c1 }
-                anchors.append(PathAnchor(point: p, controlIn: c2, controlOut: nil))
-                currentPoint = p
-            default:
-                break
-            }
-            pendingPoints.removeAll()
-        }
-
-        func parsePoint(_ string: some StringProtocol) -> CGPoint? {
-            let parts = string.split(separator: ",")
-            guard parts.count == 2, let x = Double(parts[0]), let y = Double(parts[1]) else { return nil }
-            return CGPoint(x: x, y: y)
-        }
-
-        for rawToken in pathData.split(separator: " ") {
-            if rawToken == "Z" || rawToken == "z" {
-                isClosed = true
-                currentCommand = nil
-                pendingPoints.removeAll()
+    /// Echter SVG-Pfad-Tokenizer (Issue #28, RC2): erkennt Kommando-Buchstaben unabhängig vom
+    /// Trennzeichen und liest Zahlen mit einem eigenen Scanner statt eines blossen `split(" ")` —
+    /// versteht dadurch an Kommandos geklebte Zahlen (`M10,20`), aneinandergereihte Dezimalzahlen
+    /// ohne Trennzeichen (`.5.5` -> `.5`, `.5`) sowie ein Minuszeichen ohne vorheriges Trennzeichen
+    /// als Start einer neuen Zahl (`10-20` -> `10`, `-20`). Kommas und Leerraum sind gleichwertige
+    /// Trennzeichen und werden übersprungen.
+    private static func tokenize(_ d: String) -> [PathToken] {
+        var tokens: [PathToken] = []
+        let chars = Array(d)
+        var i = 0
+        while i < chars.count {
+            let c = chars[i]
+            if c.isWhitespace || c == "," {
+                i += 1
                 continue
             }
-            if let first = rawToken.first, "MLCQ".contains(first) {
-                currentCommand = first
-                pendingPoints.removeAll()
-                let remainder = rawToken.dropFirst()
-                if !remainder.isEmpty, let point = parsePoint(remainder) {
-                    pendingPoints.append(point)
-                }
-            } else if let point = parsePoint(rawToken) {
-                pendingPoints.append(point)
+            if commandLetters.contains(c) {
+                tokens.append(.command(c))
+                i += 1
+                continue
             }
-            flushIfComplete()
+            var j = i
+            if chars[j] == "+" || chars[j] == "-" { j += 1 }
+            while j < chars.count, chars[j].isNumber { j += 1 }
+            if j < chars.count, chars[j] == "." {
+                j += 1
+                while j < chars.count, chars[j].isNumber { j += 1 }
+            }
+            if j < chars.count, chars[j] == "e" || chars[j] == "E" {
+                var k = j + 1
+                if k < chars.count, chars[k] == "+" || chars[k] == "-" { k += 1 }
+                if k < chars.count, chars[k].isNumber {
+                    while k < chars.count, chars[k].isNumber { k += 1 }
+                    j = k
+                }
+            }
+            guard j > i, let value = Double(String(chars[i..<j])) else {
+                i += 1 // unerkanntes Zeichen: überspringen statt das gesamte Parsing abzubrechen
+                continue
+            }
+            tokens.append(.number(value))
+            i = j
+        }
+        return tokens
+    }
+
+    /// Parst einen SVG-`d`-String in Anker-Punkte — unterstützt `M`/`L`/`H`/`V`/`C`/`S`/`Q`/`T`/
+    /// `A`/`Z`, jeweils absolut (Grossbuchstabe) oder relativ (Kleinbuchstabe), inkl. impliziter
+    /// Kommando-Wiederholung (SVG-Spec: auf `M` folgende Koordinatenpaare ohne neues Kommando sind
+    /// implizite `L`, bei allen anderen Kommandos wiederholt sich dasselbe Kommando). Leerer String
+    /// -> leerer Pfad (dieselbe Konvention wie zuvor).
+    init(pathData: String) {
+        let tokens = Self.tokenize(pathData)
+        var anchors: [PathAnchor] = []
+        var isClosed = false
+        var i = 0
+        var currentPoint = CGPoint.zero
+        // Für `S`/`T`: der zu spiegelnde Kontrollpunkt der vorherigen Kurve (absolut) plus welches
+        // Kommando ihn erzeugt hat — nur gültig, wenn das vorherige Kommando aus derselben
+        // Kurvenfamilie stammt (C/S für S, Q/T für T), sonst spiegelt sich die aktuelle Position
+        // selbst (SVG-Spec).
+        var previousCommand: Character?
+        var previousControlForReflection: CGPoint?
+
+        func nextNumber() -> Double? {
+            guard i < tokens.count, case .number(let value) = tokens[i] else { return nil }
+            i += 1
+            return value
+        }
+
+        func appendLineAnchor(_ p: CGPoint) {
+            anchors.append(PathAnchor(point: p))
+            currentPoint = p
+        }
+
+        func appendCubicAnchor(control1: CGPoint, control2: CGPoint, end: CGPoint) {
+            if !anchors.isEmpty { anchors[anchors.count - 1].controlOut = control1 }
+            anchors.append(PathAnchor(point: end, controlIn: control2))
+            currentPoint = end
+        }
+
+        /// Führt genau eine Instanz von `command` mit den nächsten Zahlen-Tokens aus. Liefert
+        /// `false`, wenn nicht genug Zahlen vorhanden waren (unvollständiger/kaputter `d`-String) —
+        /// bricht dann das gesamte Parsing kontrolliert ab, statt in einer Endlosschleife zu hängen.
+        @discardableResult
+        func execute(_ command: Character) -> Bool {
+            let isRelative = command.isLowercase
+            func resolved(_ p: CGPoint) -> CGPoint {
+                isRelative ? CGPoint(x: currentPoint.x + p.x, y: currentPoint.y + p.y) : p
+            }
+
+            switch Character(command.uppercased()) {
+            case "M":
+                guard let x = nextNumber(), let y = nextNumber() else { return false }
+                appendLineAnchor(resolved(CGPoint(x: x, y: y)))
+            case "L":
+                guard let x = nextNumber(), let y = nextNumber() else { return false }
+                appendLineAnchor(resolved(CGPoint(x: x, y: y)))
+            case "H":
+                guard let x = nextNumber() else { return false }
+                appendLineAnchor(CGPoint(x: isRelative ? currentPoint.x + x : x, y: currentPoint.y))
+            case "V":
+                guard let y = nextNumber() else { return false }
+                appendLineAnchor(CGPoint(x: currentPoint.x, y: isRelative ? currentPoint.y + y : y))
+            case "C":
+                guard let x1 = nextNumber(), let y1 = nextNumber(),
+                      let x2 = nextNumber(), let y2 = nextNumber(),
+                      let x = nextNumber(), let y = nextNumber() else { return false }
+                let c1 = resolved(CGPoint(x: x1, y: y1))
+                let c2 = resolved(CGPoint(x: x2, y: y2))
+                appendCubicAnchor(control1: c1, control2: c2, end: resolved(CGPoint(x: x, y: y)))
+                previousControlForReflection = c2
+            case "S":
+                guard let x2 = nextNumber(), let y2 = nextNumber(),
+                      let x = nextNumber(), let y = nextNumber() else { return false }
+                let c2 = resolved(CGPoint(x: x2, y: y2))
+                let c1: CGPoint
+                if let previousCommand, "CcSs".contains(previousCommand), let reflect = previousControlForReflection {
+                    c1 = CGPoint(x: 2 * currentPoint.x - reflect.x, y: 2 * currentPoint.y - reflect.y)
+                } else {
+                    c1 = currentPoint
+                }
+                appendCubicAnchor(control1: c1, control2: c2, end: resolved(CGPoint(x: x, y: y)))
+                previousControlForReflection = c2
+            case "Q":
+                guard let x1 = nextNumber(), let y1 = nextNumber(),
+                      let x = nextNumber(), let y = nextNumber() else { return false }
+                let control = resolved(CGPoint(x: x1, y: y1))
+                let end = resolved(CGPoint(x: x, y: y))
+                let (c1, c2) = SVGPathWriter.cubicControlPoints(start: currentPoint, quadControl: control, end: end)
+                appendCubicAnchor(control1: c1, control2: c2, end: end)
+                previousControlForReflection = control
+            case "T":
+                guard let x = nextNumber(), let y = nextNumber() else { return false }
+                let control: CGPoint
+                if let previousCommand, "QqTt".contains(previousCommand), let reflect = previousControlForReflection {
+                    control = CGPoint(x: 2 * currentPoint.x - reflect.x, y: 2 * currentPoint.y - reflect.y)
+                } else {
+                    control = currentPoint
+                }
+                let end = resolved(CGPoint(x: x, y: y))
+                let (c1, c2) = SVGPathWriter.cubicControlPoints(start: currentPoint, quadControl: control, end: end)
+                appendCubicAnchor(control1: c1, control2: c2, end: end)
+                previousControlForReflection = control
+            case "A":
+                guard let rx = nextNumber(), let ry = nextNumber(), let xAxisRotation = nextNumber(),
+                      let largeArcFlag = nextNumber(), let sweepFlag = nextNumber(),
+                      let x = nextNumber(), let y = nextNumber() else { return false }
+                let end = resolved(CGPoint(x: x, y: y))
+                let segments = Self.arcToBezierSegments(
+                    from: currentPoint, rx: abs(rx), ry: abs(ry), xAxisRotationDegrees: xAxisRotation,
+                    largeArc: largeArcFlag != 0, sweep: sweepFlag != 0, to: end
+                )
+                for segment in segments {
+                    appendCubicAnchor(control1: segment.control1, control2: segment.control2, end: segment.end)
+                }
+                previousControlForReflection = nil
+            default:
+                return false
+            }
+            previousCommand = command
+            return true
+        }
+
+        while i < tokens.count {
+            switch tokens[i] {
+            case .command(let letter):
+                if letter == "Z" || letter == "z" {
+                    isClosed = true
+                    previousCommand = nil
+                    previousControlForReflection = nil
+                    i += 1
+                    continue
+                }
+                i += 1
+                guard execute(letter) else { i = tokens.count; continue }
+            case .number:
+                // Implizite Kommando-Wiederholung: kein neues Kommando-Token, das vorherige
+                // Kommando läuft mit den nächsten Zahlen weiter — `M` wird dabei zu `L` (SVG-Spec).
+                guard let previousCommand else { i = tokens.count; continue }
+                let effective: Character = previousCommand == "M" ? "L" : (previousCommand == "m" ? "l" : previousCommand)
+                guard execute(effective) else { i = tokens.count; continue }
+            }
         }
 
         self.anchors = anchors
         self.isClosed = isClosed
+    }
+
+    /// Elliptischer Bogen (`A`/`a`) -> ein oder mehrere kubische Bézier-Segmente. Vollständige
+    /// Endpunkt-zu-Mittelpunkt-Parametrisierung nach SVG-Spec Anhang F.6, danach Aufteilung in
+    /// höchstens 90°-Abschnitte, je über die verbreitete "Kappa"-Näherung (`4/3 * tan(Δθ/4)`) für
+    /// Einheitskreisbögen approximiert und zurück in den ursprünglichen (rotierten/skalierten) Raum
+    /// transformiert. Identische Start-/Endpunkte liefern per Spec keine Kurve; ein Radius von 0
+    /// degeneriert zu einer Geraden.
+    private static func arcToBezierSegments(
+        from start: CGPoint,
+        rx: Double,
+        ry: Double,
+        xAxisRotationDegrees: Double,
+        largeArc: Bool,
+        sweep: Bool,
+        to end: CGPoint
+    ) -> [(control1: CGPoint, control2: CGPoint, end: CGPoint)] {
+        guard start != end else { return [] }
+        guard rx > 0, ry > 0 else { return [(start, end, end)] }
+        var rx = rx
+        var ry = ry
+
+        let phi = xAxisRotationDegrees * .pi / 180
+        let cosPhi = cos(phi)
+        let sinPhi = sin(phi)
+
+        let dx2 = (start.x - end.x) / 2
+        let dy2 = (start.y - end.y) / 2
+        let x1p = cosPhi * dx2 + sinPhi * dy2
+        let y1p = -sinPhi * dx2 + cosPhi * dy2
+
+        let lambda = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry)
+        if lambda > 1 {
+            let scale = lambda.squareRoot()
+            rx *= scale
+            ry *= scale
+        }
+
+        let rxSq = rx * rx
+        let rySq = ry * ry
+        let x1pSq = x1p * x1p
+        let y1pSq = y1p * y1p
+        let sign: Double = largeArc == sweep ? -1 : 1
+        let numerator = max(0, rxSq * rySq - rxSq * y1pSq - rySq * x1pSq)
+        let denominator = rxSq * y1pSq + rySq * x1pSq
+        let coef = denominator == 0 ? 0 : sign * (numerator / denominator).squareRoot()
+        let cxp = coef * (rx * y1p / ry)
+        let cyp = coef * (-ry * x1p / rx)
+
+        let midX = (start.x + end.x) / 2
+        let midY = (start.y + end.y) / 2
+        let cx = cosPhi * cxp - sinPhi * cyp + midX
+        let cy = sinPhi * cxp + cosPhi * cyp + midY
+
+        func vectorAngle(_ ux: Double, _ uy: Double, _ vx: Double, _ vy: Double) -> Double {
+            let dot = ux * vx + uy * vy
+            let len = (ux * ux + uy * uy).squareRoot() * (vx * vx + vy * vy).squareRoot()
+            guard len > 0 else { return 0 }
+            var a = acos(max(-1, min(1, dot / len)))
+            if ux * vy - uy * vx < 0 { a = -a }
+            return a
+        }
+
+        let startVectorX = (x1p - cxp) / rx
+        let startVectorY = (y1p - cyp) / ry
+        let endVectorX = (-x1p - cxp) / rx
+        let endVectorY = (-y1p - cyp) / ry
+        let theta1 = vectorAngle(1, 0, startVectorX, startVectorY)
+        var deltaTheta = vectorAngle(startVectorX, startVectorY, endVectorX, endVectorY)
+        if !sweep, deltaTheta > 0 { deltaTheta -= 2 * .pi }
+        if sweep, deltaTheta < 0 { deltaTheta += 2 * .pi }
+
+        let segmentCount = max(1, Int(ceil(abs(deltaTheta) / (.pi / 2))))
+        let segmentAngle = deltaTheta / Double(segmentCount)
+        let alpha = 4.0 / 3.0 * tan(segmentAngle / 4)
+
+        func pointOnEllipse(_ theta: Double) -> CGPoint {
+            let ex = rx * cos(theta)
+            let ey = ry * sin(theta)
+            return CGPoint(x: cosPhi * ex - sinPhi * ey + cx, y: sinPhi * ex + cosPhi * ey + cy)
+        }
+        func tangent(_ theta: Double) -> CGPoint {
+            let ex = -rx * sin(theta)
+            let ey = ry * cos(theta)
+            return CGPoint(x: cosPhi * ex - sinPhi * ey, y: sinPhi * ex + cosPhi * ey)
+        }
+
+        var results: [(control1: CGPoint, control2: CGPoint, end: CGPoint)] = []
+        var theta = theta1
+        var segmentStart = start
+        for _ in 0..<segmentCount {
+            let thetaEnd = theta + segmentAngle
+            let segmentEnd = pointOnEllipse(thetaEnd)
+            let startTangent = tangent(theta)
+            let endTangent = tangent(thetaEnd)
+            let c1 = CGPoint(x: segmentStart.x + alpha * startTangent.x, y: segmentStart.y + alpha * startTangent.y)
+            let c2 = CGPoint(x: segmentEnd.x - alpha * endTangent.x, y: segmentEnd.y - alpha * endTangent.y)
+            results.append((c1, c2, segmentEnd))
+            theta = thetaEnd
+            segmentStart = segmentEnd
+        }
+        // Rundungsfehler der trigonometrischen Berechnung sonst minimal sichtbar am Zielpunkt.
+        if !results.isEmpty {
+            results[results.count - 1].end = end
+        }
+        return results
     }
 
     /// Liefert für ein Anker-Paar entweder eine Gerade (beide angrenzenden Kontrollpunkte `nil`)

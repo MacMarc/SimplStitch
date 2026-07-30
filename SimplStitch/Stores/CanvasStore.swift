@@ -816,6 +816,12 @@ final class CanvasStore {
         var height: Double
         var rotationDegrees: Double
         var cornerRadius: Double
+        /// Issue #30 (Punkt 1): `pathData`-Stand bei Drag-Beginn — Basis für das affine Verschieben/
+        /// Skalieren von `.path`/`.line`-Objekten (siehe `transformedEditablePath`/`applyEditablePath`),
+        /// analog zu den übrigen Feldern hier. Bewusst der Snapshot-Wert statt `object.pathData` zur
+        /// Laufzeit des Drags, sonst würde eine bei jedem Drag-Update erneut angewandte Transformation
+        /// sich auf bereits transformierten Punkten aufschaukeln.
+        var pathData: String?
 
         init(object: DesignObject) {
             positionX = object.positionX
@@ -824,6 +830,7 @@ final class CanvasStore {
             height = object.height
             rotationDegrees = object.rotationDegrees
             cornerRadius = object.cornerRadius
+            pathData = object.pathData
         }
     }
 
@@ -912,7 +919,11 @@ final class CanvasStore {
         }
     }
 
-    func updateTransformDrag(toDesignPoint point: CGPoint) {
+    /// Issue #30 (Punkt 4): `keepAspectRatio` (⇧ während des Drags, siehe `CanvasView.selectionGesture`)
+    /// wird nur an `applyResize`/`applyGroupResize` durchgereicht — dort wirkt es ausschliesslich an
+    /// Ecken-Griffen (beide Achsen gleichzeitig aktiv), an Kantenmitten/Rotation/Eckenradius/
+    /// Punkt-Editieren ist der Parameter wirkungslos.
+    func updateTransformDrag(toDesignPoint point: CGPoint, keepAspectRatio: Bool = false) {
         guard let start = transformDragStartPoint, let transform = activeTransform else { return }
 
         switch transform {
@@ -926,8 +937,22 @@ final class CanvasStore {
         case .single(let objectID, let snapshot):
             guard let object = objects.first(where: { $0.id == objectID }) else { return }
             guard let handle = activeHandle else {
-                object.positionX = snapshot.positionX + (point.x - start.x)
-                object.positionY = snapshot.positionY + (point.y - start.y)
+                // Issue #30 (Punkt 1): reines Verschieben (kein Griff) muss bei .path/.line auch
+                // pathData mitverschieben — designSpacePath() liest für diese Arten ausschliesslich
+                // die absoluten pathData-Koordinaten, nicht position (siehe applyResize weiter unten
+                // für dieselbe Problematik beim Skalieren). Ohne diesen Zweig wandert nur der
+                // position-basierte Selektionsrahmen mit dem Drag, der gezeichnete Pfad bleibt stehen.
+                let dx = point.x - start.x
+                let dy = point.y - start.y
+                if (object.kind == .path || object.kind == .line), let pathData = snapshot.pathData {
+                    let moved = Self.transformedEditablePath(fromPathData: pathData) {
+                        CGPoint(x: $0.x + dx, y: $0.y + dy)
+                    }
+                    applyEditablePath(moved, to: object)
+                } else {
+                    object.positionX = snapshot.positionX + dx
+                    object.positionY = snapshot.positionY + dy
+                }
                 return
             }
             switch handle {
@@ -936,7 +961,7 @@ final class CanvasStore {
             case .cornerRadius:
                 applyCornerRadius(to: object, snapshot: snapshot, dragPoint: point)
             default:
-                applyResize(to: object, handle: handle, snapshot: snapshot, dragPoint: point)
+                applyResize(to: object, handle: handle, snapshot: snapshot, dragPoint: point, keepAspectRatio: keepAspectRatio)
             }
         case .skew(let objectID, let snapshot):
             guard let object = objects.first(where: { $0.id == objectID }), let handle = activeHandle else { return }
@@ -952,7 +977,7 @@ final class CanvasStore {
             case .cornerRadius:
                 break // Gruppen haben keinen Eckenradius-Griff.
             default:
-                applyGroupResize(handle: handle, snapshot: snapshot, dragPoint: point)
+                applyGroupResize(handle: handle, snapshot: snapshot, dragPoint: point, keepAspectRatio: keepAspectRatio)
             }
         }
     }
@@ -1059,8 +1084,17 @@ final class CanvasStore {
         let dy = dragPoint.y - start.y
         for (id, memberSnapshot) in snapshot.memberSnapshots {
             guard let member = objects.first(where: { $0.id == id }) else { continue }
-            member.positionX = memberSnapshot.positionX + dx
-            member.positionY = memberSnapshot.positionY + dy
+            // Issue #30 (Punkt 1): dieselbe pathData-Mitverschiebung wie beim Einzelobjekt-Move —
+            // sonst divergiert ein .path/.line-Mitglied auch beim Gruppen-Verschieben.
+            if (member.kind == .path || member.kind == .line), let pathData = memberSnapshot.pathData {
+                let moved = Self.transformedEditablePath(fromPathData: pathData) {
+                    CGPoint(x: $0.x + dx, y: $0.y + dy)
+                }
+                applyEditablePath(moved, to: member)
+            } else {
+                member.positionX = memberSnapshot.positionX + dx
+                member.positionY = memberSnapshot.positionY + dy
+            }
         }
     }
 
@@ -1069,7 +1103,7 @@ final class CanvasStore {
     /// eigener Rotation (kein Scher-/Verzerrungs-Anteil für bereits gedrehte Mitglieder, das würde
     /// echte Skew-Unterstützung brauchen — siehe Issue #9). Reicht für den überwiegenden Fall
     /// unrotierter oder gleichmässig skalierter Gruppenmitglieder.
-    private func applyGroupResize(handle: CanvasHandleKind, snapshot: GroupTransformSnapshot, dragPoint: CGPoint) {
+    private func applyGroupResize(handle: CanvasHandleKind, snapshot: GroupTransformSnapshot, dragPoint: CGPoint, keepAspectRatio: Bool = false) {
         guard let sign = handle.resizeSign else { return }
         let bounds = snapshot.bounds
         let halfW = bounds.width / 2
@@ -1087,6 +1121,14 @@ final class CanvasStore {
             let anchorY = -sign.y * halfH
             let newHeight = max(Self.minimumShapeSize, abs((dragPoint.y - center.y) - anchorY))
             scaleY = newHeight / bounds.height
+        }
+
+        // Issue #30 (Punkt 4): dieselbe Proportionen-Sperre wie `applyResize`, hier für den ganzen
+        // Gruppenrahmen — beide Mitglieder-Achsen bekommen denselben (grösseren) Skalierungsfaktor.
+        if keepAspectRatio, sign.x != 0, sign.y != 0 {
+            let scale = max(scaleX, scaleY)
+            scaleX = scale
+            scaleY = scale
         }
 
         let anchorPoint = CGPoint(x: center.x - sign.x * halfW, y: center.y - sign.y * halfH)
@@ -1158,24 +1200,71 @@ final class CanvasStore {
         return nil
     }
 
-    private func applyResize(to object: DesignObject, handle: CanvasHandleKind, snapshot: TransformSnapshot, dragPoint: CGPoint) {
+    /// Issue #30 (Punkt 1): wendet eine Punkt-Transformation (Verschieben und/oder affines Skalieren)
+    /// auf alle Anker- UND Kontrollpunkte eines pathData-Strings an. Gemeinsame Basis für den reinen
+    /// Move-Zweig (Translation) und `applyResize` (Skalierung altes→neues Rechteck) — eine
+    /// Verschiebung ist geometrisch der Sonderfall Skalierungsfaktor 1.
+    private static func transformedEditablePath(fromPathData pathData: String, applying transform: (CGPoint) -> CGPoint) -> EditablePath {
+        var editable = EditablePath(pathData: pathData)
+        for index in editable.anchors.indices {
+            editable.anchors[index].point = transform(editable.anchors[index].point)
+            if let controlIn = editable.anchors[index].controlIn {
+                editable.anchors[index].controlIn = transform(controlIn)
+            }
+            if let controlOut = editable.anchors[index].controlOut {
+                editable.anchors[index].controlOut = transform(controlOut)
+            }
+        }
+        return editable
+    }
+
+    /// Schreibt eine `EditablePath` zurück in ein Objekt und leitet position/width/height aus deren
+    /// tatsächlicher boundingBox ab — dieselbe Invariante wie applyPointEdit/applySegmentBend.
+    private func applyEditablePath(_ editable: EditablePath, to object: DesignObject) {
+        object.pathData = editable.svgPathData()
+        let bounds = editable.boundingBox
+        object.positionX = bounds.minX
+        object.positionY = bounds.minY
+        object.width = bounds.width
+        object.height = bounds.height
+    }
+
+    private func applyResize(to object: DesignObject, handle: CanvasHandleKind, snapshot: TransformSnapshot, dragPoint: CGPoint, keepAspectRatio: Bool = false) {
         guard let sign = handle.resizeSign else { return }
         let oldCenter = CGPoint(x: snapshot.positionX + snapshot.width / 2, y: snapshot.positionY + snapshot.height / 2)
         let dragLocal = Self.localDesignVector(dragPoint, center: oldCenter, rotationDegrees: snapshot.rotationDegrees)
 
+        let anchorX = -sign.x * snapshot.width / 2
+        let anchorY = -sign.y * snapshot.height / 2
+
         var newWidth = snapshot.width
-        var centerOffsetX: Double = 0
         if sign.x != 0 {
-            let anchorX = -sign.x * snapshot.width / 2
             newWidth = max(Self.minimumShapeSize, abs(dragLocal.x - anchorX))
-            centerOffsetX = anchorX + (sign.x * newWidth) / 2
         }
 
         var newHeight = snapshot.height
+        if sign.y != 0 {
+            newHeight = max(Self.minimumShapeSize, abs(dragLocal.y - anchorY))
+        }
+
+        // Issue #30 (Punkt 4): ⇧ während des Drags sperrt die Proportionen — nur an Ecken sinnvoll
+        // (beide Achsen gleichzeitig aktiv, sign.x != 0 UND sign.y != 0; an einer Kantenmitte ändert
+        // sich ohnehin nur eine Achse). Nimmt den GRÖSSEREN der beiden unabhängig berechneten
+        // Skalierungsfaktoren statt z.B. des Mittelwerts — das Objekt wächst/schrumpft dadurch
+        // mindestens so weit wie in die dominante Zugrichtung gezogen wurde, dieselbe Konvention wie
+        // Keynote/PowerPoint (Shift+Eck-Griff).
+        if keepAspectRatio, sign.x != 0, sign.y != 0, snapshot.width > 0, snapshot.height > 0 {
+            let scale = max(newWidth / snapshot.width, newHeight / snapshot.height)
+            newWidth = max(Self.minimumShapeSize, snapshot.width * scale)
+            newHeight = max(Self.minimumShapeSize, snapshot.height * scale)
+        }
+
+        var centerOffsetX: Double = 0
+        if sign.x != 0 {
+            centerOffsetX = anchorX + (sign.x * newWidth) / 2
+        }
         var centerOffsetY: Double = 0
         if sign.y != 0 {
-            let anchorY = -sign.y * snapshot.height / 2
-            newHeight = max(Self.minimumShapeSize, abs(dragLocal.y - anchorY))
             centerOffsetY = anchorY + (sign.y * newHeight) / 2
         }
 
@@ -1189,33 +1278,21 @@ final class CanvasStore {
         // auseinander. Skaliert alle Anker- UND Kontrollpunkte affin vom alten aufs neue
         // (unrotierte) Rechteck — dieselbe Koordinaten-Konvention wie `applyPointEdit`, das
         // `dragPoint` ebenfalls direkt als unrotierten pathData-Punkt verwendet.
-        if object.kind == .path || object.kind == .line, let pathData = object.pathData {
-            var editable = EditablePath(pathData: pathData)
+        // Issue #30 (Punkt 1): liest bewusst `snapshot.pathData` (Stand bei Drag-Beginn), nicht
+        // `object.pathData` — dieser Block läuft bei jedem Drag-Update erneut, ein Lesen des bereits
+        // transformierten `object.pathData` hätte die Skalierung auf sich selbst aufgeschaukelt.
+        if object.kind == .path || object.kind == .line, let pathData = snapshot.pathData {
             let oldBox = CGRect(x: snapshot.positionX, y: snapshot.positionY, width: snapshot.width, height: snapshot.height)
             let newBox = CGRect(x: newCenter.x - newWidth / 2, y: newCenter.y - newHeight / 2, width: newWidth, height: newHeight)
             let scaleX = oldBox.width > 0 ? newBox.width / oldBox.width : 1
             let scaleY = oldBox.height > 0 ? newBox.height / oldBox.height : 1
-            func transform(_ point: CGPoint) -> CGPoint {
+            let resized = Self.transformedEditablePath(fromPathData: pathData) { point in
                 CGPoint(x: newBox.minX + (point.x - oldBox.minX) * scaleX, y: newBox.minY + (point.y - oldBox.minY) * scaleY)
             }
-            for index in editable.anchors.indices {
-                editable.anchors[index].point = transform(editable.anchors[index].point)
-                if let controlIn = editable.anchors[index].controlIn {
-                    editable.anchors[index].controlIn = transform(controlIn)
-                }
-                if let controlOut = editable.anchors[index].controlOut {
-                    editable.anchors[index].controlOut = transform(controlOut)
-                }
-            }
-            object.pathData = editable.svgPathData()
             // Wie applyPointEdit/applySegmentBend: width/height/position aus der tatsächlichen
             // neuen Bounding-Box ableiten statt aus newWidth/newHeight/newCenter — hält die
             // Invariante exakt, auch wenn newWidth/newHeight oben auf minimumShapeSize geklemmt wurde.
-            let bounds = editable.boundingBox
-            object.positionX = bounds.minX
-            object.positionY = bounds.minY
-            object.width = bounds.width
-            object.height = bounds.height
+            applyEditablePath(resized, to: object)
             return
         }
 

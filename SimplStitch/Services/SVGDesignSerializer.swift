@@ -8,11 +8,13 @@
 //  (Name, Z-Order, Rotation, Skew, Sperren/Sichtbarkeit) landen als
 //  `data-ss-*`-Attribute, Sticheinstellungen als `inkstitch:*`-Attribute.
 //
-//  Vereinfachung: Rotation/Skew werden NICHT in eine SVG-`transform`-Matrix
-//  gebacken, sondern roh als data-ss-Attribute mitgeführt. Für pixelgenaues
-//  Rendering (Canvas-Engine, Phase 5) und für den echten InkStitch-Aufruf
-//  (Phase 6) muss das ggf. in eine korrekte transform-Komposition überführt
-//  werden — hier zählt nur verlustfreier Roundtrip der Werte.
+//  Vereinfachung (content.svg-Roundtrip): Rotation/Skew werden für `element(for:)`/
+//  `borderElement(for:)` NICHT in eine SVG-`transform`-Matrix gebacken, sondern roh als
+//  data-ss-Attribute mitgeführt — position/width/height bleiben so die kanonischen, unrotierten
+//  Werte für Editier-UI/Handles (`CanvasStore`). Für den echten InkStitch-Aufruf reicht das nicht:
+//  `generationElement(for:)`/`generationBorderElement(for:)` (Issue #30, Punkt 1) hängen dafür
+//  zusätzlich ein natives `transform="matrix(...)"`-Attribut an (`withGenerationTransform`),
+//  identisch zur Canvas-Vorschau (`DesignObject.visualTransform`).
 //
 
 import Foundation
@@ -179,7 +181,7 @@ final class SVGDesignSerializer: SVGDesignSerializing {
     /// statt `<text>` ein `<path>` mit den echten Glyphen-Umrissen geschrieben (`GlyphOutlining`) —
     /// nur der Stichgenerierungs-Pass sieht das, `content.svg` (`element(for:)`) bleibt `<text>`.
     func generationElement(for object: DesignObject) -> String? {
-        guard object.kind == .text else { return element(for: object) }
+        guard object.kind == .text else { return withGenerationTransform(element(for: object), for: object) }
         guard let glyphPath = glyphOutlineService.glyphOutlinePath(for: object) else { return nil }
         var attrs = [
             "id=\"\(object.id.uuidString)\"",
@@ -188,21 +190,40 @@ final class SVGDesignSerializer: SVGDesignSerializing {
         if let settings = object.stitchSettings {
             attrs.append(contentsOf: stitchAttributes(for: settings))
         }
-        return "<path d=\"\(xmlEscapeAttribute(glyphPath.svgPathData()))\" \(attrs.joined(separator: " ")) />"
+        return withGenerationTransform("<path d=\"\(xmlEscapeAttribute(glyphPath.svgPathData()))\" \(attrs.joined(separator: " ")) />", for: object)
     }
 
     /// Rand-Pendant zu `generationElement(for:)` — schliesst dieselbe, bislang dokumentierte Lücke
     /// ("Text hat keinen Rand-Pfad ohne Text-zu-Pfad-Konvertierung", siehe `borderElement(for:)`)
     /// jetzt für den Generierungs-Pass: die echten Glyphen-Umrisse sind ein valider Rand-Pfad.
     func generationBorderElement(for object: DesignObject) -> String? {
-        guard object.kind == .text else { return borderElement(for: object) }
+        guard object.kind == .text else {
+            return borderElement(for: object).map { withGenerationTransform($0, for: object) }
+        }
         guard let settings = object.borderStitchSettings,
               let glyphPath = glyphOutlineService.glyphOutlinePath(for: object) else { return nil }
         let attrs = [
             "id=\"\(object.id.uuidString)\"",
             "fill=\"\(object.borderColorHex ?? object.fillColorHex)\"",
         ] + stitchAttributes(for: settings)
-        return "<path d=\"\(xmlEscapeAttribute(glyphPath.svgPathData()))\" \(attrs.joined(separator: " ")) />"
+        return withGenerationTransform("<path d=\"\(xmlEscapeAttribute(glyphPath.svgPathData()))\" \(attrs.joined(separator: " ")) />", for: object)
+    }
+
+    /// Issue #30 (Punkt 1): InkStitch (echter SVG-Parser) versteht ein natives `transform`-Attribut,
+    /// unser `data-ss-rotation`/`data-ss-skew-*` dagegen nicht (siehe Dateikopf-Kommentar) — ohne
+    /// dieses Attribut generierte InkStitch Stiche aus der ungedrehten/unverzerrten Rohgeometrie,
+    /// während die Canvas-Vorschau (`DesignObject.visualTransform`) bereits korrekt drehte/scherte:
+    /// optisch passend, aber der tatsächliche Stichpfad blieb an der alten Ausrichtung stehen. Nur
+    /// für den Generierungs-Pass angehängt — `content.svg` selbst (`element(for:)`/
+    /// `borderElement(for:)`, von `encode`/`decode` genutzt) bleibt bewusst unverändert, da
+    /// position/width/height dort die kanonischen, unrotierten Werte für Editier-UI/Handles
+    /// bleiben müssen (siehe `TransformSnapshot` in CanvasStore).
+    private func withGenerationTransform(_ markup: String, for object: DesignObject) -> String {
+        let transform = object.visualTransform
+        guard !transform.isIdentity else { return markup }
+        let matrix = "matrix(\(fmt(Double(transform.a))),\(fmt(Double(transform.b))),\(fmt(Double(transform.c))),\(fmt(Double(transform.d))),\(fmt(Double(transform.tx))),\(fmt(Double(transform.ty))))"
+        guard let closingRange = markup.range(of: "/>", options: .backwards) else { return markup }
+        return markup.replacingCharacters(in: closingRange, with: "transform=\"\(matrix)\" />")
     }
 
     private func borderGenerationAttributes(for object: DesignObject, settings: StitchSettings) -> String {

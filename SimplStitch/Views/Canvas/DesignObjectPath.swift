@@ -15,26 +15,9 @@
 import SwiftUI
 
 extension DesignObject {
-    /// Bringt den unrotierten/unverzerrten `designSpacePath()` auf die sichtbare Ausrichtung: erst
-    /// Scherung (`skewXDegrees`/`skewYDegrees`, Issue #9), dann Rotation (`rotationDegrees`), beides
-    /// um die Objektmitte — dieselbe Konvention wie `CanvasStore`s Hit-Testing/Handle-Platzierung
-    /// (dort bewusst weiterhin nur rotationsbasiert zurückgerechnet, siehe CanvasStore-Kommentar zu
-    /// `applySkew`/`localDesignVector`). Hiess bis Issue #9 `rotationTransform` — umbenannt, weil sie
-    /// jetzt mehr als nur Rotation ausdrückt.
-    var visualTransform: CGAffineTransform {
-        guard rotationDegrees != 0 || skewXDegrees != 0 || skewYDegrees != 0 else { return .identity }
-        let center = CGPoint(x: positionX + width / 2, y: positionY + height / 2)
-        var transform = CGAffineTransform(translationX: -center.x, y: -center.y)
-        if skewXDegrees != 0 || skewYDegrees != 0 {
-            let tanX = tan(skewXDegrees * .pi / 180)
-            let tanY = tan(skewYDegrees * .pi / 180)
-            transform = transform.concatenating(CGAffineTransform(a: 1, b: tanY, c: tanX, d: 1, tx: 0, ty: 0))
-        }
-        if rotationDegrees != 0 {
-            transform = transform.concatenating(CGAffineTransform(rotationAngle: rotationDegrees * .pi / 180))
-        }
-        return transform.concatenating(CGAffineTransform(translationX: center.x, y: center.y))
-    }
+    // `visualTransform` (Scherung + Rotation um die Objektmitte) lebt seit Issue #30 im Model
+    // (`DesignObject.swift`), nicht mehr hier — `SVGDesignSerializer` (Services-Schicht, kein
+    // SwiftUI) braucht dieselbe Transformation für die Stichgenerierung, siehe dortiger Kommentar.
 
     func designSpacePath() -> Path {
         switch kind {

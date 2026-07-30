@@ -34,10 +34,24 @@
 //  damit intern nur ein Kurventyp gehandhabt werden muss — verlustfrei für Q,
 //  eine kontrollierte Näherung für A (keine geschlossene kubische Entsprechung
 //  einer Ellipse, aber praktisch nicht von der echten Kurve unterscheidbar).
-//  Bewusst weiterhin NICHT unterstützt: mehrere Teilpfade (mehrfaches `M`) in
-//  einem einzigen `d`-String — `EditablePath` bildet nur EINEN zusammen-
-//  hängenden Pfad ab (ein `anchors`-Array, ein `isClosed`), dieselbe
-//  Einschränkung wie vor diesem Schritt.
+//  Issue #30 (Reimport-Sprünge): mehrere Teilpfade (mehrfaches `M`) in einem
+//  einzigen `d`-String werden jetzt UNTERSTÜTZT. Reimportierte Stickdateien
+//  kodieren JUMP-Stiche (Nadel bewegt sich ohne Faden) bewusst als eigenes `M`
+//  ohne verbindende Linie (siehe `FileImportService.makeObject`). Bislang hängte
+//  der Parser jedes weitere `M` wie ein `L` an denselben `anchors`-Array an — der
+//  jump-unterbrochene Pfad verschmolz dadurch beim Rendern (`path`), beim
+//  Verschieben/Skalieren (`CanvasStore.transformedEditablePath` -> `svgPathData()`)
+//  und beim generischen SVG-Import (`SVGDesignSerializer.makePathElement`) zu EINEM
+//  durchgezogenen Linienzug — die sichtbare Ursache von "Sprünge werden gestickt
+//  dargestellt". Jetzt markiert jeder Anker, der einen neuen Teilpfad beginnt,
+//  `startsSubpath == true`; `path`/`svgPathData()` erzeugen dort einen `move`
+//  statt einer verbindenden Linie/Kurve. Die flache `anchors`-Struktur bleibt
+//  bewusst erhalten (statt eines `subpaths: [[PathAnchor]]`-Umbaus) — die gesamte
+//  Punkt-Editier-Infrastruktur (CanvasStore-Anker-Indizes, Handles) arbeitet
+//  unverändert index-basiert weiter.
+//  Bewusst weiterhin NICHT unterstützt: pro-Teilpfad-Schliessung (`z` mitten im
+//  Pfad) — `isClosed` bleibt ein einziges Flag, das nur den LETZTEN Teilpfad
+//  schliesst. Für den Kernfall (reimportierte Stiche, nie geschlossen) irrelevant.
 //
 
 import CoreGraphics
@@ -51,6 +65,11 @@ struct PathAnchor: Equatable {
     var point: CGPoint
     var controlIn: CGPoint?
     var controlOut: CGPoint?
+    /// Issue #30: `true`, wenn dieser Anker einen NEUEN Teilpfad beginnt (ein `M` nach dem ersten
+    /// Anker, z.B. ein JUMP-Stich beim Reimport) — dann wird er beim Rendern/Serialisieren über
+    /// einen `move` erreicht, nicht über eine verbindende Linie/Kurve vom vorherigen Anker. Der
+    /// allererste Anker eines Pfades ist ohnehin immer ein `move` und bleibt daher `false`.
+    var startsSubpath: Bool = false
 }
 
 struct EditablePath: Equatable {
@@ -144,6 +163,17 @@ struct EditablePath: Equatable {
             currentPoint = p
         }
 
+        /// Issue #30: ein `M`/`m` — startet einen neuen Teilpfad. Der erste Anker eines Pfades ist
+        /// implizit ebenfalls ein Move, wird aber NICHT markiert (er beginnt keinen "weiteren"
+        /// Teilpfad, sondern den Pfad selbst); erst ein `M` nach bereits vorhandenen Ankern erzeugt
+        /// eine echte Sprung-Grenze.
+        func appendMoveAnchor(_ p: CGPoint) {
+            var anchor = PathAnchor(point: p)
+            if !anchors.isEmpty { anchor.startsSubpath = true }
+            anchors.append(anchor)
+            currentPoint = p
+        }
+
         func appendCubicAnchor(control1: CGPoint, control2: CGPoint, end: CGPoint) {
             if !anchors.isEmpty { anchors[anchors.count - 1].controlOut = control1 }
             anchors.append(PathAnchor(point: end, controlIn: control2))
@@ -163,7 +193,7 @@ struct EditablePath: Equatable {
             switch Character(command.uppercased()) {
             case "M":
                 guard let x = nextNumber(), let y = nextNumber() else { return false }
-                appendLineAnchor(resolved(CGPoint(x: x, y: y)))
+                appendMoveAnchor(resolved(CGPoint(x: x, y: y)))
             case "L":
                 guard let x = nextNumber(), let y = nextNumber() else { return false }
                 appendLineAnchor(resolved(CGPoint(x: x, y: y)))
@@ -381,7 +411,14 @@ struct EditablePath: Equatable {
         var segments: [SVGPathSegment] = [.moveTo(first.point)]
         var previous = first
         for anchor in anchors.dropFirst() {
-            segments.append(segment(from: previous, to: anchor))
+            // Issue #30: ein Teilpfad-Start wird als eigenes `M` geschrieben (Sprung ohne verbindende
+            // Linie), sonst als Linie/Kurve vom vorherigen Anker. So bleibt die Jump-Lücke auch nach
+            // dem Roundtrip via CanvasStore.transformedEditablePath (Verschieben/Skalieren) erhalten.
+            if anchor.startsSubpath {
+                segments.append(.moveTo(anchor.point))
+            } else {
+                segments.append(segment(from: previous, to: anchor))
+            }
             previous = anchor
         }
         if isClosed { segments.append(.closePath) }
@@ -396,6 +433,14 @@ struct EditablePath: Equatable {
         path.move(to: first.point)
         var previous = first
         for anchor in anchors.dropFirst() {
+            // Issue #30: ein Teilpfad-Start wird per `move` erreicht (Sprung ohne gezeichnete Linie) —
+            // ohne das würde die Jump-Lücke eines reimportierten Pfades als durchgezogener Strich
+            // gerendert ("Sprünge werden gestickt dargestellt").
+            if anchor.startsSubpath {
+                path.move(to: anchor.point)
+                previous = anchor
+                continue
+            }
             switch segment(from: previous, to: anchor) {
             case .lineTo(let p):
                 path.addLine(to: p)

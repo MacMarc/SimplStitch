@@ -4,6 +4,19 @@
     "" : {
 
     },
+    " (%@)" : {
+
+    },
+    "%lld × %lld mm" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld × %2$lld mm"
+          }
+        }
+      }
+    },
     "canvas.tool.circle" : {
       "localizations" : {
         "de" : {
@@ -51,6 +64,9 @@
           }
         }
       }
+    },
+    "canvas.tool.picker" : {
+
     },
     "canvas.tool.rectangle" : {
       "localizations" : {

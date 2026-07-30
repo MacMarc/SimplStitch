@@ -10,6 +10,7 @@
 
 import Foundation
 import SwiftData
+import CoreGraphics
 
 enum DesignObjectKind: String, Codable, CaseIterable {
     case circle
@@ -92,5 +93,31 @@ final class DesignObject {
         self.positionY = positionY
         self.width = width
         self.height = height
+    }
+}
+
+extension DesignObject {
+    /// Bringt den unrotierten/unverzerrten `designSpacePath()` (siehe `DesignObjectPath.swift`) auf
+    /// die sichtbare Ausrichtung: erst Scherung (`skewXDegrees`/`skewYDegrees`, Issue #9), dann
+    /// Rotation (`rotationDegrees`), beides um die Objektmitte — dieselbe Konvention wie
+    /// `CanvasStore`s Hit-Testing/Handle-Platzierung. Bewusst hier im Model statt in der View-Schicht
+    /// (`DesignObjectPath.swift`, die diese Property bis Issue #30 selbst definierte), da
+    /// `SVGDesignSerializer` (Services-Schicht, kein SwiftUI-Import) sie für die Stichgenerierung
+    /// ebenfalls braucht (Issue #30, Punkt 1: ein gedrehtes/verzerrtes Objekt sah zwar optisch korrekt
+    /// aus, InkStitch bekam aber weiterhin die ungedrehte Rohgeometrie, weil `data-ss-rotation` kein
+    /// echtes SVG-`transform` ist).
+    var visualTransform: CGAffineTransform {
+        guard rotationDegrees != 0 || skewXDegrees != 0 || skewYDegrees != 0 else { return .identity }
+        let center = CGPoint(x: positionX + width / 2, y: positionY + height / 2)
+        var transform = CGAffineTransform(translationX: -center.x, y: -center.y)
+        if skewXDegrees != 0 || skewYDegrees != 0 {
+            let tanX = tan(skewXDegrees * .pi / 180)
+            let tanY = tan(skewYDegrees * .pi / 180)
+            transform = transform.concatenating(CGAffineTransform(a: 1, b: tanY, c: tanX, d: 1, tx: 0, ty: 0))
+        }
+        if rotationDegrees != 0 {
+            transform = transform.concatenating(CGAffineTransform(rotationAngle: rotationDegrees * .pi / 180))
+        }
+        return transform.concatenating(CGAffineTransform(translationX: center.x, y: center.y))
     }
 }

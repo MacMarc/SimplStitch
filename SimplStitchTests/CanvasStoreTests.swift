@@ -438,6 +438,38 @@ struct CanvasStoreTests {
         #expect(abs(object.height - 20) < 0.0001)
     }
 
+    // Issue #30 (Punkt 4): ⇧ (keepAspectRatio) an einem Eck-Griff skaliert beide Achsen um denselben
+    // Faktor — hier den grösseren der beiden unabhängig berechneten Faktoren (dominante Zugrichtung),
+    // dieselbe Konvention wie Keynote/PowerPoint. Objekt startet bei 40x20 (2:1); Ziehen von
+    // bottomRight (50,30) auf (150,50) ergäbe ohne Sperre 140x40 (unterschiedliche Skalierung je
+    // Achse, x=3.5, y=2.0) — mit Sperre skalieren beide Achsen mit dem grösseren Faktor (3.5).
+    @Test func resizingViaCornerHandleWithKeepAspectRatioScalesBothAxesEqually() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 300, height: 300))
+        let object = makeRectangle(in: store, from: CGPoint(x: 10, y: 10), to: CGPoint(x: 50, y: 30)) // 40x20
+        store.beginTransformDrag(object: object, handle: .bottomRight, atDesignPoint: CGPoint(x: 50, y: 30))
+        store.updateTransformDrag(toDesignPoint: CGPoint(x: 150, y: 50), keepAspectRatio: true)
+        store.endTransformDrag()
+
+        // topLeft (10,10) bleibt fix, beide Achsen skalieren mit demselben Faktor (3.5).
+        #expect(abs(object.positionX - 10) < 0.0001)
+        #expect(abs(object.positionY - 10) < 0.0001)
+        #expect(abs(object.width - 140) < 0.0001)
+        #expect(abs(object.height - 70) < 0.0001)
+    }
+
+    @Test func resizingViaEdgeHandleIgnoresKeepAspectRatio() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let object = makeRectangle(in: store, from: CGPoint(x: 10, y: 10), to: CGPoint(x: 50, y: 30)) // 40x20
+        store.beginTransformDrag(object: object, handle: .right, atDesignPoint: CGPoint(x: 50, y: 20))
+        store.updateTransformDrag(toDesignPoint: CGPoint(x: 90, y: 20), keepAspectRatio: true)
+        store.endTransformDrag()
+
+        // Nur eine Achse hat an einer Kantenmitte überhaupt einen Griff — keepAspectRatio bleibt
+        // wirkungslos, height unverändert.
+        #expect(abs(object.width - 80) < 0.0001)
+        #expect(abs(object.height - 20) < 0.0001)
+    }
+
     @Test func resizeRespectsMinimumShapeSize() {
         let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
         let object = makeRectangle(in: store) // (10,10)-(30,30)

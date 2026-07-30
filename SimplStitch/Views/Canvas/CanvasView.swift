@@ -180,7 +180,16 @@ struct CanvasView: View {
                 }
                 switch selectionDrag.mode {
                 case .moveObject, .handle:
-                    store.updateTransformDrag(toDesignPoint: store.designPoint(fromView: value.location))
+                    // Issue #30 (Punkt 4): ⇧ wird hier LIVE bei jedem Drag-Update abgefragt (nicht nur
+                    // beim Gestenstart in `beginSelectionInteraction`) — dort entscheidet Shift bereits
+                    // über Mehrfachauswahl/Gummiband, ein an einem Eck-Griff gestarteter Resize-Drag
+                    // (ohne Shift beim Klicken, sonst hätte `beginSelectionInteraction` gar nicht in den
+                    // Handle-Zweig verzweigt) kann aber währenddessen mit ⇧ die Proportionen sperren,
+                    // exakt wie in Keynote/PowerPoint.
+                    store.updateTransformDrag(
+                        toDesignPoint: store.designPoint(fromView: value.location),
+                        keepAspectRatio: NSEvent.modifierFlags.contains(.shift)
+                    )
                 case .marquee:
                     store.updateMarqueeSelection(toDesignPoint: store.designPoint(fromView: value.location))
                 case .pan, .inert, .none:

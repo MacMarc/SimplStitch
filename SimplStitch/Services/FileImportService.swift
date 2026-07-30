@@ -93,14 +93,31 @@ final class FileImportService: FileImportServicing {
             objects.append(object)
         }
 
+        // Issue #30 (Punkt 3): TRIM/STOP schneiden den Faden — der nachfolgende Punkt darf daher
+        // nicht per "L" mit der Nadelposition davor verbunden werden. Manche Stickdateien fügen nach
+        // einem TRIM keinen eigenen JUMP-Stich ein (die neue Startposition steht direkt im nächsten
+        // STITCH), ohne dieses Flag würde makeObject() dann fälschlich eine durchgezogene Linie quer
+        // über den Fadenschnitt zeichnen. `pendingBreak` erzwingt für genau den nächsten Stich/Jump
+        // dieselbe "M"-Behandlung wie einen echten JUMP (siehe makeObject-Kommentar).
+        var pendingBreak = false
         for stitch in pattern.stitches {
             switch stitch.command {
             case .stitch, .jump:
-                currentBlock.append(stitch)
+                if pendingBreak {
+                    var breakPoint = stitch
+                    breakPoint.command = .jump
+                    currentBlock.append(breakPoint)
+                    pendingBreak = false
+                } else {
+                    currentBlock.append(stitch)
+                }
             case .colorChange:
                 currentBlock.append(stitch)
                 finalizeBlock()
-            case .trim, .stop, .end:
+                pendingBreak = false
+            case .trim, .stop:
+                pendingBreak = true
+            case .end:
                 continue
             }
         }

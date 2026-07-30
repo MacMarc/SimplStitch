@@ -91,6 +91,30 @@ struct FileImportServiceTests {
         #expect(path.contains("L5.0000,5.0000"))
     }
 
+    // Issue #30 (Punkt 3): manche Stickdateien fügen nach einem TRIM keinen eigenen JUMP-Stich ein
+    // (die neue Startposition steht direkt im nächsten STITCH). Ohne die pendingBreak-Behandlung
+    // hätte hier eine durchgezogene Linie quer über den Fadenschnitt (0,0)→(50,50) gezeichnet.
+    @Test func designObjectsStartsNewSubpathAfterTrimWithoutExplicitJump() throws {
+        let service = FileImportService(bridge: StubBridge())
+
+        let pattern = ImportedEmbroideryPattern(
+            stitches: [
+                StitchPoint(x: 0, y: 0, command: .stitch),
+                StitchPoint(x: 1, y: 0, command: .trim),
+                StitchPoint(x: 50, y: 50, command: .stitch),
+                StitchPoint(x: 55, y: 50, command: .stitch),
+            ],
+            threads: []
+        )
+
+        let objects = service.designObjects(from: pattern)
+
+        let path = try #require(objects.first?.pathData)
+        #expect(path.contains("M50.0000,50.0000")) // Position nach TRIM startet neu statt zu verbinden
+        #expect(!path.contains("L50.0000,50.0000"))
+        #expect(path.contains("L55.0000,50.0000"))
+    }
+
     @Test func designObjectsIgnoresEmptyStitchList() {
         let service = FileImportService(bridge: StubBridge())
         let objects = service.designObjects(from: ImportedEmbroideryPattern(stitches: [], threads: []))

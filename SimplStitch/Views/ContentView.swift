@@ -134,25 +134,20 @@ struct ContentView: View {
                 importFile(at: url)
                 return true
             }
-            // Issue #10: Hintergrundbild wählen — eigenes `.fileImporter`-Sheet (Bild- statt
-            // Stickdatei-Typen), Bytes gehen direkt an `StitchDesignDocument.setBackgroundImage`,
-            // das sie bis zum nächsten Speichern hält (siehe dortiger Kommentar).
-            .fileImporter(
-                isPresented: Binding(
-                    get: { canvasStore.isBackgroundImagePickerPresented },
-                    set: { canvasStore.isBackgroundImagePickerPresented = $0 }
-                ),
-                allowedContentTypes: [.png, .jpeg, .heic, .image],
-                allowsMultipleSelection: false
-            ) { result in
-                switch result {
-                case .success(let urls):
-                    if let url = urls.first {
-                        importBackgroundImage(at: url)
-                    }
-                case .failure(let error):
-                    importErrorMessage = error.localizedDescription
-                }
+            // Issue #10: Hintergrundbild wählen. Issue #30 (Punkt 2): dieser `.fileImporter` lag
+            // bisher direkt auf derselben View-Kette wie der Stickdatei-Import oben — SwiftUI
+            // präsentiert mehrere gleichartige Präsentations-Modifier (`.fileImporter`/`.sheet`/…)
+            // auf identischer View-Identität nicht zuverlässig, der zuletzt angehängte gewinnt und
+            // machte den Import-Menüpunkt/⌘I inert. Jetzt über eine eigene Hilfsview mit eigener
+            // View-Identität angehängt, damit beide unabhängig voneinander feuern — der
+            // Präsentationszustand bleibt bewusst in CanvasStore (isBackgroundImagePickerPresented),
+            // der Hintergrundbild-Menüpunkt (SimplStitchCommands) funktioniert dadurch unverändert.
+            .background {
+                BackgroundImagePickerModifierHost(
+                    store: canvasStore,
+                    onPick: { url in importBackgroundImage(at: url) },
+                    onError: { message in importErrorMessage = message }
+                )
             }
             .alert(
                 "import.embroidery.error.title",
@@ -262,6 +257,35 @@ struct ContentView: View {
         }
     }
 
+}
+
+/// Issue #30 (Punkt 2): trägt den Hintergrundbild-`fileImporter` auf einer EIGENEN View-Identität,
+/// getrennt von der Haupt-View-Kette in `ContentView`, damit er nicht mit dem regulären
+/// Stickdatei-Import auf derselben Kette kollidiert (SwiftUI präsentiert mehrere gleichartige
+/// Präsentations-Modifier auf identischer View-Identität nicht zuverlässig). Der Präsentations-
+/// zustand bleibt bewusst in `CanvasStore` (`isBackgroundImagePickerPresented`), damit der
+/// Menüpunkt „Hintergrundbild…" (SimplStitchCommands) unverändert weiterfunktioniert.
+private struct BackgroundImagePickerModifierHost: View {
+    @Bindable var store: CanvasStore
+    let onPick: (URL) -> Void
+    let onError: (String) -> Void
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .fileImporter(
+                isPresented: $store.isBackgroundImagePickerPresented,
+                allowedContentTypes: [.png, .jpeg, .heic, .image],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    if let url = urls.first { onPick(url) }
+                case .failure(let error):
+                    onError(error.localizedDescription)
+                }
+            }
+    }
 }
 
 #Preview {

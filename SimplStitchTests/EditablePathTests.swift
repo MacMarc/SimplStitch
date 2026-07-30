@@ -201,4 +201,57 @@ struct EditablePathTests {
         #expect(path.anchors.map(\.point) == [CGPoint(x: 0, y: 0), CGPoint(x: 10, y: 10)])
         #expect(path.anchors[1].controlIn == nil || path.anchors[1].controlIn == CGPoint(x: 10, y: 10))
     }
+
+    // MARK: Issue #30 — mehrere Teilpfade (mehrfaches `M`), z.B. JUMP-Stiche beim Reimport.
+
+    /// Der Kernfall: ein reimportierter Pfad kodiert einen Sprung (JUMP, Nadel ohne Faden) als ein
+    /// zweites `M` statt eines verbindenden `L`. Der erste Anker JEDES Teilpfad-Starts (ausser dem
+    /// allerersten Anker des Pfades) muss als solcher markiert sein, sonst verschmilzt die Lücke.
+    @Test func secondMoveStartsNewSubpath() {
+        let path = EditablePath(pathData: "M0,0 L10,0 M20,0 L30,0")
+        #expect(path.anchors.count == 4)
+        #expect(path.anchors.map(\.point) == [
+            CGPoint(x: 0, y: 0), CGPoint(x: 10, y: 0), CGPoint(x: 20, y: 0), CGPoint(x: 30, y: 0),
+        ])
+        // Nur der Anker bei (20,0) beginnt einen neuen Teilpfad — der allererste Anker (0,0) nicht.
+        #expect(path.anchors.map(\.startsSubpath) == [false, false, true, false])
+    }
+
+    /// Ein mehrfach-`M`-Pfad muss verlustfrei durch svgPathData() zurücklaufen — die Sprung-Grenze
+    /// bleibt als eigenes `M` erhalten (vorher wurde daraus fälschlich ein durchgezogenes `L`).
+    @Test func multipleSubpathsRoundtripThroughSvgPathData() {
+        let original = "M0.0000,0.0000 L10.0000,0.0000 M20.0000,0.0000 L30.0000,0.0000"
+        let path = EditablePath(pathData: original)
+        #expect(path.svgPathData() == original)
+    }
+
+    /// Rendering: der `path`-Getter darf die beiden Teilpfade NICHT verbinden. Eine durchgezogene
+    /// Linie über die ganze Breite hätte dieselbe Bounding-Box wie zwei getrennte Segmente, daher
+    /// prüfen wir stattdessen die Anzahl der Teilpfade direkt über die CoreGraphics-Elemente.
+    @Test func pathGetterKeepsSubpathsDisconnected() {
+        let path = EditablePath(pathData: "M0,0 L10,0 M20,0 L30,0")
+        var moveCount = 0
+        path.path.cgPath.applyWithBlock { element in
+            if element.pointee.type == .moveToPoint { moveCount += 1 }
+        }
+        // Zwei `move`-Elemente == zwei getrennte Teilpfade (ein verschmolzener Pfad hätte nur eins).
+        #expect(moveCount == 2)
+    }
+
+    /// Simuliert exakt den `CanvasStore.transformedEditablePath`-Pfad (Verschieben/Skalieren eines
+    /// reimportierten Objekts): Anker-Punkte transformieren, dann re-serialisieren. Die Sprung-Grenze
+    /// muss erhalten bleiben — sonst würde das erste Verschieben die Jump-Info permanent zerstören.
+    @Test func transformingAnchorsPreservesSubpathBreakOnReserialize() {
+        var path = EditablePath(pathData: "M0,0 L10,0 M20,0 L30,0")
+        for index in path.anchors.indices {
+            path.anchors[index].point = CGPoint(x: path.anchors[index].point.x + 5, y: path.anchors[index].point.y + 5)
+        }
+        #expect(path.svgPathData() == "M5.0000,5.0000 L15.0000,5.0000 M25.0000,5.0000 L35.0000,5.0000")
+    }
+
+    /// Der bisherige Einzel-Teilpfad-Fall bleibt unberührt: kein `startsSubpath`, kein zusätzliches `M`.
+    @Test func singleSubpathHasNoSubpathBreaks() {
+        let path = EditablePath(pathData: "M0,0 L10,0 L10,10")
+        #expect(path.anchors.allSatisfy { !$0.startsSubpath })
+    }
 }

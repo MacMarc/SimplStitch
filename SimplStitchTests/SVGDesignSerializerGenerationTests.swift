@@ -87,4 +87,30 @@ struct SVGDesignSerializerGenerationTests {
         let text = makeTextObject()
         #expect(serializer.generationBorderElement(for: text) == nil)
     }
+
+    // Issue #30 (Punkt 1): rotierte/verzerrte Objekte sahen in der Canvas-Vorschau korrekt gedreht
+    // aus (DesignObject.visualTransform), InkStitch bekam dafür aber weiterhin die ungedrehte
+    // Rohgeometrie — data-ss-rotation ist kein echtes SVG-transform. generationElement(for:) muss
+    // deshalb ein natives transform="matrix(...)" anhängen, element(for:) (content.svg) dagegen
+    // nicht, da position/width/height dort die kanonischen unrotierten Werte bleiben müssen.
+    @Test func generationElementForRotatedObjectAddsTransformMatrixNotPresentInPersistedElement() throws {
+        let serializer = SVGDesignSerializer()
+        let rectangle = makeRectangle()
+        rectangle.rotationDegrees = 45
+
+        let persistedElement = serializer.element(for: rectangle)
+        #expect(!persistedElement.contains("transform=\"matrix"))
+
+        let generationElement = try #require(serializer.generationElement(for: rectangle))
+        #expect(generationElement.contains("transform=\"matrix("))
+        #expect(generationElement != persistedElement)
+    }
+
+    @Test func generationElementForUnrotatedObjectHasNoTransformAttribute() throws {
+        let serializer = SVGDesignSerializer()
+        let rectangle = makeRectangle()
+
+        let generationElement = try #require(serializer.generationElement(for: rectangle))
+        #expect(!generationElement.contains("transform=\"matrix"))
+    }
 }

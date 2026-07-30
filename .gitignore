@@ -24,3 +24,6 @@ Pods/
 # Notarisierung / lokale Signierartefakte
 *.p12
 *.mobileprovision
+
+# Lokale Test-Assets (nicht Teil des Repos, z.B. manuelle SVG-Importtests)
+/logo.svg

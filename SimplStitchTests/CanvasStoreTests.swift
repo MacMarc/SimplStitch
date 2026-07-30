@@ -285,6 +285,116 @@ struct CanvasStoreTests {
         #expect(object.height == 20)
     }
 
+    // MARK: Undo/Redo (Issue #8)
+
+    @Test func undoRevertsMoveAndRedoReappliesIt() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let undoManager = UndoManager()
+        store.undoManager = undoManager
+        let object = makeRectangle(in: store)
+
+        store.beginTransformDrag(object: object, handle: nil, atDesignPoint: CGPoint(x: 15, y: 15))
+        store.updateTransformDrag(toDesignPoint: CGPoint(x: 25, y: 20))
+        store.endTransformDrag()
+        #expect(object.positionX == 20)
+
+        #expect(undoManager.canUndo)
+        undoManager.undo()
+        #expect(object.positionX == 10)
+        #expect(object.positionY == 10)
+
+        #expect(undoManager.canRedo)
+        undoManager.redo()
+        #expect(object.positionX == 20)
+        #expect(object.positionY == 15)
+    }
+
+    @Test func clickWithoutMovementRegistersNoUndoStep() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let undoManager = UndoManager()
+        store.undoManager = undoManager
+        let object = makeRectangle(in: store)
+
+        store.beginTransformDrag(object: object, handle: nil, atDesignPoint: CGPoint(x: 15, y: 15))
+        store.endTransformDrag()
+
+        #expect(!undoManager.canUndo)
+    }
+
+    @Test func undoRevertsDeleteAndRedoReappliesIt() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let undoManager = UndoManager()
+        store.undoManager = undoManager
+        let object = makeRectangle(in: store)
+        let id = object.id
+
+        store.deleteObject(id)
+        #expect(store.objects.isEmpty)
+
+        undoManager.undo()
+        #expect(store.objects.map(\.id) == [id])
+
+        undoManager.redo()
+        #expect(store.objects.isEmpty)
+    }
+
+    @Test func undoRevertsMultiDeleteAsOneStep() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let undoManager = UndoManager()
+        store.undoManager = undoManager
+        let first = makeRectangle(in: store, from: CGPoint(x: 10, y: 10), to: CGPoint(x: 20, y: 20))
+        let second = makeRectangle(in: store, from: CGPoint(x: 40, y: 40), to: CGPoint(x: 50, y: 50))
+        store.replaceSelection([first.id, second.id])
+
+        store.deleteSelectedObject()
+        #expect(store.objects.isEmpty)
+
+        undoManager.undo()
+        #expect(Set(store.objects.map(\.id)) == [first.id, second.id])
+    }
+
+    @Test func undoRevertsGroupAndUngroup() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let undoManager = UndoManager()
+        store.undoManager = undoManager
+        let first = makeRectangle(in: store, from: CGPoint(x: 10, y: 10), to: CGPoint(x: 20, y: 20))
+        let second = makeRectangle(in: store, from: CGPoint(x: 40, y: 40), to: CGPoint(x: 50, y: 50))
+        store.replaceSelection([first.id, second.id])
+
+        store.groupSelectedObjects()
+        #expect(first.groupID != nil)
+        #expect(first.groupID == second.groupID)
+
+        undoManager.undo()
+        #expect(first.groupID == nil)
+        #expect(second.groupID == nil)
+
+        undoManager.redo()
+        #expect(first.groupID == second.groupID)
+
+        store.ungroupSelectedObjects()
+        #expect(first.groupID == nil)
+        undoManager.undo()
+        #expect(first.groupID == second.groupID)
+    }
+
+    @Test func undoRevertsVisibilityAndLockToggle() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let undoManager = UndoManager()
+        store.undoManager = undoManager
+        let object = makeRectangle(in: store)
+
+        store.toggleVisibility(of: object.id)
+        #expect(object.isVisible == false)
+        undoManager.undo()
+        #expect(object.isVisible == true)
+
+        store.toggleLock(of: object.id)
+        #expect(object.isLocked == true)
+        undoManager.undo()
+        #expect(object.isLocked == false)
+    }
+
     @Test func resizingViaCornerHandleKeepsOppositeCornerFixed() {
         let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
         let object = makeRectangle(in: store) // (10,10)-(30,30)

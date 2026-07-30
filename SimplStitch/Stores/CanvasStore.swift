@@ -55,6 +55,13 @@ final class CanvasStore {
     private let project: StitchProject
     private let stitchGenerationService: StitchGenerationServicing
 
+    /// Issue #8: gesetzt von `ContentView` aus `@Environment(\.undoManager)` (SwiftUI stellt den
+    /// pro Fenster/Dokument bereit, `DocumentGroup`+`ReferenceFileDocument` verdrahten ihn bereits
+    /// mit dem Bearbeiten-Menü/⌘Z/⌘⇧Z). `nil` in Tests/Previews ohne Dokumentfenster — alle
+    /// `registerFieldUndo`/Lösch-Undo-Aufrufe werden dann einfach übersprungen (optional chaining),
+    /// die eigentliche Mutation läuft unverändert weiter.
+    var undoManager: UndoManager?
+
     init(
         project: StitchProject,
         zoomScale: CGFloat = 1,
@@ -532,6 +539,115 @@ final class CanvasStore {
         refreshStitchPreview()
     }
 
+    // MARK: Undo/Redo (Issue #8)
+
+    /// Feld-Snapshot für Undo/Redo — deckt genau die Felder ab, die CanvasStore-Mutationen direkt
+    /// verändern (Transform-Drags, Sichtbarkeit/Sperre, Gruppierung, Z-Order, Löschen).
+    /// Vereinfachung: Sticheinstellungen, Farbe/Garnzuweisung und Textinhalt werden bewusst NICHT
+    /// erfasst — die entsprechenden UI-Bindings (ObjectInspectorView-Slider/-Picker, TextField-
+    /// Overlay) mutieren die SwiftData-Modelle direkt, ohne über eine CanvasStore-Methode zu laufen,
+    /// und haben deshalb keinen Undo-Hook. Bleibt offen für einen künftigen Schritt.
+    private struct DesignObjectFieldSnapshot: Equatable {
+        var positionX: Double
+        var positionY: Double
+        var width: Double
+        var height: Double
+        var rotationDegrees: Double
+        var skewXDegrees: Double
+        var skewYDegrees: Double
+        var cornerRadius: Double
+        var isVisible: Bool
+        var isLocked: Bool
+        var zIndex: Int
+        var groupID: UUID?
+
+        init(_ object: DesignObject) {
+            positionX = object.positionX
+            positionY = object.positionY
+            width = object.width
+            height = object.height
+            rotationDegrees = object.rotationDegrees
+            skewXDegrees = object.skewXDegrees
+            skewYDegrees = object.skewYDegrees
+            cornerRadius = object.cornerRadius
+            isVisible = object.isVisible
+            isLocked = object.isLocked
+            zIndex = object.zIndex
+            groupID = object.groupID
+        }
+
+        func apply(to object: DesignObject) {
+            object.positionX = positionX
+            object.positionY = positionY
+            object.width = width
+            object.height = height
+            object.rotationDegrees = rotationDegrees
+            object.skewXDegrees = skewXDegrees
+            object.skewYDegrees = skewYDegrees
+            object.cornerRadius = cornerRadius
+            object.isVisible = isVisible
+            object.isLocked = isLocked
+            object.zIndex = zIndex
+            object.groupID = groupID
+        }
+    }
+
+    /// Bei `beginTransformDrag`/`beginSkewDrag`/`beginGroupTransformDrag` gesetzt, bei
+    /// `endTransformDrag` ausgewertet — nur falls sich tatsächlich etwas geändert hat (ein blosser
+    /// Klick ohne Drag registriert sonst einen wirkungslosen Undo-Schritt).
+    private var dragUndoSnapshot: [UUID: DesignObjectFieldSnapshot]?
+
+    private func fieldSnapshotAllObjects() -> [UUID: DesignObjectFieldSnapshot] {
+        Dictionary(uniqueKeysWithValues: objects.map { ($0.id, DesignObjectFieldSnapshot($0)) })
+    }
+
+    private func restoreFieldSnapshot(_ snapshot: [UUID: DesignObjectFieldSnapshot]) {
+        for object in objects {
+            snapshot[object.id]?.apply(to: object)
+        }
+        refreshStitchPreview()
+    }
+
+    /// Registriert einen Undo-Schritt, der die Felder aller Objekte auf `before` zurücksetzt und
+    /// symmetrisch einen Redo-Schritt registriert (Standard-Rekursionsmuster für `UndoManager`:
+    /// jeder Undo-/Redo-Aufruf registriert beim Ausführen sein eigenes Gegenstück neu).
+    private func registerFieldUndo(before: [UUID: DesignObjectFieldSnapshot], actionName: String) {
+        guard let undoManager else { return }
+        undoManager.registerUndo(withTarget: self) { target in
+            let after = target.fieldSnapshotAllObjects()
+            target.restoreFieldSnapshot(before)
+            target.registerFieldUndo(before: after, actionName: actionName)
+        }
+        undoManager.setActionName(actionName)
+    }
+
+    private func performUndoableFieldChange(actionName: String, _ mutation: () -> Void) {
+        let before = fieldSnapshotAllObjects()
+        mutation()
+        registerFieldUndo(before: before, actionName: actionName)
+    }
+
+    /// Rekursives Gegenstück zu `registerFieldUndo` fürs Löschen: die Objektmenge selbst ändert
+    /// sich (nicht nur Felder), daher kein Feld-Snapshot — Undo fügt dieselbe `DesignObject`-Instanz
+    /// wieder ein (Klassentyp, keine Kopie nötig), Redo ruft `deleteObject` einfach erneut auf.
+    private func registerDeleteUndo(object: DesignObject) {
+        guard let undoManager else { return }
+        undoManager.registerUndo(withTarget: self) { target in
+            target.objects.append(object)
+            target.refreshStitchPreview()
+            target.registerUndeleteUndo(object)
+        }
+        undoManager.setActionName(String(localized: "undo.action.delete"))
+    }
+
+    private func registerUndeleteUndo(_ object: DesignObject) {
+        guard let undoManager else { return }
+        undoManager.registerUndo(withTarget: self) { target in
+            target.deleteObject(object.id)
+        }
+        undoManager.setActionName(String(localized: "undo.action.delete"))
+    }
+
     // MARK: Gruppierung
 
     /// Fasst die aktuell selektierten Objekte (mind. 2) zu einer neuen Gruppe zusammen. Objekte,
@@ -542,25 +658,35 @@ final class CanvasStore {
     func groupSelectedObjects() {
         let members = selectedObjects
         guard members.count > 1 else { return }
-        let groupID = UUID()
-        for member in members {
-            member.groupID = groupID
+        performUndoableFieldChange(actionName: String(localized: "undo.action.group")) {
+            let groupID = UUID()
+            for member in members {
+                member.groupID = groupID
+            }
+            makeContiguous(members)
         }
-        makeContiguous(members)
     }
 
     /// Löst die Gruppierung der aktuell selektierten Objekte auf (Selektion bleibt erhalten).
     func ungroupSelectedObjects() {
-        for object in selectedObjects {
-            object.groupID = nil
+        let members = selectedObjects
+        guard !members.isEmpty else { return }
+        performUndoableFieldChange(actionName: String(localized: "undo.action.ungroup")) {
+            for object in members {
+                object.groupID = nil
+            }
         }
     }
 
     /// Löst eine bestimmte Gruppe auf, unabhängig von der aktuellen Selektion — genutzt vom
     /// Ebenen-Panel für die "Gruppierung aufheben"-Aktion auf einer (evtl. nicht selektierten) Gruppenzeile.
     func ungroup(groupID: UUID) {
-        for object in objects where object.groupID == groupID {
-            object.groupID = nil
+        let members = objects.filter { $0.groupID == groupID }
+        guard !members.isEmpty else { return }
+        performUndoableFieldChange(actionName: String(localized: "undo.action.ungroup")) {
+            for object in members {
+                object.groupID = nil
+            }
         }
     }
 
@@ -580,7 +706,9 @@ final class CanvasStore {
     /// Ebenen-Panel, wo eine Gruppen-Zeile als zusammenhängender Block bewegt wird) und vergibt
     /// die zIndex-Werte neu.
     func applyFrontToBackOrder(_ ordered: [DesignObject]) {
-        reassignZIndices(frontToBack: ordered)
+        performUndoableFieldChange(actionName: String(localized: "undo.action.reorder")) {
+            reassignZIndices(frontToBack: ordered)
+        }
     }
 
     /// Oberstes sichtbares Objekt unter dem gegebenen Punkt (Design-Koordinaten), oder nil.
@@ -701,6 +829,7 @@ final class CanvasStore {
         activeHandle = handle
         transformDragStartPoint = point
         activeTransform = .single(objectID: object.id, snapshot: TransformSnapshot(object: object))
+        dragUndoSnapshot = fieldSnapshotAllObjects()
     }
 
     /// Startet einen Verzerren-Drag (Issue #9) — ⌥+Drag auf einem Kanten-Griff (nicht Ecke) verzerrt
@@ -713,6 +842,7 @@ final class CanvasStore {
         activeHandle = handle
         transformDragStartPoint = point
         activeTransform = .skew(objectID: object.id, snapshot: TransformSnapshot(object: object))
+        dragUndoSnapshot = fieldSnapshotAllObjects()
     }
 
     /// Startet einen Griff-Drag auf dem Gruppenrahmen der aktuell selektierten Gruppe
@@ -724,6 +854,7 @@ final class CanvasStore {
         transformDragStartPoint = point
         let snapshots = Dictionary(uniqueKeysWithValues: members.map { ($0.id, TransformSnapshot(object: $0)) })
         activeTransform = .group(GroupTransformSnapshot(bounds: Self.groupBounds(of: members), memberSnapshots: snapshots))
+        dragUndoSnapshot = fieldSnapshotAllObjects()
     }
 
     func updateTransformDrag(toDesignPoint point: CGPoint) {
@@ -765,6 +896,10 @@ final class CanvasStore {
     }
 
     func endTransformDrag() {
+        if let before = dragUndoSnapshot, fieldSnapshotAllObjects() != before {
+            registerFieldUndo(before: before, actionName: String(localized: "undo.action.transform"))
+        }
+        dragUndoSnapshot = nil
         activeTransform = nil
         activeHandle = nil
         transformDragStartPoint = nil
@@ -1045,7 +1180,9 @@ final class CanvasStore {
         case .toBack: newIndex = ordered.count
         }
         ordered.insert(object, at: newIndex)
-        reassignZIndices(frontToBack: ordered)
+        performUndoableFieldChange(actionName: String(localized: "undo.action.reorder")) {
+            reassignZIndices(frontToBack: ordered)
+        }
     }
 
     /// Für Drag-Umsortierung im Ebenen-Panel (`List.onMove`) — Offsets/Zielindex beziehen sich auf
@@ -1053,7 +1190,9 @@ final class CanvasStore {
     func reorderObjects(fromFrontToBackOffsets offsets: IndexSet, toFrontToBackOffset destination: Int) {
         var ordered = objectsFrontToBack
         ordered.move(fromOffsets: offsets, toOffset: destination)
-        reassignZIndices(frontToBack: ordered)
+        performUndoableFieldChange(actionName: String(localized: "undo.action.reorder")) {
+            reassignZIndices(frontToBack: ordered)
+        }
     }
 
     private func reassignZIndices(frontToBack ordered: [DesignObject]) {
@@ -1064,11 +1203,17 @@ final class CanvasStore {
     }
 
     func toggleVisibility(of id: UUID) {
-        objects.first { $0.id == id }?.isVisible.toggle()
+        guard let object = objects.first(where: { $0.id == id }) else { return }
+        performUndoableFieldChange(actionName: String(localized: "undo.action.visibility")) {
+            object.isVisible.toggle()
+        }
     }
 
     func toggleLock(of id: UUID) {
-        objects.first { $0.id == id }?.isLocked.toggle()
+        guard let object = objects.first(where: { $0.id == id }) else { return }
+        performUndoableFieldChange(actionName: String(localized: "undo.action.lock")) {
+            object.isLocked.toggle()
+        }
     }
 
     /// Entfernt ein Objekt endgültig vom Canvas (Phase 8b, "Objekt löschen"-Menü/Toolbar-Aktion —
@@ -1076,6 +1221,7 @@ final class CanvasStore {
     /// sie sich auf das gelöschte Objekt bezogen. Gesperrte Objekte lassen sich bewusst löschen
     /// (Sperre verhindert nur Verschieben/Skalieren/Drehen, siehe 5c/5e-Konvention).
     func deleteObject(_ id: UUID) {
+        guard let object = objects.first(where: { $0.id == id }) else { return }
         objects.removeAll { $0.id == id }
         if selectedObjectIDs.remove(id) != nil {
             stitchPreview = nil
@@ -1089,6 +1235,7 @@ final class CanvasStore {
             activeHandle = nil
             transformDragStartPoint = nil
         }
+        registerDeleteUndo(object: object)
     }
 
     /// Issue #7: fügt importierte Objekte (`FileImportService.designObjects(from:)`) dem Canvas
@@ -1120,9 +1267,11 @@ final class CanvasStore {
     /// Löscht alle aktuell selektierten Objekte — Komfort-Methode für Menü/Toolbar/Tastenkürzel,
     /// die keine expliziten IDs kennen (anders als das Ebenen-Panel, das pro Zeile eine ID hat).
     func deleteSelectedObject() {
+        undoManager?.beginUndoGrouping()
         for id in selectedObjectIDs {
             deleteObject(id)
         }
+        undoManager?.endUndoGrouping()
     }
 
     // MARK: Garnfarben-Zuweisung (8e, vereinfacht in Issue #20)

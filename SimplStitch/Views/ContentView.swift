@@ -11,6 +11,10 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @ObservedObject var document: StitchDesignDocument
+    // Issue #8: SwiftUI stellt für ReferenceFileDocument/DocumentGroup-Fenster einen pro Dokument
+    // verdrahteten UndoManager bereit (Bearbeiten-Menü, ⌘Z/⌘⇧Z) — CanvasStore ist keine View und
+    // hat daher keinen eigenen Environment-Zugriff, bekommt ihn also von hier durchgereicht.
+    @Environment(\.undoManager) private var undoManager
 
     @State private var canvasStore: CanvasStore
     @State private var isInspectorPresented = true
@@ -115,6 +119,7 @@ struct ContentView: View {
             .focusedSceneValue(\.isExportDialogPresented, $isExportDialogPresented)
             .focusedSceneValue(\.isImportDialogPresented, $isImportDialogPresented)
             .focusedSceneValue(\.isInspectorPresented, $isInspectorPresented)
+            .onAppear { canvasStore.undoManager = undoManager }
         }
     }
 

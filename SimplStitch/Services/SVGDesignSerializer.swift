@@ -550,6 +550,23 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             if let settings = Self.stitchSettings(from: attrs) {
                 settings.designObject = object
                 object.stitchSettings = settings
+            } else if object.hasFill, object.kind != .line {
+                // Issue #30: fremde SVGs (kein data-ss-x, siehe makePathElement) tragen nie
+                // inkstitch:*-Attribute — hasFill wird oben (Zeile ~529) ALLEIN aus der Quell-
+                // Füllfarbe hergeleitet ("fill" ungleich "none"), ohne dass je Sticheinstellungen
+                // existieren. Ohne diesen Fallback bleibt object.stitchSettings dauerhaft nil:
+                // refreshStitchPreview()s Guard (hasFill && stitchSettings != nil) generiert dann
+                // NIE eine Stichvorschau, und .path/.line-Objekte haben ohnehin keine eigene
+                // Vektor-Füllfarbe im Canvas-Rendering (CanvasView.drawObjects ignoriert hasFill
+                // im .path/.line-Zweig komplett) — das importierte Objekt sähe dauerhaft leer/weiss
+                // aus, obwohl "Füllung" laut Inspector bereits aktiv ist. Dieselben Defaults wie
+                // ObjectInspectorView.hasFillBinding beim ERSTEN manuellen Aktivieren des Toggles.
+                let stitchType: StitchType = object.kind == .text
+                    ? .tatami
+                    : StitchType.suggested(forShapeWidth: object.width, height: object.height)
+                let settings = StitchSettings(stitchType: stitchType, underlayType: UnderlayType.suggested(for: stitchType))
+                settings.designObject = object
+                object.stitchSettings = settings
             }
         }
 

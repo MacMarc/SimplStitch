@@ -204,6 +204,36 @@ struct SVGDesignSerializerTests {
         #expect(decoded.objects.first?.hasFill == false)
     }
 
+    // Issue #30: eine fremde SVG-Datei ohne data-ss-x hat nie inkstitch:*-Attribute — hasFill wird
+    // nur aus der Quell-Füllfarbe hergeleitet (siehe fillNoneMarksObjectAsUnfilled). Ohne einen
+    // Fallback in applyCommonAttributes bliebe stitchSettings dauerhaft nil: refreshStitchPreview()s
+    // Guard (hasFill && stitchSettings != nil) generiert dann NIE eine Stichvorschau, und .path hat
+    // ohnehin keine eigene Vektor-Füllfarbe im Canvas-Rendering — das importierte Objekt bliebe
+    // dauerhaft leer/weiss, obwohl "Füllung" laut Inspector schon aktiv ist.
+    @Test func foreignFilledPathGetsDefaultStitchSettings() throws {
+        let svg = """
+        <svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="100mm">
+          <path d="M0,0 L10,0 L10,10 L0,10 Z" fill="#a71930"/>
+        </svg>
+        """
+        let decoded = try decode(svg)
+        let object = try #require(decoded.objects.first)
+        #expect(object.hasFill == true)
+        #expect(object.stitchSettings?.stitchType == .tatami)
+    }
+
+    @Test func foreignUnfilledPathGetsNoStitchSettings() throws {
+        let svg = """
+        <svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="100mm">
+          <path d="M0,0 L10,0 L10,10 L0,10 Z" fill="none"/>
+        </svg>
+        """
+        let decoded = try decode(svg)
+        let object = try #require(decoded.objects.first)
+        #expect(object.hasFill == false)
+        #expect(object.stitchSettings == nil)
+    }
+
     @Test func parsesClosedPolygonAsPathWithZ() throws {
         let svg = """
         <svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="100mm">

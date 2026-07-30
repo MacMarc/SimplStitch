@@ -25,5 +25,7 @@ Pods/
 *.p12
 *.mobileprovision
 
-# Lokale Test-Assets (nicht Teil des Repos, z.B. manuelle SVG-Importtests)
-/logo.svg
+# Lokale Test-Assets (nicht Teil des Repos, z.B. manuelle SVG-Importtests) —
+# alle .svg-Dateien direkt im Repo-Root, nicht rekursiv (echte App-Assets liegen
+# unterhalb von SimplStitch/, nicht im Root)
+/*.svg

@@ -135,23 +135,6 @@ struct SettingsView: View {
                 }
             }
 
-            Section("settings.section.projects") {
-                Stepper(
-                    value: Binding(
-                        get: { settings.maxRecentProjects },
-                        set: { settings.maxRecentProjects = $0 }
-                    ),
-                    in: 1...50
-                ) {
-                    HStack {
-                        Text("settings.maxRecentProjects")
-                        Spacer()
-                        Text(settings.maxRecentProjects, format: .number)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-
             Section("settings.section.threads") {
                 Picker(
                     "settings.defaultPalette",
@@ -186,6 +169,14 @@ struct SettingsView: View {
                     description: Text("settings.palettes.empty")
                 )
             } else {
+                HStack {
+                    Spacer()
+                    Button("settings.palettes.enableAll") { setAllPalettes(enabled: true) }
+                    Button("settings.palettes.disableAll") { setAllPalettes(enabled: false) }
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+
                 List {
                     ForEach(palettes) { palette in
                         Toggle(
@@ -217,6 +208,15 @@ struct SettingsView: View {
     private func deletePalettes(at offsets: IndexSet) {
         for index in offsets {
             modelContext.delete(palettes[index])
+        }
+    }
+
+    /// Issue #29 (Punkt 4): Sammelaktion statt jede der potenziell 74 mitgelieferten
+    /// Garnlisten einzeln umzuschalten. Zwei eindeutige Buttons statt eines Toggles, da ein
+    /// einzelner Umschalt-Button bei gemischtem Aktivierungszustand mehrdeutig wäre.
+    private func setAllPalettes(enabled: Bool) {
+        for palette in palettes {
+            palette.isEnabled = enabled
         }
     }
 

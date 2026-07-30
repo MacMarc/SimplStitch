@@ -78,27 +78,11 @@ extension DesignObject {
         return path
     }
 
-    /// Parst die simplen "Mx,y Lx,y …"-Pfadstrings, die CanvasStore für Freihand-Pfade erzeugt
-    /// (siehe CanvasStore.pathData) — kein vollständiger SVG-Pfad-Parser.
+    /// Issue #19: nutzt jetzt `EditablePath` (unterstützt `M`/`L`/`C`/`Q`/`Z`, vorher nur `M`/`L`)
+    /// statt eines eigenen, noch einfacheren Parsers — ein editierter/importierter Pfad mit echten
+    /// Kurvensegmenten wird dadurch auch tatsächlich gekrümmt gerendert statt fälschlich mit
+    /// geraden Linien zwischen den Endpunkten.
     static func linePath(fromPathData d: String) -> Path {
-        var path = Path()
-        var isFirst = true
-        for token in d.split(separator: " ") {
-            if token == "Z" {
-                path.closeSubpath()
-                continue
-            }
-            let coordinatePart = token.drop { $0 == "M" || $0 == "L" }
-            let parts = coordinatePart.split(separator: ",")
-            guard parts.count == 2, let x = Double(parts[0]), let y = Double(parts[1]) else { continue }
-            let point = CGPoint(x: x, y: y)
-            if isFirst {
-                path.move(to: point)
-                isFirst = false
-            } else {
-                path.addLine(to: point)
-            }
-        }
-        return path
+        EditablePath(pathData: d).path
     }
 }

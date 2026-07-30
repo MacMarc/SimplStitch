@@ -13,6 +13,19 @@ enum CanvasHandleKind: Hashable {
     case topLeft, top, topRight, right, bottomRight, bottom, bottomLeft, left
     case rotate
     case cornerRadius
+    /// Issue #19 (Punktgenaues Editieren): Ankerpunkt-Griffe für `.path`/`.line` im Punkt-Editier-
+    /// Modus (`CanvasStore.pointEditingObjectID`) — der Int ist der Index in `EditablePath.anchors`.
+    /// Eigenständig von den Skalier-/Rotations-/Eckenradius-Griffen oben (die bleiben unverändert
+    /// für die Ganzobjekt-Transformation zuständig, auch bei einem `.path`/`.line`-Objekt ausserhalb
+    /// des Punkt-Editier-Modus).
+    case anchor(Int)
+    case controlIn(Int)
+    case controlOut(Int)
+    /// Issue #19 (Linie-Biegepunkte): Biegepunkt-Griff in der Mitte eines aktuell GERADEN Segments
+    /// (Int = Index des Start-Ankers dieses Segments) — Ziehen wandelt das Segment in eine Kurve um
+    /// (siehe `CanvasStore.applySegmentBend`). Sobald ein Segment gekrümmt ist, verschwindet dieser
+    /// Griff wieder zugunsten der echten Kontrollpunkt-Griffe (`controlOut(i)`/`controlIn(i+1)`).
+    case segmentMidpoint(Int)
 
     static let resizeCases: [CanvasHandleKind] = [
         .topLeft, .top, .topRight, .right, .bottomRight, .bottom, .bottomLeft, .left
@@ -29,7 +42,7 @@ enum CanvasHandleKind: Hashable {
         case .bottom: return (0, 1)
         case .bottomLeft: return (-1, 1)
         case .left: return (-1, 0)
-        case .rotate, .cornerRadius: return nil
+        case .rotate, .cornerRadius, .anchor, .controlIn, .controlOut, .segmentMidpoint: return nil
         }
     }
 

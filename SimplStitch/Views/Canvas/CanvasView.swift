@@ -78,6 +78,8 @@ struct CanvasView: View {
                 .gesture(store.currentTool == .select ? AnyGesture(selectionGesture) : AnyGesture(drawGesture))
                 .gesture(magnificationGesture)
                 .simultaneousGesture(doubleTapToEditGesture)
+                // Issue #19: Escape beendet den Punkt-Editier-Modus (Opus-Konsultation).
+                .onExitCommand { store.endPointEditing() }
                 .onAppear {
                     autoFitIfNeeded(proxy.size)
                 }
@@ -104,14 +106,19 @@ struct CanvasView: View {
     }
 
     /// Doppelklick auf ein Text-Objekt mit dem Auswahl-Werkzeug startet die Inline-Bearbeitung.
+    /// Issue #19: Doppelklick auf ein `.path`/`.line`-Objekt startet stattdessen den Punkt-Editier-
+    /// Modus (Anker-/Kontrollpunkt-Griffe statt der üblichen Skalier-Griffe).
     private var doubleTapToEditGesture: some Gesture {
         SpatialTapGesture(count: 2)
             .onEnded { value in
                 guard store.currentTool == .select else { return }
                 let designPoint = store.designPoint(fromView: value.location)
-                if let hit = store.object(atDesignPoint: designPoint), hit.kind == .text, !hit.isLocked {
+                guard let hit = store.object(atDesignPoint: designPoint), !hit.isLocked else { return }
+                if hit.kind == .text {
                     store.beginEditingText(hit.id)
                     isTextEditorFocused = true
+                } else if hit.kind == .path || hit.kind == .line {
+                    store.beginPointEditing(hit.id)
                 }
             }
     }
@@ -208,6 +215,17 @@ struct CanvasView: View {
         let designPoint = store.designPoint(fromView: viewPoint)
         let shiftHeld = NSEvent.modifierFlags.contains(.shift)
         let optionHeld = NSEvent.modifierFlags.contains(.option)
+
+        // Issue #19: im Punkt-Editier-Modus hat ein Treffer auf Anker/Kontrollpunkt Vorrang vor der
+        // normalen Objekt-/Griff-Erkennung — ein Klick daneben beendet den Modus (fällt danach in
+        // normales Auswahl-Verhalten durch, z.B. Verschieben des Objekts oder Pan auf leerer Fläche).
+        if let pointEditingObject = store.pointEditingObject {
+            if let component = store.pointEditHandle(atDesignPoint: designPoint, for: pointEditingObject) {
+                store.beginPointEditDrag(object: pointEditingObject, component: component, atDesignPoint: designPoint)
+                return .handle(component)
+            }
+            store.endPointEditing()
+        }
 
         if !shiftHeld, let groupBounds = store.selectedGroupBounds,
            let handle = store.handle(atDesignPoint: designPoint, forGroupBounds: groupBounds) {
@@ -496,6 +514,13 @@ struct CanvasView: View {
     private func drawHandles(in context: inout GraphicsContext) {
         let markerSize: CGFloat = 7
 
+        // Issue #19: im Punkt-Editier-Modus ERSETZEN Anker-/Kontrollpunkt-Griffe die üblichen
+        // Skalier-/Rotations-Griffe komplett, statt zusätzlich dazu gezeichnet zu werden.
+        if let pointEditingObject = store.pointEditingObject, pointEditingObject.isVisible {
+            drawPointEditHandles(for: pointEditingObject, markerSize: markerSize, in: &context)
+            return
+        }
+
         if let groupBounds = store.selectedGroupBounds {
             drawHandleSet(store.groupHandlePositions(for: groupBounds), markerSize: markerSize, color: .accentColor, in: &context)
             return
@@ -523,6 +548,40 @@ struct CanvasView: View {
         }
         if let cornerRadius = positions[.cornerRadius] {
             drawCircleHandle(at: store.viewPoint(fromDesign: cornerRadius), size: markerSize - 2, color: .orange, in: &context)
+        }
+    }
+
+    /// Issue #19: Quadrat-Griff pro Anker (alle Anker, jederzeit anklickbar) + runde Kontrollpunkt-
+    /// Griffe mit Verbindungslinie zum Anker — aber nur für `activePointEditAnchorIndex`, sonst wären
+    /// bei einem Pfad mit vielen Ankern alle Kontrollpunkte gleichzeitig sichtbar (unübersichtlich).
+    private func drawPointEditHandles(for object: DesignObject, markerSize: CGFloat, in context: inout GraphicsContext) {
+        let positions = store.pointEditAnchorPositions(for: object)
+
+        if let activeIndex = store.activePointEditAnchorIndex, let anchorPoint = positions[.anchor(activeIndex)] {
+            let anchorViewPoint = store.viewPoint(fromDesign: anchorPoint)
+            for kind in [CanvasHandleKind.controlIn(activeIndex), .controlOut(activeIndex)] {
+                guard let controlPoint = positions[kind] else { continue }
+                var linePath = Path()
+                linePath.move(to: anchorViewPoint)
+                linePath.addLine(to: store.viewPoint(fromDesign: controlPoint))
+                context.stroke(linePath, with: .color(Color.orange.opacity(0.6)), lineWidth: 1)
+            }
+        }
+
+        for (kind, designPoint) in positions {
+            let viewPoint = store.viewPoint(fromDesign: designPoint)
+            switch kind {
+            case .anchor:
+                drawSquareHandle(at: viewPoint, size: markerSize, color: .accentColor, in: &context)
+            case .controlIn, .controlOut:
+                drawCircleHandle(at: viewPoint, size: markerSize - 1, color: .orange, in: &context)
+            case .segmentMidpoint:
+                // Issue #19 (Linie-Biegepunkte): dezenter als die Anker-Quadrate, damit auf einen
+                // Blick klar ist, dass dies eine Biege- statt eine Endpunkt-Geste ist.
+                drawCircleHandle(at: viewPoint, size: markerSize - 2, color: .accentColor.opacity(0.6), in: &context)
+            default:
+                break
+            }
         }
     }
 

@@ -172,6 +172,9 @@ final class CanvasStore {
         if tool != .select {
             selectedObjectIDs = []
         }
+        // Issue #19: Werkzeugwechsel beendet immer den Punkt-Editier-Modus (Opus-Konsultation:
+        // "Exit on Escape, tool switch, selecting another object, or clicking empty canvas").
+        endPointEditing()
     }
 
     /// Startet das Zeichnen einer neuen Form am gegebenen Punkt (Design-Koordinaten). Keine Wirkung beim Auswahl-Werkzeug.
@@ -477,6 +480,11 @@ final class CanvasStore {
     }
 
     func selectObject(_ id: UUID?) {
+        // Issue #19: Selektieren eines anderen Objekts (oder Klick auf leere Fläche, id == nil)
+        // beendet den Punkt-Editier-Modus — der bleibt nur aktiv, solange man am selben Objekt bleibt.
+        if let pointEditingObjectID, pointEditingObjectID != id {
+            endPointEditing()
+        }
         selectedObjectIDs = id.map { [$0] } ?? []
         refreshStitchPreview()
     }
@@ -569,6 +577,10 @@ final class CanvasStore {
         var isLocked: Bool
         var zIndex: Int
         var groupID: UUID?
+        /// Issue #19 (Punktgenaues Editieren): Punkt-Edits mutieren `pathData` direkt (kein
+        /// separates Positions-/Grössenfeld wie bei Formen) — ohne diesen Eintrag hätte Undo/Redo
+        /// für Anker-/Kontrollpunkt-Drags keine Wirkung gehabt.
+        var pathData: String?
 
         init(_ object: DesignObject) {
             positionX = object.positionX
@@ -583,6 +595,7 @@ final class CanvasStore {
             isLocked = object.isLocked
             zIndex = object.zIndex
             groupID = object.groupID
+            pathData = object.pathData
         }
 
         func apply(to object: DesignObject) {
@@ -598,6 +611,7 @@ final class CanvasStore {
             object.isLocked = isLocked
             object.zIndex = zIndex
             object.groupID = groupID
+            object.pathData = pathData
         }
     }
 
@@ -816,6 +830,10 @@ final class CanvasStore {
         case single(objectID: UUID, snapshot: TransformSnapshot)
         case skew(objectID: UUID, snapshot: TransformSnapshot)
         case group(GroupTransformSnapshot)
+        /// Issue #19: Anker-/Kontrollpunkt-Drag auf ein `.path`/`.line`-Objekt im Punkt-Editier-
+        /// Modus — `snapshot` ist der `EditablePath`-Zustand bei Drag-Beginn (Basis für die
+        /// Delta-Berechnung in `applyPointEdit`, analog zu `TransformSnapshot` bei den übrigen Fällen).
+        case pointEdit(objectID: UUID, component: CanvasHandleKind, snapshot: EditablePath)
     }
 
     private var activeTransform: ActiveTransform?
@@ -866,10 +884,37 @@ final class CanvasStore {
         dragUndoSnapshot = fieldSnapshotAllObjects()
     }
 
+    /// Issue #19: startet einen Anker-/Kontrollpunkt-Drag im Punkt-Editier-Modus — eigenständig von
+    /// `beginTransformDrag` (Ganzobjekt-Transformation), da hier `pathData` direkt mutiert wird statt
+    /// Position/Grösse/Rotation. `component` ist immer `.anchor`/`.controlIn`/`.controlOut` (von
+    /// `pointEditHandle(atDesignPoint:for:)` geliefert).
+    func beginPointEditDrag(object: DesignObject, component: CanvasHandleKind, atDesignPoint point: CGPoint) {
+        guard !object.isLocked else { return }
+        activeHandle = component
+        transformDragStartPoint = point
+        activeTransform = .pointEdit(objectID: object.id, component: component, snapshot: EditablePath(pathData: object.pathData ?? ""))
+        activePointEditAnchorIndex = Self.anchorIndex(of: component)
+        dragUndoSnapshot = fieldSnapshotAllObjects()
+    }
+
+    private static func anchorIndex(of kind: CanvasHandleKind) -> Int? {
+        switch kind {
+        case .anchor(let index), .controlIn(let index), .controlOut(let index), .segmentMidpoint(let index): return index
+        default: return nil
+        }
+    }
+
     func updateTransformDrag(toDesignPoint point: CGPoint) {
         guard let start = transformDragStartPoint, let transform = activeTransform else { return }
 
         switch transform {
+        case .pointEdit(let objectID, let component, let snapshot):
+            guard let object = objects.first(where: { $0.id == objectID }) else { return }
+            if case .segmentMidpoint(let segmentIndex) = component {
+                applySegmentBend(to: object, segmentIndex: segmentIndex, snapshot: snapshot, dragPoint: point)
+            } else {
+                applyPointEdit(to: object, component: component, snapshot: snapshot, dragPoint: point)
+            }
         case .single(let objectID, let snapshot):
             guard let object = objects.first(where: { $0.id == objectID }) else { return }
             guard let handle = activeHandle else {
@@ -913,6 +958,92 @@ final class CanvasStore {
         activeHandle = nil
         transformDragStartPoint = nil
         refreshStitchPreview()
+    }
+
+    /// Issue #19: verschiebt einen Anker (samt seiner beiden Kontrollpunkte, die relativ "mitkleben"
+    /// — wie in Illustrator) oder einen einzelnen Kontrollpunkt, serialisiert `pathData` neu und
+    /// berechnet `position`/`width`/`height` aus der neuen `EditablePath.boundingBox` — Handle-
+    /// Platzierung, Selektionsrahmen und Bounding-Box-Hit-Testing lesen weiterhin diese Felder.
+    private func applyPointEdit(to object: DesignObject, component: CanvasHandleKind, snapshot: EditablePath, dragPoint: CGPoint) {
+        guard let index = Self.anchorIndex(of: component), snapshot.anchors.indices.contains(index) else { return }
+        var editable = snapshot
+
+        switch component {
+        case .anchor:
+            let originalPoint = snapshot.anchors[index].point
+            let delta = CGPoint(x: dragPoint.x - originalPoint.x, y: dragPoint.y - originalPoint.y)
+            var anchor = snapshot.anchors[index]
+            anchor.point = dragPoint
+            if let controlIn = anchor.controlIn {
+                anchor.controlIn = CGPoint(x: controlIn.x + delta.x, y: controlIn.y + delta.y)
+            }
+            if let controlOut = anchor.controlOut {
+                anchor.controlOut = CGPoint(x: controlOut.x + delta.x, y: controlOut.y + delta.y)
+            }
+            editable.anchors[index] = anchor
+        case .controlIn:
+            editable.anchors[index].controlIn = dragPoint
+        case .controlOut:
+            editable.anchors[index].controlOut = dragPoint
+        default:
+            return
+        }
+
+        object.pathData = editable.svgPathData()
+        let bounds = editable.boundingBox
+        object.positionX = bounds.minX
+        object.positionY = bounds.minY
+        object.width = bounds.width
+        object.height = bounds.height
+    }
+
+    /// Unterhalb dieser Distanz (mm) zur ursprünglichen Sehne (Anker-zu-Anker-Linie) gilt ein
+    /// Biegepunkt-Drag als "zurück auf die Gerade gezogen" und das Segment wird wieder begradigt.
+    private static let segmentBendCollapseTolerance: Double = 0.3
+
+    private static func distance(from point: CGPoint, toSegmentFrom start: CGPoint, to end: CGPoint) -> Double {
+        let dx = end.x - start.x
+        let dy = end.y - start.y
+        let lengthSquared = dx * dx + dy * dy
+        guard lengthSquared > 0 else { return hypot(point.x - start.x, point.y - start.y) }
+        let t = max(0, min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared))
+        let projected = CGPoint(x: start.x + t * dx, y: start.y + t * dy)
+        return hypot(point.x - projected.x, point.y - projected.y)
+    }
+
+    /// Issue #19 (Linie-Biegepunkte): wandelt ein gerades Segment (Anker `segmentIndex` ->
+    /// `segmentIndex + 1`) in eine Kurve um, die durch `dragPoint` verläuft — behandelt als
+    /// quadratische Bézier durch den Zielpunkt, exakt in eine kubische überführt (`SVGPathWriter.
+    /// cubicControlPoints`, dieselbe 2/3-Formel wie beim Q-Import). Zieht man den Griff zurück auf
+    /// die ursprüngliche Sehne (innerhalb `segmentBendCollapseTolerance`), wird wieder begradigt.
+    private func applySegmentBend(to object: DesignObject, segmentIndex: Int, snapshot: EditablePath, dragPoint: CGPoint) {
+        guard snapshot.anchors.indices.contains(segmentIndex), snapshot.anchors.indices.contains(segmentIndex + 1) else { return }
+        var editable = snapshot
+        let start = snapshot.anchors[segmentIndex].point
+        let end = snapshot.anchors[segmentIndex + 1].point
+
+        if Self.distance(from: dragPoint, toSegmentFrom: start, to: end) <= Self.segmentBendCollapseTolerance {
+            editable.anchors[segmentIndex].controlOut = nil
+            editable.anchors[segmentIndex + 1].controlIn = nil
+        } else {
+            // Quadratischer Scheitelpunkt durch dragPoint: Mittelpunkt einer Q-Kurve liegt bei
+            // 0.25*P0 + 0.5*Qc + 0.25*P2 == dragPoint -> Qc = 2*dragPoint - 0.5*(P0+P2).
+            let quadControl = CGPoint(
+                x: 2 * dragPoint.x - 0.5 * (start.x + end.x),
+                y: 2 * dragPoint.y - 0.5 * (start.y + end.y)
+            )
+            let (c1, c2) = SVGPathWriter.cubicControlPoints(start: start, quadControl: quadControl, end: end)
+            editable.anchors[segmentIndex].controlOut = c1
+            editable.anchors[segmentIndex + 1].controlIn = c2
+        }
+
+        object.pathData = editable.svgPathData()
+        let bounds = editable.boundingBox
+        object.positionX = bounds.minX
+        object.positionY = bounds.minY
+        object.width = bounds.width
+        object.height = bounds.height
+        activePointEditAnchorIndex = segmentIndex
     }
 
     private func applyGroupMove(snapshot: GroupTransformSnapshot, start: CGPoint, dragPoint: CGPoint) {
@@ -1161,6 +1292,84 @@ final class CanvasStore {
         }
     }
 
+    // MARK: Punktgenaues Editieren (Issue #19)
+
+    /// Eigenständiger Interaktions-Modus, analog zu `editingTextObjectID` — solange gesetzt, zeigt
+    /// `CanvasView` Anker-/Kontrollpunkt-Griffe statt der üblichen Skalier-/Rotations-Griffe
+    /// (`drawHandles`) und `beginSelectionInteraction` hit-testet zuerst Anker/Kontrollpunkte, bevor
+    /// die normale Objekt-/Griff-Erkennung greift. Nur für `.path`/`.line` sinnvoll — Formen mit
+    /// parametrischer Geometrie (Rechteck/Kreis/Stern) haben keine editierbaren Anker.
+    private(set) var pointEditingObjectID: UUID?
+    /// Welcher Anker gerade "aktiv" ist (zuletzt angeklickt/gezogen) — nur für diesen werden die
+    /// (falls vorhanden) Kontrollpunkt-Griffe eingeblendet, sonst wären bei einem Pfad mit vielen
+    /// Ankern alle Kontrollpunkte gleichzeitig sichtbar und das Bild unübersichtlich.
+    private(set) var activePointEditAnchorIndex: Int?
+
+    var pointEditingObject: DesignObject? {
+        guard let id = pointEditingObjectID else { return nil }
+        return objects.first { $0.id == id }
+    }
+
+    /// Startet den Punkt-Editier-Modus (z.B. per Doppelklick auf ein `.path`/`.line`-Objekt, siehe
+    /// CanvasView) — selektiert das Objekt gleich mit, wie `beginEditingText`.
+    func beginPointEditing(_ id: UUID) {
+        guard let object = objects.first(where: { $0.id == id }),
+              object.kind == .path || object.kind == .line, !object.isLocked else { return }
+        selectedObjectIDs = [id]
+        pointEditingObjectID = id
+        activePointEditAnchorIndex = nil
+    }
+
+    func endPointEditing() {
+        pointEditingObjectID = nil
+        activePointEditAnchorIndex = nil
+    }
+
+    /// Alle Anker-Positionen (`.anchor(index)`) sowie — nur für `activePointEditAnchorIndex`, falls
+    /// gesetzt und vorhanden — dessen Kontrollpunkte (`.controlIn`/`.controlOut`). Design-Koordinaten
+    /// direkt aus `pathData` (bereits absolut, keine Objekt-Positions-Offset nötig — dieselbe
+    /// Konvention wie `CanvasStore.pathData(from:)` beim Erzeugen).
+    func pointEditAnchorPositions(for object: DesignObject) -> [CanvasHandleKind: CGPoint] {
+        let editable = EditablePath(pathData: object.pathData ?? "")
+        var result: [CanvasHandleKind: CGPoint] = [:]
+        for (index, anchor) in editable.anchors.enumerated() {
+            result[.anchor(index)] = anchor.point
+        }
+        // Issue #19 (Linie-Biegepunkte): ein Biegepunkt-Griff in der Mitte jedes aktuell GERADEN
+        // Segments — sobald ein Segment gekrümmt ist (Kontrollpunkt an einem der beiden Enden
+        // gesetzt), verschwindet der Griff zugunsten der echten Kontrollpunkt-Griffe unten.
+        if editable.anchors.count >= 2 {
+            for index in 0..<(editable.anchors.count - 1) {
+                let start = editable.anchors[index]
+                let end = editable.anchors[index + 1]
+                guard start.controlOut == nil, end.controlIn == nil else { continue }
+                result[.segmentMidpoint(index)] = CGPoint(x: (start.point.x + end.point.x) / 2, y: (start.point.y + end.point.y) / 2)
+            }
+        }
+        if let activeIndex = activePointEditAnchorIndex, editable.anchors.indices.contains(activeIndex) {
+            let anchor = editable.anchors[activeIndex]
+            if let controlIn = anchor.controlIn { result[.controlIn(activeIndex)] = controlIn }
+            if let controlOut = anchor.controlOut { result[.controlOut(activeIndex)] = controlOut }
+        }
+        return result
+    }
+
+    /// Anker-/Kontrollpunkt-Griff unter dem gegebenen Punkt, innerhalb derselben Bildschirm-Toleranz
+    /// wie `handle(atDesignPoint:for:)`. Ein Treffer auf einen Kontrollpunkt-Griff macht dessen Anker
+    /// automatisch zum neuen `activePointEditAnchorIndex` (Illustrator-Verhalten: der zuletzt berührte
+    /// Anker bleibt "aktiv" und behält seine sichtbaren Kontrollpunkte).
+    func pointEditHandle(atDesignPoint point: CGPoint, for object: DesignObject) -> CanvasHandleKind? {
+        let tolerance = Self.handleHitRadiusPoints / zoomScale
+        for (kind, handlePoint) in pointEditAnchorPositions(for: object) {
+            let dx = point.x - handlePoint.x
+            let dy = point.y - handlePoint.y
+            if (dx * dx + dy * dy).squareRoot() <= tolerance {
+                return kind
+            }
+        }
+        return nil
+    }
+
     // MARK: Ebenen & Z-Order (5e)
 
     /// Objekte in Ebenen-Reihenfolge, oberstes (vorderstes) zuerst — wie in einem Ebenen-Panel üblich.
@@ -1239,6 +1448,10 @@ final class CanvasStore {
         if editingTextObjectID == id {
             editingTextObjectID = nil
         }
+        if pointEditingObjectID == id {
+            pointEditingObjectID = nil
+            activePointEditAnchorIndex = nil
+        }
         if isPartOfActiveTransform(id) {
             activeTransform = nil
             activeHandle = nil
@@ -1268,6 +1481,7 @@ final class CanvasStore {
         switch activeTransform {
         case .single(let objectID, _): return objectID == id
         case .skew(let objectID, _): return objectID == id
+        case .pointEdit(let objectID, _, _): return objectID == id
         case .group(let snapshot): return snapshot.memberSnapshots[id] != nil
         case nil: return false
         }

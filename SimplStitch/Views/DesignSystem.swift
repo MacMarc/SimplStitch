@@ -33,6 +33,16 @@ enum DesignSystem {
     static let handleMarkerSize: CGFloat = 7
     static let selectionCornerRadius: CGFloat = 8
 
+    // MARK: Toolbar (Issue #26, Nachbesserung)
+
+    /// Bewusst klein gehalten: die Issue-#25-Fassung (bis zu 34pt Icon + Text + Padding, konfigurierbar
+    /// über `AppSettings.toolbarSize`) war insgesamt höher als die System-Titlebar/Toolbar und lief
+    /// in den Fensterinhalt über (Issue #26, Bug 1). Diese Masse sind fix bemessen, damit Icon+Text
+    /// (übereinander, wie in Mail/Notizen) sicher innerhalb der nativen Toolbar-Höhe bleiben.
+    static let toolbarIconFrame: CGFloat = 18
+    static let toolbarSymbolFontSize: CGFloat = 14
+    static let toolbarTextFontSize: CGFloat = 9
+
     // MARK: Farben
 
     /// Sanft eingefärbte Auswahl-Fläche (z.B. aktives Werkzeug) statt einer harten Vollfarbe —
@@ -64,6 +74,38 @@ extension View {
         self
             .formStyle(.grouped)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+}
+
+/// Icon-über-Text-Inhalt für Toolbar-Buttons (Issue #26, Nachbesserung: Nutzer wollte explizit
+/// Text UNTER dem Icon, wie in Mail/Notizen — nicht nebeneinander wie ein natives `Label` mit
+/// `.titleAndIcon` das rendert). Bewusst als reiner Inhalt ohne eigenen Button/ButtonStyle, damit
+/// Aufrufer (Werkzeugauswahl MIT Aktiv-Zustand, Exportieren/Inspektor OHNE) sich nur um die
+/// Aktion kümmern müssen. `.contentShape(Rectangle())` macht den kompletten Frame klickbar, auch
+/// wenn der Hintergrund bei `isActive == false` unsichtbar (`Color.clear`) ist.
+struct ToolbarIconLabel: View {
+    let systemImage: String
+    let title: String
+    var isActive: Bool = false
+
+    var body: some View {
+        VStack(spacing: 1) {
+            Image(systemName: systemImage)
+                .font(.system(size: DesignSystem.toolbarSymbolFontSize, weight: .medium))
+                .frame(width: DesignSystem.toolbarIconFrame, height: DesignSystem.toolbarIconFrame)
+                .foregroundStyle(isActive ? Color.accentColor : Color.primary)
+            Text(title)
+                .font(.system(size: DesignSystem.toolbarTextFontSize))
+                .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+                .fixedSize()
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 2)
+        .background {
+            RoundedRectangle(cornerRadius: DesignSystem.selectionCornerRadius, style: .continuous)
+                .fill(isActive ? DesignSystem.selectionTint : Color.clear)
+        }
+        .contentShape(Rectangle())
     }
 }
 

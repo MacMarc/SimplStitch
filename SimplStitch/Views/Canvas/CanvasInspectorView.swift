@@ -31,6 +31,13 @@
 //  eine `List` oder ein einfacher `VStack` ist, ist der Startpunkt jetzt für
 //  alle identisch.
 //
+//  Issue #26 (Nachbesserung): der Menü-Pulldown aus Issue #20 (Fliesstext-
+//  Wert + Chevron) wirkte im Nutzertest "doof" — durch einen echten
+//  Icon-Segmented-Control ersetzt (SF Symbols + Mouseover-Tooltip via
+//  `.help(_:)`), wie Xcodes eigene Inspector-Tableiste. Kein Textumbruch-
+//  Problem mehr (der ursprüngliche Grund für den Menü-Pulldown), da Icons
+//  keine variable Breite je nach Sprache haben.
+//
 
 import SwiftUI
 
@@ -46,6 +53,16 @@ private enum InspectorTab: String, CaseIterable, Identifiable {
         case .layers: return String(localized: "inspector.tab.layers")
         case .object: return String(localized: "inspector.tab.object")
         case .project: return String(localized: "inspector.tab.project")
+        }
+    }
+
+    /// SF Symbols, passend zur jeweiligen Pane — Ebenen-Stapel, Objekt-Eigenschaften
+    /// (Schieberegler wie in Pages/Keynotes Format-Inspector) und Projekt-/Dokument-Eigenschaften.
+    var systemImageName: String {
+        switch self {
+        case .layers: return "square.3.layers.3d"
+        case .object: return "slider.horizontal.3"
+        case .project: return "doc.text"
         }
     }
 }
@@ -74,16 +91,18 @@ struct CanvasInspectorView: View {
     /// Echtes Geschwister-Element statt eines `.safeAreaInset` auf der `Group` darunter (Issue #26,
     /// Bug 2) — bleibt dadurch unabhängig vom Root-Container der jeweils aktiven Pane fixiert.
     private var header: some View {
-        // Issue #20: Pulldown statt Segmented Control — "Ebenen"/"Objekt-Eigenschaften"/
-        // "Projekt-Eigenschaften" sind als deutsche Komposita zu lang für drei Segmente in
-        // der schmalen Inspector-Spalte (240–280pt). Ein Menü-Picker bleibt bei jeder
-        // Fensterbreite lesbar.
+        // Issue #26: Icon-Segmented-Control statt Text-Pulldown (Issue #20) — Icons haben anders
+        // als die deutschen Komposita-Bezeichnungen keine variable, sprachabhängige Breite, das
+        // ursprüngliche Umbruch-Problem entfällt dadurch von selbst. Name je Tab per Mouseover
+        // (`.help`) statt permanent sichtbarem Text.
         Picker("", selection: $selectedTab) {
             ForEach(InspectorTab.allCases) { tab in
-                Text(tab.displayName).tag(tab)
+                Image(systemName: tab.systemImageName)
+                    .help(Text(tab.displayName))
+                    .tag(tab)
             }
         }
-        .pickerStyle(.menu)
+        .pickerStyle(.segmented)
         .labelsHidden()
         .padding(8)
         .background(.bar)

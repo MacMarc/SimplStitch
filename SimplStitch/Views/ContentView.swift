@@ -49,13 +49,14 @@ struct ContentView: View {
                 // folgen, die eine Toolbar-Label meist auf reines Icon reduziert — CLAUDE.md verlangt
                 // hier explizit "Icon + Text-Label (kein Icon-Raten)".
                 //
-                // Issue #26 (Bug 1): der zwischenzeitliche "Apple-Mail-Stil" (Issue #5, handgebaute
-                // VStack-Buttons mit fester Pixel-Höhe) war höher als die System-Titlebar/Toolbar
-                // und lief in den Fensterinhalt über ("Toolbar überlagert Fenster"). Zurück auf
-                // native Toolbar-Buttons (`Label` + `.buttonStyle`) — die werden von AppKit selbst
-                // auf Toolbar-Höhe begrenzt und können nicht mehr überlaufen. `AppSettings.
-                // toolbarSize` (Issue #25) war ein Workaround genau für diesen Bug und wird nicht
-                // mehr genutzt (Feld bleibt im Modell, keine Migration nötig).
+                // Issue #26 (Bug 1): der "Apple-Mail-Stil" (Issue #5) war insgesamt höher als die
+                // System-Titlebar/Toolbar und lief in den Fensterinhalt über. Die erste
+                // Nachbesserung ersetzte das fälschlich durch native `Label`+`.buttonStyle`-Buttons
+                // (Icon+Text NEBENEINANDER) — der Nutzer wollte aber ausdrücklich Text UNTER dem
+                // Icon, wie in Mail/Notizen. Fix: `ToolbarIconLabel` (DesignSystem.swift) liefert
+                // genau dieses Layout, aber mit fest bemessenen, bewusst kleinen Massen, die sicher
+                // innerhalb der Toolbar-Höhe bleiben, statt der vormals konfigurierbaren (bis 34pt
+                // Icon) `AppSettings.toolbarSize`-Werte, die die eigentliche Überlauf-Ursache waren.
                 ToolbarItemGroup(placement: .principal) {
                     ForEach(CanvasTool.allCases) { tool in
                         toolButton(for: tool)
@@ -63,23 +64,26 @@ struct ContentView: View {
                 }
 
                 // Exportieren ist eine Aktion, kein Werkzeug-Modus — gehört nicht in dieselbe
-                // Gruppe wie die Werkzeugauswahl (Issue #26).
+                // Gruppe wie die Werkzeugauswahl (Issue #26). Gleiches Icon-über-Text-Layout wie
+                // die Werkzeuge, für ein einheitliches Erscheinungsbild der gesamten Toolbar.
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         isExportDialogPresented = true
                     } label: {
-                        Label("export.toolbar.button", systemImage: "square.and.arrow.up")
-                            .labelStyle(.titleAndIcon)
+                        ToolbarIconLabel(systemImage: "square.and.arrow.up", title: String(localized: "export.toolbar.button"))
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text("export.toolbar.button"))
                 }
 
                 ToolbarItem {
                     Button {
                         isInspectorPresented.toggle()
                     } label: {
-                        Label("inspector.toggle", systemImage: "sidebar.trailing")
-                            .labelStyle(.titleAndIcon)
+                        ToolbarIconLabel(systemImage: "sidebar.trailing", title: String(localized: "inspector.toggle"), isActive: isInspectorPresented)
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text("inspector.toggle"))
                 }
             }
             .inspector(isPresented: $isInspectorPresented) {
@@ -191,25 +195,18 @@ struct ContentView: View {
         }
     }
 
-    /// Native Toolbar-Buttons (Issue #26 — zurück auf Phase-8c-Verhalten nach dem gescheiterten
-    /// "Apple-Mail-Stil"-Zwischenstand aus Issue #5, siehe Kommentar am Aufrufer): `.borderedProminent`
-    /// nur für das aktive Werkzeug — als `if`/`else` statt eines Ternarys zwischen zwei
-    /// ButtonStyle-Typen, da `.borderedProminent`/`.bordered` unterschiedliche konkrete Typen sind
-    /// und sich nicht direkt in einem Ausdruck vereinen lassen.
-    @ViewBuilder
+    /// Werkzeugauswahl-Button — Icon über Text (`ToolbarIconLabel`, siehe DesignSystem.swift),
+    /// exakt wie vom Nutzer gewünscht (Mail/Notizen-Stil), aber mit fest bemessenen, absichtlich
+    /// kleinen Massen statt der vormals konfigurierbaren `AppSettings.toolbarSize`-Werte, die zum
+    /// Überlauf über die Titlebar geführt hatten (Issue #26, Bug 1).
     private func toolButton(for tool: CanvasTool) -> some View {
-        let button = Button {
+        Button {
             canvasStore.selectTool(tool)
         } label: {
-            Label(tool.displayName, systemImage: tool.systemImageName)
-                .labelStyle(.titleAndIcon)
+            ToolbarIconLabel(systemImage: tool.systemImageName, title: tool.displayName, isActive: canvasStore.currentTool == tool)
         }
-
-        if canvasStore.currentTool == tool {
-            button.buttonStyle(.borderedProminent)
-        } else {
-            button.buttonStyle(.bordered)
-        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(tool.displayName))
     }
 }
 

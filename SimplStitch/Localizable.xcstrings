@@ -17,9 +17,6 @@
         }
       }
     },
-    "×" : {
-
-    },
     "canvas.tool.circle" : {
       "localizations" : {
         "de" : {
@@ -1964,6 +1961,7 @@
       }
     },
     "settings.section.toolbar" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2044,6 +2042,7 @@
       }
     },
     "settings.toolbarSize" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2060,6 +2059,7 @@
       }
     },
     "settings.toolbarSize.large" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2076,6 +2076,7 @@
       }
     },
     "settings.toolbarSize.medium" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2092,6 +2093,7 @@
       }
     },
     "settings.toolbarSize.small" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {

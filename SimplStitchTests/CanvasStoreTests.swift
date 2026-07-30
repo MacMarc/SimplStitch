@@ -449,6 +449,60 @@ struct CanvasStoreTests {
         #expect(object.height >= CanvasStore.minimumShapeSize)
     }
 
+    /// Erzeugt ein `.path`-Objekt wie `CanvasStorePointEditTests.makePathObject` — der Draft-Flow
+    /// kann nur gerade M/L-Segmente erzeugen, daher `pathData` danach durch den benötigten exakten
+    /// Pfadstring ersetzen.
+    private func makePathObjectForResize(in store: CanvasStore, pathData: String) -> DesignObject {
+        store.selectTool(.path)
+        store.beginDraft(atDesignPoint: CGPoint(x: 0, y: 0))
+        store.updateDraft(toDesignPoint: CGPoint(x: 10, y: 10))
+        let object = store.commitDraft()!
+        object.pathData = pathData
+        store.selectTool(.select)
+        return object
+    }
+
+    /// Issue #29 (Punkt 3): vor dem Fix änderte `applyResize` bei `.path`/`.line`-Objekten nur
+    /// width/height/position, nie die tatsächlichen `pathData`-Koordinaten — Sichtbares und
+    /// Selektionsrahmen liefen auseinander. Von Hand durchgerechnet: Anker bei (0,0),(10,0),(10,10)
+    /// (Bounding-Box 0,0–10,10), `.bottomRight`-Griff auf (20,20) gezogen -> topLeft (0,0) bleibt
+    /// fix, Skalierung ×2 auf beiden Achsen -> neue Anker (0,0),(20,0),(20,20).
+    @Test func resizingPathObjectScalesPathDataToMatchNewBounds() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let object = makePathObjectForResize(in: store, pathData: "M0.0000,0.0000 L10.0000,0.0000 L10.0000,10.0000")
+
+        store.beginTransformDrag(object: object, handle: .bottomRight, atDesignPoint: CGPoint(x: 10, y: 10))
+        store.updateTransformDrag(toDesignPoint: CGPoint(x: 20, y: 20))
+        store.endTransformDrag()
+
+        #expect(abs(object.positionX - 0) < 0.0001)
+        #expect(abs(object.positionY - 0) < 0.0001)
+        #expect(abs(object.width - 20) < 0.0001)
+        #expect(abs(object.height - 20) < 0.0001)
+
+        let editable = EditablePath(pathData: object.pathData ?? "")
+        #expect(editable.anchors.count == 3)
+        #expect(abs(editable.anchors[0].point.x - 0) < 0.0001 && abs(editable.anchors[0].point.y - 0) < 0.0001)
+        #expect(abs(editable.anchors[1].point.x - 20) < 0.0001 && abs(editable.anchors[1].point.y - 0) < 0.0001)
+        #expect(abs(editable.anchors[2].point.x - 20) < 0.0001 && abs(editable.anchors[2].point.y - 20) < 0.0001)
+    }
+
+    /// Regressionstest für den ursprünglich gemeldeten Bug ("Doppelklick auf modifizierte Formen
+    /// funktioniert öfters nicht"): nach dem Resize muss der sichtbare (neue) Pfad wieder korrekt
+    /// treffbar sein, und die ALTE Position darf nicht mehr treffen — genau die vorher beobachtete
+    /// Divergenz zwischen Sichtbarem und Trefferzone.
+    @Test func resizingPathObjectKeepsHitTestingInSyncWithVisiblePath() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let object = makePathObjectForResize(in: store, pathData: "M0.0000,0.0000 L10.0000,0.0000 L10.0000,10.0000")
+
+        store.beginTransformDrag(object: object, handle: .bottomRight, atDesignPoint: CGPoint(x: 10, y: 10))
+        store.updateTransformDrag(toDesignPoint: CGPoint(x: 20, y: 20))
+        store.endTransformDrag()
+
+        // Neue Bounding-Box (0,0)-(20,20): ein Punkt in der neuen, aber ausserhalb der alten Box trifft.
+        #expect(store.object(atDesignPoint: CGPoint(x: 15, y: 15))?.id == object.id)
+    }
+
     @Test func rotateHandleSetsRotationTowardsDragDirection() {
         let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
         let object = makeRectangle(in: store) // Mitte bei (20,20)
@@ -815,6 +869,74 @@ struct CanvasStoreTests {
 
         #expect(store.objects.count == 1)
         #expect(store.selectedObjectIDs == [existing.id])
+    }
+
+    /// Issue #29 (Punkt 2B): ein importiertes Motiv, das den Canvas überragt, wird jetzt
+    /// gleichmässig herunterskaliert, bis es passt, und zentriert. Von Hand durchgerechnet:
+    /// 100×100mm-Canvas, importiertes Objekt 200×100mm bei (0,0) -> Skalierung auf die engere Achse
+    /// (Breite, Faktor 0.5) -> 100×50mm, vertikal zentriert bei y=25.
+    @Test func importObjectsScalesDownOversizedMotifToFitCanvas() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let imported = DesignObject(name: "Imported", kind: .path, positionX: 0, positionY: 0, width: 200, height: 100)
+
+        store.importObjects([imported])
+
+        #expect(abs(imported.width - 100) < 0.0001)
+        #expect(abs(imported.height - 50) < 0.0001)
+        #expect(abs(imported.positionX - 0) < 0.0001)
+        #expect(abs(imported.positionY - 25) < 0.0001)
+    }
+
+    /// Ein Motiv, das bereits in den Canvas passt, wird NICHT hochskaliert (könnte die
+    /// Nutzerabsicht verfälschen) — nur zentriert. 100×100mm-Canvas, 10×10mm-Objekt bei (0,0)
+    /// -> Grösse unverändert, Position auf (45,45) zentriert.
+    @Test func importObjectsCentersSmallMotifWithoutUpscaling() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let imported = DesignObject(name: "Imported", kind: .path, positionX: 0, positionY: 0, width: 10, height: 10)
+
+        store.importObjects([imported])
+
+        #expect(abs(imported.width - 10) < 0.0001)
+        #expect(abs(imported.height - 10) < 0.0001)
+        #expect(abs(imported.positionX - 45) < 0.0001)
+        #expect(abs(imported.positionY - 45) < 0.0001)
+    }
+
+    /// Wie bei `applyResize` (Punkt 3) muss die tatsächliche `pathData`-Geometrie mitskaliert werden,
+    /// nicht nur width/height/position. 10×10mm-Canvas, Pfad-Bounding-Box 0,0–20,20 (Faktor 0.5,
+    /// passt exakt) -> Anker (0,0)/(20,0)/(20,20) werden zu (0,0)/(10,0)/(10,10).
+    @Test func importObjectsScalesPathDataOfPathObjects() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 10, height: 10))
+        let imported = DesignObject(name: "Imported", kind: .path, positionX: 0, positionY: 0, width: 20, height: 20)
+        imported.pathData = "M0.0000,0.0000 L20.0000,0.0000 L20.0000,20.0000"
+
+        store.importObjects([imported])
+
+        #expect(abs(imported.width - 10) < 0.0001)
+        #expect(abs(imported.height - 10) < 0.0001)
+
+        let editable = EditablePath(pathData: imported.pathData ?? "")
+        #expect(editable.anchors.count == 3)
+        #expect(abs(editable.anchors[0].point.x - 0) < 0.0001 && abs(editable.anchors[0].point.y - 0) < 0.0001)
+        #expect(abs(editable.anchors[1].point.x - 10) < 0.0001 && abs(editable.anchors[1].point.y - 0) < 0.0001)
+        #expect(abs(editable.anchors[2].point.x - 10) < 0.0001 && abs(editable.anchors[2].point.y - 10) < 0.0001)
+    }
+
+    /// Mehrere gleichzeitig importierte Objekte werden mit EINEM gemeinsamen Massstab skaliert,
+    /// damit ihre relative Anordnung zueinander erhalten bleibt (z.B. mehrere Farbblöcke eines
+    /// Stickmusters) — nicht jedes für sich unabhängig verzerrt.
+    @Test func importObjectsScalesMultipleObjectsWithSharedFactor() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let left = DesignObject(name: "Left", kind: .rectangle, positionX: 0, positionY: 0, width: 50, height: 50)
+        let right = DesignObject(name: "Right", kind: .rectangle, positionX: 150, positionY: 0, width: 50, height: 50)
+
+        store.importObjects([left, right])
+
+        // Kombinierte Bounding-Box (0,0)-(200,50) -> Faktor 0.5 (Breite ist die engere Achse).
+        #expect(abs(left.width - 25) < 0.0001)
+        #expect(abs(right.width - 25) < 0.0001)
+        // Ursprünglicher Abstand der beiden Positionen war 150mm (0 -> 150), skaliert mit Faktor 0.5 = 75mm.
+        #expect(abs((right.positionX - left.positionX) - 75) < 0.0001)
     }
 
     @Test func deleteObjectLeavesSelectionUntouchedForOtherObjects() {

@@ -576,9 +576,12 @@ struct CanvasView: View {
             case .controlIn, .controlOut:
                 drawCircleHandle(at: viewPoint, size: markerSize - 1, color: .orange, in: &context)
             case .segmentMidpoint:
-                // Issue #19 (Linie-Biegepunkte): dezenter als die Anker-Quadrate, damit auf einen
-                // Blick klar ist, dass dies eine Biege- statt eine Endpunkt-Geste ist.
-                drawCircleHandle(at: viewPoint, size: markerSize - 2, color: .accentColor.opacity(0.6), in: &context)
+                // Issue #19 (Linie-Biegepunkte): ursprünglich bewusst kleiner/blasser als die
+                // Anker-Quadrate gehalten, damit auf einen Blick klar ist, dass dies eine Biege-
+                // statt eine Endpunkt-Geste ist — laut Nutzer-Feedback (Issue #29, Punkt 8) dadurch
+                // aber kaum erkennbar/treffbar. Jetzt sogar etwas GRÖSSER als die Anker-Quadrate und
+                // voll deckend (Orange statt Accent-Farbe reicht als Unterscheidung zum Anker).
+                drawCircleHandle(at: viewPoint, size: markerSize + 1, color: .orange, in: &context)
             default:
                 break
             }

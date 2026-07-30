@@ -127,6 +127,40 @@ struct CanvasStorePointEditTests {
         #expect(handle == .anchor(1))
     }
 
+    /// Issue #29 (Punkt 8): Punkt-Editier-Griffe nutzen jetzt `pointEditHitRadiusPoints` (11pt) statt
+    /// der kleineren, mit den regulären Skalier-Griffen geteilten `handleHitRadiusPoints` (7pt) —
+    /// bei zoomScale 1 sind das 11mm bzw. 7mm Toleranz im Design-Raum. 9mm Abstand liegt dazwischen:
+    /// mit der alten, geteilten Toleranz kein Treffer, mit der neuen dedizierten schon.
+    @Test func pointEditHandleUsesLargerToleranceThanRegularHandles() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let object = makePathObject(in: store, pathData: "M0.0000,0.0000 L10.0000,0.0000")
+        store.beginPointEditing(object.id)
+
+        #expect(9 > CanvasStore.handleHitRadiusPoints)
+        #expect(9 <= CanvasStore.pointEditHitRadiusPoints)
+
+        let handle = store.pointEditHandle(atDesignPoint: CGPoint(x: 10, y: 9), for: object)
+
+        #expect(handle == .anchor(1))
+    }
+
+    /// Issue #29 (Punkt 8): bei überlappenden Griffen gewinnt eine feste Priorität (Anker vor
+    /// Kontrollpunkt vor Biegepunkt) statt der zuvor undefinierten Dictionary-Iterationsreihenfolge —
+    /// hier ist der Biegepunkt (5,0) dem Testpunkt (4,0) tatsächlich näher als der Anker (0,0), der
+    /// Anker muss trotzdem gewinnen.
+    @Test func pointEditHandlePrefersAnchorOverCloserSegmentMidpoint() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        let object = makePathObject(in: store, pathData: "M0.0000,0.0000 L10.0000,0.0000")
+        store.beginPointEditing(object.id)
+
+        let positions = store.pointEditAnchorPositions(for: object)
+        #expect(positions[.segmentMidpoint(0)] == CGPoint(x: 5, y: 0))
+
+        let handle = store.pointEditHandle(atDesignPoint: CGPoint(x: 4, y: 0), for: object)
+
+        #expect(handle == .anchor(0))
+    }
+
     @Test func draggingAnchorMovesPointAndRecomputesBounds() {
         let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
         let object = makePathObject(in: store, pathData: "M0.0000,0.0000 L10.0000,0.0000 L10.0000,10.0000")

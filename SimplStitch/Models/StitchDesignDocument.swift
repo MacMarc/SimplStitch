@@ -59,17 +59,26 @@ final class StitchDesignDocument: ReferenceFileDocument, ObservableObject {
 
     @Published private(set) var project: StitchProject
 
+    /// Issue #29 (Punkt 7): unterscheidet "gerade frisch via `DocumentGroup(newDocument:)` erzeugt"
+    /// von "aus einer bestehenden .stitchdesign-Datei geöffnet" — zuverlässiger als ein blosser
+    /// `defaultThreadPaletteID == nil`-Check, der ein absichtlich leer gelassenes Feld eines
+    /// bereits gespeicherten alten Projekts nicht von einem wirklich neuen Dokument unterscheiden
+    /// könnte. Nur für dieses eine Seeding gebraucht (siehe `ContentView.onAppear`).
+    let isNewDocument: Bool
+
     /// Neues, leeres Dokument (`DocumentGroup(newDocument:)`) — Default-Massangabe wie bisher der
     /// Platzhalter in ContentView, bis der Nutzer eine andere Zeichenflächengrösse wählt.
     init(packageManager: DocumentPackageManaging = DocumentPackageManager()) {
         self.packageManager = packageManager
         self.project = StitchProject(name: "Unbenannt", lastKnownPath: "", canvasWidthMillimeters: 130, canvasHeightMillimeters: 180)
+        self.isNewDocument = true
     }
 
     required init(configuration: ReadConfiguration) throws {
         self.packageManager = DocumentPackageManager()
         let projectName = (configuration.file.filename ?? "Unbenannt")
         self.project = try packageManager.readProject(from: configuration.file, projectName: projectName)
+        self.isNewDocument = false
     }
 
     func snapshot(contentType: UTType) throws -> Snapshot {

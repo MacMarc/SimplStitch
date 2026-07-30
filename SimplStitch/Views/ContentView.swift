@@ -15,6 +15,9 @@ struct ContentView: View {
     // verdrahteten UndoManager bereit (Bearbeiten-Menü, ⌘Z/⌘⇧Z) — CanvasStore ist keine View und
     // hat daher keinen eigenen Environment-Zugriff, bekommt ihn also von hier durchgereicht.
     @Environment(\.undoManager) private var undoManager
+    // Issue #29 (Punkt 7): liest die appweite Standard-Garnliste (AppSettings.defaultThreadPaletteID,
+    // Einstellungen > Allgemein) für das einmalige Seeding neuer Dokumente in onAppear.
+    @Query private var appSettingsList: [AppSettings]
 
     @State private var canvasStore: CanvasStore
     @State private var isInspectorPresented = true
@@ -146,7 +149,16 @@ struct ContentView: View {
             .focusedSceneValue(\.isExportDialogPresented, $isExportDialogPresented)
             .focusedSceneValue(\.isImportDialogPresented, $isImportDialogPresented)
             .focusedSceneValue(\.isInspectorPresented, $isInspectorPresented)
-            .onAppear { canvasStore.undoManager = undoManager }
+            .onAppear {
+                canvasStore.undoManager = undoManager
+                // Issue #29 (Punkt 7): Standard-Garnliste aus den Einstellungen als Startwert nur für
+                // wirklich neue Dokumente übernehmen — geöffnete Projekte bringen ihren Wert (auch
+                // "keiner gewählt") bereits aus content.svg mit und sollen ihn behalten. Die
+                // Projekt-Einstellung selbst überschreibt diesen Startwert danach wie gehabt.
+                if document.isNewDocument {
+                    canvasStore.defaultThreadPaletteID = appSettingsList.first?.defaultThreadPaletteID
+                }
+            }
     }
 
     /// Kuratierte Auswahl der gängigsten der 46 von pyembroidery unterstützten Formate fürs

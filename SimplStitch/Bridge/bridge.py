@@ -34,12 +34,14 @@ def cmd_ping(payload):
 def cmd_write_vp3(payload):
     import pyembroidery
 
-    stitches = payload["stitches"]  # [[x, y, command], ...]
+    stitches = payload["stitches"]  # [[x_mm, y_mm, command], ...]
     output_path = payload["outputPath"]
 
     pattern = pyembroidery.EmbPattern()
     for x, y, command in stitches:
-        pattern.add_stitch_absolute(command, x, y)
+        # pyembroidery speichert Stichkoordinaten intern in 1/10mm, siehe Kommentar bei
+        # cmd_read_embroidery weiter unten (Issue #29, Punkt 2A).
+        pattern.add_stitch_absolute(command, x * 10, y * 10)
     pyembroidery.write_vp3(pattern, output_path)
 
     return {"writtenPath": output_path, "stitchCount": len(pattern.stitches)}
@@ -53,7 +55,13 @@ def cmd_read_embroidery(payload):
     if pattern is None:
         raise ValueError(f"Konnte Datei nicht lesen (unbekanntes Format?): {input_path}")
 
-    stitches = [[s[0], s[1], s[2]] for s in pattern.stitches]
+    # pyembroidery arbeitet intern in 1/10mm, nicht mm (siehe pyembroidery/GenericWriter.py:
+    # "bounds[i] / 10.0  # convert to mm", vor dem Fix hier nie berücksichtigt). Ohne diese
+    # Umrechnung kam ein 100mm breites Motiv aus einer Fremddatei als 1000mm breites
+    # DesignObject an — Faktor 10 zu gross (Issue #29, Punkt 2A). cmd_write_vp3/
+    # cmd_write_embroidery machen spiegelbildlich * 10 beim Schreiben, damit der
+    # SimplStitch-eigene Roundtrip weiterhin in echten Millimetern konsistent bleibt.
+    stitches = [[s[0] / 10, s[1] / 10, s[2]] for s in pattern.stitches]
     threads = [_thread_to_dict(thread) for thread in pattern.threadlist]
     return {"stitches": stitches, "threads": threads}
 
@@ -96,7 +104,10 @@ def cmd_write_embroidery(payload):
             }
         )
     for x, y, command in stitches:
-        pattern.add_stitch_absolute(command, x, y)
+        # 1/10mm-Umrechnung wie cmd_write_vp3/cmd_read_embroidery (Issue #29, Punkt 2A) —
+        # ohne * 10 schrieb diese Funktion physisch Motive, die auf der echten Maschine
+        # zehnmal kleiner ankamen als am Bildschirm gezeichnet.
+        pattern.add_stitch_absolute(command, x * 10, y * 10)
     pattern.end()
 
     pyembroidery.write(pattern, output_path)

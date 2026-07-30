@@ -800,6 +800,13 @@ final class CanvasStore {
 
     static let rotationHandleOffset: Double = 8
     static let handleHitRadiusPoints: CGFloat = 7
+    /// Issue #29 (Punkt 8): eigene, grössere Toleranz nur für Anker-/Kontrollpunkt-/Biegepunkt-Griffe
+    /// im Punkt-Editier-Modus — deren Marker sind kleiner/dezenter als die üblichen Skalier-Griffe
+    /// (siehe `CanvasView.drawPointEditHandles`), eine gemeinsame Toleranz mit `handleHitRadiusPoints`
+    /// hätte sie ungleich schwerer treffbar gemacht. Bewusst getrennt von `handleHitRadiusPoints`
+    /// statt dessen Wert global zu erhöhen, um die bereits funktionierenden regulären Griffe nicht
+    /// mitzuverändern.
+    static let pointEditHitRadiusPoints: CGFloat = 11
 
     private struct TransformSnapshot {
         var positionX: Double
@@ -1174,6 +1181,43 @@ final class CanvasStore {
         let rotatedOffset = Self.rotatedVector(CGPoint(x: centerOffsetX, y: centerOffsetY), byDegrees: snapshot.rotationDegrees)
         let newCenter = CGPoint(x: oldCenter.x + rotatedOffset.x, y: oldCenter.y + rotatedOffset.y)
 
+        // Issue #29 (Punkt 3): für .path/.line reichte width/height/position bisher NICHT, um das
+        // Objekt tatsächlich zu skalieren — designSpacePath() zeichnet für diese Arten die rohen
+        // absoluten pathData-Koordinaten, nicht abgeleitet aus width/height wie bei Formen. Ohne
+        // diesen Block liefen Sichtbares/Selektionsrahmen/Doppelklick-Trefferzone nach einem Resize
+        // auseinander. Skaliert alle Anker- UND Kontrollpunkte affin vom alten aufs neue
+        // (unrotierte) Rechteck — dieselbe Koordinaten-Konvention wie `applyPointEdit`, das
+        // `dragPoint` ebenfalls direkt als unrotierten pathData-Punkt verwendet.
+        if object.kind == .path || object.kind == .line, let pathData = object.pathData {
+            var editable = EditablePath(pathData: pathData)
+            let oldBox = CGRect(x: snapshot.positionX, y: snapshot.positionY, width: snapshot.width, height: snapshot.height)
+            let newBox = CGRect(x: newCenter.x - newWidth / 2, y: newCenter.y - newHeight / 2, width: newWidth, height: newHeight)
+            let scaleX = oldBox.width > 0 ? newBox.width / oldBox.width : 1
+            let scaleY = oldBox.height > 0 ? newBox.height / oldBox.height : 1
+            func transform(_ point: CGPoint) -> CGPoint {
+                CGPoint(x: newBox.minX + (point.x - oldBox.minX) * scaleX, y: newBox.minY + (point.y - oldBox.minY) * scaleY)
+            }
+            for index in editable.anchors.indices {
+                editable.anchors[index].point = transform(editable.anchors[index].point)
+                if let controlIn = editable.anchors[index].controlIn {
+                    editable.anchors[index].controlIn = transform(controlIn)
+                }
+                if let controlOut = editable.anchors[index].controlOut {
+                    editable.anchors[index].controlOut = transform(controlOut)
+                }
+            }
+            object.pathData = editable.svgPathData()
+            // Wie applyPointEdit/applySegmentBend: width/height/position aus der tatsächlichen
+            // neuen Bounding-Box ableiten statt aus newWidth/newHeight/newCenter — hält die
+            // Invariante exakt, auch wenn newWidth/newHeight oben auf minimumShapeSize geklemmt wurde.
+            let bounds = editable.boundingBox
+            object.positionX = bounds.minX
+            object.positionY = bounds.minY
+            object.width = bounds.width
+            object.height = bounds.height
+            return
+        }
+
         object.width = newWidth
         object.height = newHeight
         object.positionX = newCenter.x - newWidth / 2
@@ -1359,15 +1403,34 @@ final class CanvasStore {
     /// automatisch zum neuen `activePointEditAnchorIndex` (Illustrator-Verhalten: der zuletzt berührte
     /// Anker bleibt "aktiv" und behält seine sichtbaren Kontrollpunkte).
     func pointEditHandle(atDesignPoint point: CGPoint, for object: DesignObject) -> CanvasHandleKind? {
-        let tolerance = Self.handleHitRadiusPoints / zoomScale
+        let tolerance = Self.pointEditHitRadiusPoints / zoomScale
+        // Issue #29 (Punkt 8): bei nah beieinanderliegenden Griffen (z.B. ein Anker direkt neben
+        // einem Biegepunkt-Griff auf einem kurzen Segment) gewinnt deterministisch der "wichtigere"
+        // Griff — Anker vor Kontrollpunkt vor Biegepunkt — statt der zuvor undefinierten Dictionary-
+        // Iterationsreihenfolge, die je nach Lauf einen anderen Griff hätte treffen können.
+        func priority(_ kind: CanvasHandleKind) -> Int {
+            switch kind {
+            case .anchor: return 0
+            case .controlIn, .controlOut: return 1
+            case .segmentMidpoint: return 2
+            default: return 3
+            }
+        }
+        var best: (kind: CanvasHandleKind, distance: CGFloat)?
         for (kind, handlePoint) in pointEditAnchorPositions(for: object) {
             let dx = point.x - handlePoint.x
             let dy = point.y - handlePoint.y
-            if (dx * dx + dy * dy).squareRoot() <= tolerance {
-                return kind
+            let distance = (dx * dx + dy * dy).squareRoot()
+            guard distance <= tolerance else { continue }
+            if let current = best {
+                let currentPriority = priority(current.kind)
+                let candidatePriority = priority(kind)
+                if candidatePriority > currentPriority { continue }
+                if candidatePriority == currentPriority, distance >= current.distance { continue }
             }
+            best = (kind, distance)
         }
-        return nil
+        return best?.kind
     }
 
     // MARK: Ebenen & Z-Order (5e)
@@ -1464,6 +1527,7 @@ final class CanvasStore {
     /// hinzu — an die Z-Order oben (nach den bestehenden Objekten), als neue Selektion.
     func importObjects(_ newObjects: [DesignObject]) {
         guard !newObjects.isEmpty else { return }
+        fitObjectsToCanvas(newObjects)
         // zIndex muss VOR der `.project`-Zuweisung berechnet werden: SwiftData synchronisiert die
         // Inverse-Relationship sofort, `objects.count` würde das neue Objekt sonst schon mitzählen
         // (dieselbe Reihenfolge wie `makeShapeObject`/`commitDraft`).
@@ -1475,6 +1539,51 @@ final class CanvasStore {
             objects.append(object)
         }
         replaceSelection(Set(newObjects.map(\.id)))
+    }
+
+    /// Issue #29 (Punkt 2B): importierte Objekte behielten bisher ihre absoluten Datei-Koordinaten
+    /// unverändert bei — konnten dadurch weit ausserhalb des Canvas landen oder ihn massiv
+    /// überragen (siehe auch Punkt 2A, der Einheiten-Bug, der "massiv grösser" grösstenteils
+    /// erklärte). Skaliert das gesamte importierte Motiv EINHEITLICH (ein gemeinsamer Massstab für
+    /// alle Objekte zusammen, damit ihre relative Anordnung zueinander erhalten bleibt) nur nach
+    /// UNTEN, falls es nicht auf den Canvas passt — kleine Motive werden bewusst NICHT hochskaliert
+    /// (könnte die Nutzerabsicht verfälschen, ein 2cm-Logo soll nicht plötzlich den ganzen
+    /// Stickrahmen füllen), aber immer zentriert. Reine Skalierung/Verschiebung, keine Rotation.
+    /// Dieselbe "pathData tatsächlich transformieren"-Logik wie `applyResize` (Punkt 3).
+    private func fitObjectsToCanvas(_ importedObjects: [DesignObject]) {
+        let bounds = Self.groupBounds(of: importedObjects)
+        guard bounds.width > 0, bounds.height > 0 else { return }
+
+        let canvasSize = canvasSizeMillimeters
+        let scale = min(1, canvasSize.width / bounds.width, canvasSize.height / bounds.height)
+        let newSize = CGSize(width: bounds.width * scale, height: bounds.height * scale)
+        let destinationOrigin = CGPoint(x: (canvasSize.width - newSize.width) / 2, y: (canvasSize.height - newSize.height) / 2)
+
+        func transform(_ point: CGPoint) -> CGPoint {
+            CGPoint(x: destinationOrigin.x + (point.x - bounds.minX) * scale, y: destinationOrigin.y + (point.y - bounds.minY) * scale)
+        }
+
+        for object in importedObjects {
+            let newOrigin = transform(CGPoint(x: object.positionX, y: object.positionY))
+            object.positionX = newOrigin.x
+            object.positionY = newOrigin.y
+            object.width *= scale
+            object.height *= scale
+
+            if object.kind == .path || object.kind == .line, let pathData = object.pathData {
+                var editable = EditablePath(pathData: pathData)
+                for index in editable.anchors.indices {
+                    editable.anchors[index].point = transform(editable.anchors[index].point)
+                    if let controlIn = editable.anchors[index].controlIn {
+                        editable.anchors[index].controlIn = transform(controlIn)
+                    }
+                    if let controlOut = editable.anchors[index].controlOut {
+                        editable.anchors[index].controlOut = transform(controlOut)
+                    }
+                }
+                object.pathData = editable.svgPathData()
+            }
+        }
     }
 
     private func isPartOfActiveTransform(_ id: UUID) -> Bool {

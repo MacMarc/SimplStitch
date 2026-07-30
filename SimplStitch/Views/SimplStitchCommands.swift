@@ -46,6 +46,17 @@ struct SimplStitchCommands: Commands {
             }
             .keyboardShortcut("i", modifiers: .command)
             .disabled(isImportDialogPresented == nil)
+
+            // Issue #10: Discoverability für die neue Hintergrundbild-Funktion — die primäre
+            // Bedienung bleibt der Inspector (Projekt-Eigenschaften-Tab), kein Tastenkürzel nötig.
+            // Nutzt das bereits vorhandene `canvasStore`-FocusedValue statt eines eigenen Schlüssels
+            // — dasselbe Bool lebt auf `CanvasStore` und wird auch vom Inspector-Button gesetzt.
+            Button {
+                canvasStore?.isBackgroundImagePickerPresented = true
+            } label: {
+                Text("menu.file.backgroundImage")
+            }
+            .disabled(canvasStore == nil)
         }
 
         CommandGroup(after: .pasteboard) {

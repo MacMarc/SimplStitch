@@ -111,7 +111,14 @@ final class FileExportService: FileExportServicing {
     }
 
     private func exportSVG(objects: [DesignObject], canvasSize: CGSize, to url: URL) throws -> ExportSummary {
-        let svg = svgSerializer.encode(objects: objects, canvasSize: canvasSize, backgroundImageFileName: nil, defaultThreadPaletteID: nil)
+        let svg = svgSerializer.encode(
+            objects: objects,
+            canvasSize: canvasSize,
+            backgroundImageFileName: nil,
+            backgroundImageOpacity: 1.0,
+            isBackgroundImageVisible: true,
+            defaultThreadPaletteID: nil
+        )
         try svg.write(to: url, atomically: true, encoding: .utf8)
 
         let stitchableObjects = stitchableObjects(from: objects)

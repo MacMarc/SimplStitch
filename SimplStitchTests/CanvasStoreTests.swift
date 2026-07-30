@@ -1041,6 +1041,50 @@ struct CanvasStoreTests {
         #expect(store.defaultThreadPaletteID == paletteID)
     }
 
+    // MARK: Hintergrundbild (Issue #10)
+
+    @Test func backgroundImageOpacityReadsAndWritesThroughToProjectClamped() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        #expect(store.backgroundImageOpacity == 1.0)
+
+        store.backgroundImageOpacity = 0.4
+        #expect(store.backgroundImageOpacity == 0.4)
+
+        // Wie die übrigen Slider-Bindings im Inspector (z.B. Randdicke) klemmt der Setter statt
+        // ungültige Werte einfach durchzureichen.
+        store.backgroundImageOpacity = 5
+        #expect(store.backgroundImageOpacity == 1.0)
+        store.backgroundImageOpacity = -2
+        #expect(store.backgroundImageOpacity == 0.0)
+    }
+
+    @Test func isBackgroundImageVisibleReadsAndWritesThroughToProject() {
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        #expect(store.isBackgroundImageVisible == true)
+
+        store.isBackgroundImageVisible = false
+        #expect(store.isBackgroundImageVisible == false)
+    }
+
+    /// 1×1-PNG (kleinstmögliche gültige PNG-Datei) — bestätigt, dass `backgroundImageData` beim
+    /// Setzen tatsächlich zu einem dekodierten `backgroundCGImage` führt, nicht nur die rohen Bytes
+    /// durchreicht.
+    @Test func settingBackgroundImageDataDecodesToBackgroundCGImage() throws {
+        let base64PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        let pngData = try #require(Data(base64Encoded: base64PNG))
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        #expect(store.backgroundCGImage == nil)
+
+        store.backgroundImageData = pngData
+
+        let image = try #require(store.backgroundCGImage)
+        #expect(image.width == 1)
+        #expect(image.height == 1)
+
+        store.backgroundImageData = nil
+        #expect(store.backgroundCGImage == nil)
+    }
+
     // MARK: Live-Stichvorschau (6e)
 
     @Test func selectingObjectWithStitchSettingsPopulatesStitchPreview() async throws {

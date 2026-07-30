@@ -65,6 +65,7 @@ struct CanvasView: View {
             ZStack(alignment: .topLeading) {
                 Canvas { context, _ in
                     drawCanvasBackground(in: &context)
+                    drawBackgroundImage(in: &context)
                     drawGrid(in: &context)
                     drawObjects(in: &context)
                     drawDraftPreview(in: &context)
@@ -293,6 +294,34 @@ struct CanvasView: View {
         )
         context.fill(Path(rect), with: .color(.white))
         context.stroke(Path(rect), with: .color(Color(nsColor: .separatorColor)), lineWidth: 1)
+    }
+
+    /// Issue #10: Hintergrundbild als eigene, ausblendbare "Ebene" unterhalb von Raster/Objekten —
+    /// seitenverhältnis-erhaltend auf die Canvasgrösse eingepasst (zentriert, wie SVGs eigener
+    /// `preserveAspectRatio`-Default `xMidYMid meet`, den unser eigener Renderer hier manuell
+    /// nachbilden muss) statt verzerrend zu strecken, mit einstellbarer Deckkraft.
+    private func drawBackgroundImage(in context: inout GraphicsContext) {
+        guard store.isBackgroundImageVisible, let cgImage = store.backgroundCGImage else { return }
+        let canvasRect = CGRect(
+            x: effectivePanOffset.width,
+            y: effectivePanOffset.height,
+            width: store.canvasSizeMillimeters.width * effectiveZoomScale,
+            height: store.canvasSizeMillimeters.height * effectiveZoomScale
+        )
+        let imageSize = CGSize(width: cgImage.width, height: cgImage.height)
+        guard imageSize.width > 0, imageSize.height > 0 else { return }
+        let scale = min(canvasRect.width / imageSize.width, canvasRect.height / imageSize.height)
+        let fittedSize = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+        let destinationRect = CGRect(
+            x: canvasRect.midX - fittedSize.width / 2,
+            y: canvasRect.midY - fittedSize.height / 2,
+            width: fittedSize.width,
+            height: fittedSize.height
+        )
+        context.drawLayer { layerContext in
+            layerContext.opacity = store.backgroundImageOpacity
+            layerContext.draw(Image(decorative: cgImage, scale: 1), in: destinationRect)
+        }
     }
 
     private func drawGrid(in context: inout GraphicsContext) {

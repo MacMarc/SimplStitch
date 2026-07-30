@@ -158,9 +158,14 @@ struct DocumentPackageManagerTests {
         #expect(line.borderStitchSettings?.stitchType == .straight)
     }
 
+    /// Issue #10: `backgroundImageOpacity`/`isBackgroundImageVisible` müssen denselben Roundtrip
+    /// überstehen wie `backgroundImageFileName` — beide vor dem Schreiben bewusst auf Nicht-Default-
+    /// Werte gesetzt, damit ein stillschweigender Rückfall auf die Defaults den Test durchfallen liesse.
     @Test func backgroundImageIsCopiedIntoAssetsFolder() throws {
         let manager = DocumentPackageManager()
         let project = makeSampleProject()
+        project.backgroundImageOpacity = 0.4
+        project.isBackgroundImageVisible = false
         let packageURL = makeTempPackageURL()
         defer { try? FileManager.default.removeItem(at: packageURL) }
 
@@ -178,7 +183,10 @@ struct DocumentPackageManagerTests {
 
         let reopened = try manager.read(from: packageURL)
         #expect(reopened.backgroundImageFileName == sourceImageURL.lastPathComponent)
+        #expect(abs(reopened.backgroundImageOpacity - 0.4) < 0.0001)
+        #expect(reopened.isBackgroundImageVisible == false)
     }
+
 
     @Test func writingRejectsWrongExtension() throws {
         let manager = DocumentPackageManager()

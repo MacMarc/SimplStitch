@@ -19,7 +19,14 @@ import Foundation
 import CoreGraphics
 
 protocol SVGDesignSerializing {
-    func encode(objects: [DesignObject], canvasSize: CGSize, backgroundImageFileName: String?, defaultThreadPaletteID: UUID?) -> String
+    func encode(
+        objects: [DesignObject],
+        canvasSize: CGSize,
+        backgroundImageFileName: String?,
+        backgroundImageOpacity: Double,
+        isBackgroundImageVisible: Bool,
+        defaultThreadPaletteID: UUID?
+    ) -> String
     func decode(svg: String) throws -> SVGDecodedDesign
     /// Markup für ein einzelnes Objekt (dasselbe Fragment, das `encode` pro Objekt in `content.svg`
     /// schreibt) — von `StitchGenerationService` wiederverwendet, um InkStitch dieselben
@@ -46,6 +53,10 @@ struct SVGDecodedDesign {
     var canvasSize: CGSize
     var objects: [DesignObject]
     var backgroundImageFileName: String?
+    /// Issue #10: Default 1.0 für Dateien aus einer Zeit vor diesem Feld (kein `data-ss-bg-opacity`
+    /// im `<image>`-Element -> volle Deckkraft, unverändertes Verhalten).
+    var backgroundImageOpacity: Double = 1.0
+    var isBackgroundImageVisible: Bool = true
     var defaultThreadPaletteID: UUID?
 }
 
@@ -75,7 +86,14 @@ final class SVGDesignSerializer: SVGDesignSerializing {
 
     // MARK: Encode
 
-    func encode(objects: [DesignObject], canvasSize: CGSize, backgroundImageFileName: String?, defaultThreadPaletteID: UUID? = nil) -> String {
+    func encode(
+        objects: [DesignObject],
+        canvasSize: CGSize,
+        backgroundImageFileName: String?,
+        backgroundImageOpacity: Double = 1.0,
+        isBackgroundImageVisible: Bool = true,
+        defaultThreadPaletteID: UUID? = nil
+    ) -> String {
         let defaultPaletteAttr = defaultThreadPaletteID.map { " data-ss-default-palette=\"\($0.uuidString)\"" } ?? ""
         var svg = """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -83,7 +101,16 @@ final class SVGDesignSerializer: SVGDesignSerializing {
         """
 
         if let backgroundImageFileName {
-            svg += "  <image href=\"assets/\(xmlEscapeAttribute(backgroundImageFileName))\" x=\"0\" y=\"0\" width=\"\(fmt(canvasSize.width))\" height=\"\(fmt(canvasSize.height))\" data-ss-role=\"background\" />\n"
+            // Issue #10: width/height entsprechen weiterhin der vollen Canvasgrösse — SVGs eigener
+            // `preserveAspectRatio`-Default (`xMidYMid meet`) sorgt bei jedem echten SVG-Renderer
+            // bereits für seitenverhältnis-erhaltendes Einpassen, ohne dass wir hier selbst eine
+            // kleinere Bounding-Box berechnen müssten. `CanvasView` (unser eigener, kein SVG-
+            // Renderer) muss dasselbe Einpassen manuell nachbilden, siehe dort. `opacity`/
+            // `display` sind die nativen SVG-Attribute (falls die Datei je in einem echten
+            // SVG-Viewer geöffnet wird), `data-ss-bg-*` die für unseren eigenen Decode robusten,
+            // eindeutigen Pendants.
+            let displayAttr = isBackgroundImageVisible ? "" : " display=\"none\""
+            svg += "  <image href=\"assets/\(xmlEscapeAttribute(backgroundImageFileName))\" x=\"0\" y=\"0\" width=\"\(fmt(canvasSize.width))\" height=\"\(fmt(canvasSize.height))\" opacity=\"\(fmt(backgroundImageOpacity))\"\(displayAttr) data-ss-bg-opacity=\"\(fmt(backgroundImageOpacity))\" data-ss-bg-visible=\"\(isBackgroundImageVisible)\" data-ss-role=\"background\" />\n"
         }
 
         for object in objects.sorted(by: { $0.zIndex < $1.zIndex }) {
@@ -304,6 +331,8 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             canvasSize: delegate.canvasSize,
             objects: delegate.objects,
             backgroundImageFileName: delegate.backgroundImageFileName,
+            backgroundImageOpacity: delegate.backgroundImageOpacity,
+            isBackgroundImageVisible: delegate.isBackgroundImageVisible,
             defaultThreadPaletteID: delegate.defaultThreadPaletteID
         )
     }
@@ -318,6 +347,8 @@ final class SVGDesignSerializer: SVGDesignSerializing {
         var canvasSize: CGSize = .zero
         var objects: [DesignObject] = []
         var backgroundImageFileName: String?
+        var backgroundImageOpacity: Double = 1.0
+        var isBackgroundImageVisible: Bool = true
         var defaultThreadPaletteID: UUID?
 
         private var currentTextObject: DesignObject?
@@ -350,16 +381,39 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             case "svg":
                 let (widthValue, widthUnit) = Self.parseLengthWithUnit(attributeDict["width"])
                 let (heightValue, heightUnit) = Self.parseLengthWithUnit(attributeDict["height"])
-                let widthMM = (widthValue ?? 0) * Self.millimetersPerUnit(widthUnit)
-                let heightMM = (heightValue ?? 0) * Self.millimetersPerUnit(heightUnit)
-                canvasSize = CGSize(width: widthMM, height: heightMM)
+                let viewBoxParts = attributeDict["viewBox"]?.split(whereSeparator: { $0 == " " || $0 == "," }).compactMap({ Double($0) })
+                let hasValidViewBox = viewBoxParts?.count == 4 && (viewBoxParts?[2] ?? 0) > 0 && (viewBoxParts?[3] ?? 0) > 0
 
-                if let viewBoxParts = attributeDict["viewBox"]?.split(whereSeparator: { $0 == " " || $0 == "," }).compactMap({ Double($0) }),
-                   viewBoxParts.count == 4, viewBoxParts[2] > 0, viewBoxParts[3] > 0 {
+                if let widthValue, let heightValue {
+                    // width/height explizit vorhanden (unser eigenes content.svg-Schema, oder eine
+                    // fremde SVG-Datei, die ihre reale Grösse nennt) — unverändertes Verhalten.
+                    let widthMM = widthValue * Self.millimetersPerUnit(widthUnit)
+                    let heightMM = heightValue * Self.millimetersPerUnit(heightUnit)
+                    canvasSize = CGSize(width: widthMM, height: heightMM)
+                    if hasValidViewBox, let viewBoxParts {
+                        viewBoxOriginX = viewBoxParts[0]
+                        viewBoxOriginY = viewBoxParts[1]
+                        unitsToMillimeters = widthMM / viewBoxParts[2]
+                    } else {
+                        unitsToMillimeters = Self.millimetersPerUnit(widthUnit)
+                    }
+                } else if hasValidViewBox, let viewBoxParts {
+                    // Issue #28 (RC3): width/height fehlen komplett — bei Figma-/Web-Icon-Exporten
+                    // sehr verbreitet (z.B. `<svg viewBox="0 0 24 24">` ohne width/height), aber es
+                    // gibt eine gültige viewBox. Ohne diesen Fall wäre widthMM 0 und damit sowohl
+                    // unitsToMillimeters als auch canvasSize auf 0 kollabiert — alle Objekte hätten
+                    // auf dem Nullpunkt mit Grösse 0 gelandet (leere/unsichtbare Zeichenfläche).
+                    // Fallback: viewBox-Ausdehnung direkt 1:1 als mm-Canvasgrösse übernehmen
+                    // (1 SVG-User-Unit = 1mm) — ohne reale Grössenangabe in der Datei gibt es
+                    // ohnehin keine "richtige" physische Grösse, das ist die plausibelste Annahme.
                     viewBoxOriginX = viewBoxParts[0]
                     viewBoxOriginY = viewBoxParts[1]
-                    unitsToMillimeters = widthMM / viewBoxParts[2]
+                    unitsToMillimeters = 1
+                    canvasSize = CGSize(width: viewBoxParts[2], height: viewBoxParts[3])
                 } else {
+                    // Weder width/height noch viewBox — degenerierter Fall, bisheriges Verhalten
+                    // (leere Canvasgrösse) unverändert beibehalten.
+                    canvasSize = .zero
                     unitsToMillimeters = Self.millimetersPerUnit(widthUnit)
                 }
                 defaultThreadPaletteID = attributeDict["data-ss-default-palette"].flatMap { UUID(uuidString: $0) }
@@ -370,6 +424,8 @@ final class SVGDesignSerializer: SVGDesignSerializing {
                 if attributeDict["data-ss-role"] == "background" {
                     let href = attributeDict["href"] ?? ""
                     backgroundImageFileName = href.replacingOccurrences(of: "assets/", with: "")
+                    backgroundImageOpacity = Self.parseDouble(attributeDict["data-ss-bg-opacity"]) ?? 1.0
+                    isBackgroundImageVisible = (attributeDict["data-ss-bg-visible"] ?? "true") == "true"
                 }
             case "rect":
                 objects.append(makeRectangle(attributeDict))
@@ -382,7 +438,7 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             case "polyline":
                 objects.append(makePolyShape(attributeDict, closed: false))
             case "path":
-                objects.append(Self.makePathElement(attributeDict))
+                objects.append(makePathElement(attributeDict))
             case "text":
                 let object = Self.makeText(attributeDict)
                 currentTextObject = object
@@ -582,20 +638,60 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             return object
         }
 
-        private static func makePathElement(_ attrs: [String: String]) -> DesignObject {
-            let x = parseDouble(attrs["data-ss-x"]) ?? 0
-            let y = parseDouble(attrs["data-ss-y"]) ?? 0
-            let width = parseDouble(attrs["data-ss-w"]) ?? 0
-            let height = parseDouble(attrs["data-ss-h"]) ?? 0
-            let isStar = attrs["data-ss-star-points"] != nil
-            let isLine = attrs["data-ss-line"] == "true"
-            let kind: DesignObjectKind = isStar ? .star : (isLine ? .line : .path)
-            let object = DesignObject(name: "", kind: kind, positionX: x, positionY: y, width: width, height: height)
-            if isStar {
-                object.starPointCount = Int(attrs["data-ss-star-points"] ?? "") ?? 5
-            } else {
-                object.pathData = attrs["d"]
+        /// Issue #28 (RC1): Instanzmethode (nicht mehr `static`) — braucht `toDesignPoint` fürs
+        /// `<g transform="…">`/Einheiten-Handling für fremde SVGs, dieselbe Begründung wie
+        /// `makeRectangle`/`makePolyShape`.
+        private func makePathElement(_ attrs: [String: String]) -> DesignObject {
+            if let xString = attrs["data-ss-x"] {
+                // Unser eigenes Schema — unverändertes Verhalten: `d` wird 1:1 durchgereicht statt
+                // neu geparst/serialisiert, das garantiert den bisherigen VERLUSTFREIEN Roundtrip
+                // (exakter String-Vergleich in DocumentPackageManagerTests). Für unsere eigenen
+                // Dateien wäre eine Neu-Transformation ohnehin ein reiner No-op (unitsToMillimeters
+                // == 1, kein `<g>`), aber eben nicht notwendigerweise byte-identisch neu formatiert.
+                let x = Self.parseDouble(xString) ?? 0
+                let y = Self.parseDouble(attrs["data-ss-y"]) ?? 0
+                let width = Self.parseDouble(attrs["data-ss-w"]) ?? 0
+                let height = Self.parseDouble(attrs["data-ss-h"]) ?? 0
+                let isStar = attrs["data-ss-star-points"] != nil
+                let isLine = attrs["data-ss-line"] == "true"
+                let kind: DesignObjectKind = isStar ? .star : (isLine ? .line : .path)
+                let object = DesignObject(name: "", kind: kind, positionX: x, positionY: y, width: width, height: height)
+                if isStar {
+                    object.starPointCount = Int(attrs["data-ss-star-points"] ?? "") ?? 5
+                } else {
+                    object.pathData = attrs["d"]
+                }
+                Self.applyCommonAttributes(attrs, to: object)
+                return object
             }
+
+            // Fremde SVG-Datei ohne unser Schema (kein data-ss-x): `d` tatsächlich parsen (RC2s
+            // EditablePath-Parser, versteht jetzt reale SVG-Pfad-Syntax) und jeden Anker- sowie
+            // Kontrollpunkt durch dieselbe Transform-/Einheiten-Pipeline schicken wie jedes andere
+            // Element (`toDesignPoint`) — vorher blieben x/y/width/height bei 0, weil sie
+            // ausschliesslich aus den (bei fremden Dateien nie vorhandenen) data-ss-*-Attributen
+            // gelesen wurden. Bounding-Box danach aus den TRANSFORMIERTEN Punkten ableiten, analog
+            // zu `makePolyShape`.
+            var editable = EditablePath(pathData: attrs["d"] ?? "")
+            for index in editable.anchors.indices {
+                editable.anchors[index].point = toDesignPoint(x: editable.anchors[index].point.x, y: editable.anchors[index].point.y)
+                if let controlIn = editable.anchors[index].controlIn {
+                    editable.anchors[index].controlIn = toDesignPoint(x: controlIn.x, y: controlIn.y)
+                }
+                if let controlOut = editable.anchors[index].controlOut {
+                    editable.anchors[index].controlOut = toDesignPoint(x: controlOut.x, y: controlOut.y)
+                }
+            }
+            let bounds = editable.boundingBox
+            let object = DesignObject(
+                name: "",
+                kind: .path,
+                positionX: bounds.minX,
+                positionY: bounds.minY,
+                width: max(bounds.width, 0.01),
+                height: max(bounds.height, 0.01)
+            )
+            object.pathData = editable.svgPathData()
             Self.applyCommonAttributes(attrs, to: object)
             return object
         }

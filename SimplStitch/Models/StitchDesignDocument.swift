@@ -53,11 +53,29 @@ final class StitchDesignDocument: ReferenceFileDocument, ObservableObject {
     struct Snapshot: Sendable {
         var svgData: Data
         var previewPNGData: Data
+        var backgroundImageChange: BackgroundImageChange
+    }
+
+    /// Issue #10: `fileWrapper(snapshot:configuration:)` kann `assets/` nicht mehr einfach immer
+    /// 1:1 aus `configuration.existingFile` übernehmen, sobald ein NEUES Hintergrundbild gewählt
+    /// oder das bestehende entfernt wurde — dieselben drei Fälle wie zuvor implizit (unverändert
+    /// durchreichen), jetzt aber explizit unterscheidbar.
+    enum BackgroundImageChange: Sendable {
+        case unchanged
+        case set(fileName: String, data: Data)
+        case removed
     }
 
     private let packageManager: DocumentPackageManaging
 
     @Published private(set) var project: StitchProject
+    /// Issue #10: rohe Bild-Bytes fürs Canvas-Rendering — bewusst NICHT in `StitchProject`/SwiftData
+    /// gehalten (kein base64-Bloat, siehe CLAUDE.md), sondern hier direkt aus dem geöffneten
+    /// `FileWrapper` bzw. einer frischen Bildauswahl gelesen. `nil`, wenn kein Hintergrundbild
+    /// gesetzt ist. `ContentView` spiegelt das nach `CanvasStore` für die eigentliche Zeichnung.
+    @Published private(set) var backgroundImageData: Data?
+
+    private var pendingBackgroundImageChange: BackgroundImageChange = .unchanged
 
     /// Issue #29 (Punkt 7): unterscheidet "gerade frisch via `DocumentGroup(newDocument:)` erzeugt"
     /// von "aus einer bestehenden .stitchdesign-Datei geöffnet" — zuverlässiger als ein blosser
@@ -72,6 +90,7 @@ final class StitchDesignDocument: ReferenceFileDocument, ObservableObject {
         self.packageManager = packageManager
         self.project = StitchProject(name: "Unbenannt", lastKnownPath: "", canvasWidthMillimeters: 130, canvasHeightMillimeters: 180)
         self.isNewDocument = true
+        self.backgroundImageData = nil
     }
 
     required init(configuration: ReadConfiguration) throws {
@@ -79,11 +98,37 @@ final class StitchDesignDocument: ReferenceFileDocument, ObservableObject {
         let projectName = (configuration.file.filename ?? "Unbenannt")
         self.project = try packageManager.readProject(from: configuration.file, projectName: projectName)
         self.isNewDocument = false
+        if let fileName = project.backgroundImageFileName {
+            self.backgroundImageData = configuration.file.fileWrappers?["assets"]?.fileWrappers?[fileName]?.regularFileContents
+        } else {
+            self.backgroundImageData = nil
+        }
+    }
+
+    /// Issue #10: setzt ein neues Hintergrundbild — die Bytes werden bis zum nächsten Speichern in
+    /// `pendingBackgroundImageChange` gehalten, `fileWrapper(snapshot:configuration:)` schreibt sie
+    /// dann tatsächlich unter `assets/`. `project.backgroundImageFileName` wird sofort gesetzt,
+    /// damit SVG-Encode/Canvas-Rendering/Inspector-UI schon vor dem nächsten Save konsistent sind.
+    func setBackgroundImage(fileName: String, data: Data) {
+        project.backgroundImageFileName = fileName
+        pendingBackgroundImageChange = .set(fileName: fileName, data: data)
+        backgroundImageData = data
+    }
+
+    /// Entfernt das Hintergrundbild wieder — Deckkraft/Sichtbarkeit bleiben als Werte im Modell
+    /// erhalten (nur `backgroundImageFileName` wird `nil`), falls der Nutzer später ein neues Bild
+    /// wählt und dieselbe Einstellung erwartet.
+    func removeBackgroundImage() {
+        project.backgroundImageFileName = nil
+        pendingBackgroundImageChange = .removed
+        backgroundImageData = nil
     }
 
     func snapshot(contentType: UTType) throws -> Snapshot {
         let encoded = try packageManager.encodedContent(for: project)
-        return Snapshot(svgData: encoded.svgData, previewPNGData: encoded.previewPNGData)
+        let change = pendingBackgroundImageChange
+        pendingBackgroundImageChange = .unchanged
+        return Snapshot(svgData: encoded.svgData, previewPNGData: encoded.previewPNGData, backgroundImageChange: change)
     }
 
     func fileWrapper(snapshot: Snapshot, configuration: WriteConfiguration) throws -> FileWrapper {
@@ -96,8 +141,19 @@ final class StitchDesignDocument: ReferenceFileDocument, ObservableObject {
             "content.svg": contentWrapper,
             "preview.png": previewWrapper,
         ]
-        if let existingAssets = configuration.existingFile?.fileWrappers?["assets"] {
-            children["assets"] = existingAssets
+        switch snapshot.backgroundImageChange {
+        case .unchanged:
+            if let existingAssets = configuration.existingFile?.fileWrappers?["assets"] {
+                children["assets"] = existingAssets
+            }
+        case .set(let fileName, let data):
+            let imageWrapper = FileWrapper(regularFileWithContents: data)
+            imageWrapper.preferredFilename = fileName
+            let assetsWrapper = FileWrapper(directoryWithFileWrappers: [fileName: imageWrapper])
+            assetsWrapper.preferredFilename = "assets"
+            children["assets"] = assetsWrapper
+        case .removed:
+            break // kein assets-Eintrag -> Hintergrundbild verschwindet aus dem Package.
         }
         return FileWrapper(directoryWithFileWrappers: children)
     }

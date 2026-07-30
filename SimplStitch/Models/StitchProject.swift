@@ -29,6 +29,12 @@ final class StitchProject {
 
     /// Dateiname (nicht Pfad) des Hintergrundbilds unter assets/ im Document Package, falls gesetzt.
     var backgroundImageFileName: String?
+    /// Issue #10: Deckkraft des Hintergrundbilds (0...1) — einstellbar, damit darüberliegende
+    /// Objekte/Stiche beim Nachzeichnen lesbar bleiben.
+    var backgroundImageOpacity: Double = 1.0
+    /// Issue #10: Hintergrundbild ist eine eigene, ausblendbare "Ebene" (Nutzer-Feedback) — bleibt
+    /// beim Ausblenden gesetzt (Bild + Deckkraft bleiben erhalten), wird nur nicht gezeichnet.
+    var isBackgroundImageVisible: Bool = true
 
     /// Issue #20 (nach User-Feedback vereinfacht): EINE Standard-Garnliste pro Projekt statt einer
     /// kuratierten Farbliste — die alte "alle Farben aller aktiven Paletten einzeln auflisten"-UI

@@ -142,9 +142,61 @@ struct ProjectInspectorView: View {
             } header: {
                 SectionHeader("project.defaultPalette.section")
             }
+
+            backgroundImageSection
         }
         .inspectorForm()
         .navigationTitle(Text("project.threads.panel.title"))
+    }
+
+    /// Issue #10: Hintergrundbild ist eine eigene, ausblendbare "Ebene" (Nutzer-Feedback) —
+    /// seitenverhältnis-erhaltend eingepasst und mit einstellbarer Deckkraft gezeichnet, siehe
+    /// `CanvasView.drawBackgroundImage`. Bytes/Auswahl-Dialog laufen über `StitchDesignDocument`
+    /// (ContentView), diese Sektion bindet nur an die bereits über `CanvasStore` erreichbaren Werte
+    /// (Deckkraft/Sichtbarkeit direkt in `StitchProject`, Dateiname/Vorschau indirekt über
+    /// `hasBackgroundImage`/`backgroundCGImage`).
+    @ViewBuilder
+    private var backgroundImageSection: some View {
+        Section {
+            if let cgImage = store.backgroundCGImage {
+                HStack {
+                    Image(decorative: cgImage, scale: 1)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 60, height: 60)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.secondary.opacity(0.3)))
+                    Spacer()
+                    Button("project.backgroundImage.remove", role: .destructive) {
+                        store.backgroundImageRemovalRequested = true
+                    }
+                }
+
+                Toggle("project.backgroundImage.visible", isOn: Binding(
+                    get: { store.isBackgroundImageVisible },
+                    set: { store.isBackgroundImageVisible = $0 }
+                ))
+
+                LabeledContent {
+                    Slider(value: Binding(
+                        get: { store.backgroundImageOpacity },
+                        set: { store.backgroundImageOpacity = $0 }
+                    ), in: 0...1)
+                } label: {
+                    Text("project.backgroundImage.opacity")
+                }
+            } else {
+                Text("project.backgroundImage.empty")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+
+            Button("project.backgroundImage.choose") {
+                store.isBackgroundImagePickerPresented = true
+            }
+        } header: {
+            SectionHeader("project.backgroundImage.section")
+        }
     }
 }
 

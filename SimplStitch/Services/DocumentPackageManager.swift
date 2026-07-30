@@ -93,6 +93,8 @@ final class DocumentPackageManager: DocumentPackageManaging {
             objects: project.objects,
             canvasSize: canvasSize,
             backgroundImageFileName: project.backgroundImageFileName,
+            backgroundImageOpacity: project.backgroundImageOpacity,
+            isBackgroundImageVisible: project.isBackgroundImageVisible,
             defaultThreadPaletteID: project.defaultThreadPaletteID
         )
         try svg.write(to: packageURL.appendingPathComponent("content.svg"), atomically: true, encoding: .utf8)
@@ -126,6 +128,8 @@ final class DocumentPackageManager: DocumentPackageManaging {
             canvasHeightMillimeters: decoded.canvasSize.height
         )
         project.backgroundImageFileName = decoded.backgroundImageFileName
+        project.backgroundImageOpacity = decoded.backgroundImageOpacity
+        project.isBackgroundImageVisible = decoded.isBackgroundImageVisible
         project.defaultThreadPaletteID = decoded.defaultThreadPaletteID
         project.objects = decoded.objects
         for object in decoded.objects {
@@ -140,6 +144,8 @@ final class DocumentPackageManager: DocumentPackageManaging {
             objects: project.objects,
             canvasSize: canvasSize,
             backgroundImageFileName: project.backgroundImageFileName,
+            backgroundImageOpacity: project.backgroundImageOpacity,
+            isBackgroundImageVisible: project.isBackgroundImageVisible,
             defaultThreadPaletteID: project.defaultThreadPaletteID
         )
         guard let svgData = svg.data(using: .utf8) else {
@@ -167,6 +173,8 @@ final class DocumentPackageManager: DocumentPackageManaging {
             canvasHeightMillimeters: decoded.canvasSize.height
         )
         project.backgroundImageFileName = decoded.backgroundImageFileName
+        project.backgroundImageOpacity = decoded.backgroundImageOpacity
+        project.isBackgroundImageVisible = decoded.isBackgroundImageVisible
         project.defaultThreadPaletteID = decoded.defaultThreadPaletteID
         project.objects = decoded.objects
         for object in decoded.objects {

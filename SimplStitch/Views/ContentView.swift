@@ -134,6 +134,26 @@ struct ContentView: View {
                 importFile(at: url)
                 return true
             }
+            // Issue #10: Hintergrundbild wählen — eigenes `.fileImporter`-Sheet (Bild- statt
+            // Stickdatei-Typen), Bytes gehen direkt an `StitchDesignDocument.setBackgroundImage`,
+            // das sie bis zum nächsten Speichern hält (siehe dortiger Kommentar).
+            .fileImporter(
+                isPresented: Binding(
+                    get: { canvasStore.isBackgroundImagePickerPresented },
+                    set: { canvasStore.isBackgroundImagePickerPresented = $0 }
+                ),
+                allowedContentTypes: [.png, .jpeg, .heic, .image],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    if let url = urls.first {
+                        importBackgroundImage(at: url)
+                    }
+                case .failure(let error):
+                    importErrorMessage = error.localizedDescription
+                }
+            }
             .alert(
                 "import.embroidery.error.title",
                 isPresented: Binding(get: { importErrorMessage != nil }, set: { if !$0 { importErrorMessage = nil } })
@@ -158,6 +178,17 @@ struct ContentView: View {
                 if document.isNewDocument {
                     canvasStore.defaultThreadPaletteID = appSettingsList.first?.defaultThreadPaletteID
                 }
+                // Issue #10: Bild-Bytes leben im Dokument (nicht in StitchProject/SwiftData, siehe
+                // dortiger Kommentar) — CanvasStore braucht sie trotzdem fürs Zeichnen.
+                canvasStore.backgroundImageData = document.backgroundImageData
+            }
+            .onChange(of: document.backgroundImageData) { _, newValue in
+                canvasStore.backgroundImageData = newValue
+            }
+            .onChange(of: canvasStore.backgroundImageRemovalRequested) { _, requested in
+                guard requested else { return }
+                document.removeBackgroundImage()
+                canvasStore.backgroundImageRemovalRequested = false
             }
     }
 
@@ -195,6 +226,19 @@ struct ContentView: View {
                 return
             }
             canvasStore.importObjects(decoded.objects)
+        } catch {
+            importErrorMessage = error.localizedDescription
+        }
+    }
+
+    /// Issue #10: liest die gewählte Bilddatei und reicht sie an `StitchDesignDocument` weiter —
+    /// synchron wie `importSVGFile`, keine Bridge/kein Subprocess nötig, nur Foundation-I/O.
+    private func importBackgroundImage(at url: URL) {
+        let didAccess = url.startAccessingSecurityScopedResource()
+        defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let data = try Data(contentsOf: url)
+            document.setBackgroundImage(fileName: url.lastPathComponent, data: data)
         } catch {
             importErrorMessage = error.localizedDescription
         }

@@ -32,6 +32,7 @@
 //
 
 import Foundation
+import ImageIO
 import Observation
 import SwiftUI
 
@@ -1649,6 +1650,49 @@ final class CanvasStore {
     var defaultThreadPaletteID: UUID? {
         get { project.defaultThreadPaletteID }
         set { project.defaultThreadPaletteID = newValue }
+    }
+
+    // MARK: Hintergrundbild (Issue #10)
+
+    var backgroundImageOpacity: Double {
+        get { project.backgroundImageOpacity }
+        set { project.backgroundImageOpacity = min(max(newValue, 0), 1) }
+    }
+
+    var isBackgroundImageVisible: Bool {
+        get { project.isBackgroundImageVisible }
+        set { project.isBackgroundImageVisible = newValue }
+    }
+
+    var hasBackgroundImage: Bool { project.backgroundImageFileName != nil }
+
+    /// Steuert das `.fileImporter`-Sheet in `ContentView` — sowohl vom Menü (`SimplStitchCommands`,
+    /// über das bereits vorhandene `canvasStore`-FocusedValue) als auch vom Inspector-Button
+    /// (`ProjectInspectorView`, hat `store` bereits direkt) gesetzt, kein eigener FocusedValueKey nötig.
+    var isBackgroundImagePickerPresented = false
+
+    /// Entfernen muss über `StitchDesignDocument.removeBackgroundImage()` laufen (nicht nur
+    /// `project.backgroundImageFileName` zurücksetzen) — nur das Dokument weiss, dass beim nächsten
+    /// Speichern `assets/` tatsächlich weggelassen werden muss (`pendingBackgroundImageChange`,
+    /// siehe dortiger Kommentar). `CanvasStore`/`ProjectInspectorView` haben keinen Dokument-Zugriff,
+    /// daher dasselbe Flag-Muster wie `isBackgroundImagePickerPresented`: `ContentView` reagiert via
+    /// `.onChange` und ruft die eigentliche Methode auf.
+    var backgroundImageRemovalRequested = false
+
+    /// Rohe Bild-Bytes, von `ContentView` aus `StitchDesignDocument.backgroundImageData` gespiegelt
+    /// (bewusst nicht in `StitchProject`/SwiftData, siehe dortiger Kommentar) — `didSet` dekodiert
+    /// einmalig zu `backgroundCGImage` statt bei jedem Zeichnen des Canvas neu zu dekodieren.
+    var backgroundImageData: Data? {
+        didSet {
+            guard backgroundImageData != oldValue else { return }
+            backgroundCGImage = backgroundImageData.flatMap(Self.decodeCGImage)
+        }
+    }
+    private(set) var backgroundCGImage: CGImage?
+
+    private static func decodeCGImage(from data: Data) -> CGImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        return CGImageSourceCreateImageAtIndex(source, 0, nil)
     }
 
     // MARK: Live-Stichvorschau (6e)

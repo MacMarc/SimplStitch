@@ -30,9 +30,21 @@
 
 import AppKit
 import SwiftUI
+import SwiftData
 
 struct CanvasView: View {
     let store: CanvasStore
+
+    // Issue #30 (Lineal): dieselbe @Query-Lesart wie ObjectInspectorView.unit — es gibt genau eine
+    // AppSettings-Zeile (Issue #23), Default mm falls das Dokumentfenster (Previews/Tests) noch
+    // keine hat.
+    @Query private var appSettingsList: [AppSettings]
+
+    private var unit: MeasurementUnit {
+        appSettingsList.first?.preferredMeasurementUnit ?? .millimeters
+    }
+
+    static let rulerThickness: CGFloat = 20
 
     @GestureState private var liveMagnification: CGFloat = 1
     @GestureState private var liveDragTranslation: CGSize = .zero
@@ -62,6 +74,17 @@ struct CanvasView: View {
 
     var body: some View {
         GeometryReader { proxy in
+            // Issue #30: Lineal oben+links braucht dauerhaft reservierten Platz (kein Overlay über
+            // der Zeichenfläche) — der Canvas selbst bekommt eine explizite, um `rulerThickness`
+            // verkleinerte Grösse und wird um denselben Betrag verschoben. Seine eigene lokale
+            // Koordinaten-/Gesten-Basis (0,0 = eigene obere linke Ecke) bleibt dabei unverändert,
+            // SwiftUI berichtet Gesten-Koordinaten relativ zur View selbst, nicht zum Elternrahmen —
+            // Hit-Testing/`store.designPoint(fromView:)` brauchen deshalb keine Anpassung.
+            let canvasViewportSize = CGSize(
+                width: max(proxy.size.width - Self.rulerThickness, 0),
+                height: max(proxy.size.height - Self.rulerThickness, 0)
+            )
+
             ZStack(alignment: .topLeading) {
                 Canvas { context, _ in
                     drawCanvasBackground(in: &context)
@@ -75,6 +98,8 @@ struct CanvasView: View {
                     drawStitchPreviewError(in: &context)
                     drawMarqueeRect(in: &context)
                 }
+                .frame(width: canvasViewportSize.width, height: canvasViewportSize.height)
+                .offset(x: Self.rulerThickness, y: Self.rulerThickness)
                 .background(Color(nsColor: .underPageBackgroundColor))
                 .gesture(store.currentTool == .select ? AnyGesture(selectionGesture) : AnyGesture(drawGesture))
                 .gesture(magnificationGesture)
@@ -82,19 +107,26 @@ struct CanvasView: View {
                 // Issue #19: Escape beendet den Punkt-Editier-Modus (Opus-Konsultation).
                 .onExitCommand { store.endPointEditing() }
                 .onAppear {
-                    autoFitIfNeeded(proxy.size)
+                    autoFitIfNeeded(canvasViewportSize)
                 }
-                .onChange(of: proxy.size) { _, newSize in
+                .onChange(of: canvasViewportSize) { _, newSize in
                     autoFitIfNeeded(newSize)
                 }
                 .focusedSceneValue(\.zoomToFitAction) {
-                    store.zoomToFit(viewportSize: proxy.size)
+                    store.zoomToFit(viewportSize: canvasViewportSize)
                     hasUserAdjustedView = true
                 }
 
                 if let editingObject = store.editingTextObject {
                     textEditorOverlay(for: editingObject)
+                        .offset(x: Self.rulerThickness, y: Self.rulerThickness)
                 }
+
+                horizontalRuler(width: canvasViewportSize.width)
+                    .offset(x: Self.rulerThickness, y: 0)
+                verticalRuler(height: canvasViewportSize.height)
+                    .offset(x: 0, y: Self.rulerThickness)
+                rulerCorner
             }
         }
     }
@@ -104,6 +136,133 @@ struct CanvasView: View {
     private func autoFitIfNeeded(_ size: CGSize) {
         guard !hasUserAdjustedView, size.width > 0, size.height > 0 else { return }
         store.zoomToFit(viewportSize: size)
+    }
+
+    // MARK: Lineal (Issue #30)
+
+    /// "Nice" Zahlen in der jeweiligen Anzeige-Einheit (mm/Zoll) — dieselbe Idee wie ein
+    /// 1/2/5-Dekaden-Raster auf Papierlinealen. Wählt die kleinste, die auf dem aktuellen Zoom
+    /// mindestens `minPixelSpacing` zwischen zwei beschrifteten Strichen ergibt, sonst würden sich
+    /// Beschriftungen bei starkem Rauszoomen überlappen.
+    private static let niceStepsMillimeters: [Double] = [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000]
+    private static let niceStepsInches: [Double] = [0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 50, 100]
+
+    private func rulerMajorStepMillimeters() -> Double {
+        let minPixelSpacing: Double = 45
+        let stepsInUnit = unit == .millimeters ? Self.niceStepsMillimeters : Self.niceStepsInches
+        for step in stepsInUnit {
+            let stepMm = unit.millimeters(from: step)
+            if stepMm * Double(effectiveZoomScale) >= minPixelSpacing {
+                return stepMm
+            }
+        }
+        return unit.millimeters(from: stepsInUnit.last ?? 1000)
+    }
+
+    /// Zeigt die Beschriftung ohne unnötige Nachkommastellen (z.B. "10" statt "10.0", aber "0.5"
+    /// bleibt bei Zoll-Zwischenschritten erhalten).
+    private func rulerLabel(forMillimeters millimeters: Double) -> String {
+        let value = unit.value(fromMillimeters: millimeters)
+        let rounded = (value * 1000).rounded() / 1000
+        if rounded == rounded.rounded() {
+            return String(Int(rounded))
+        }
+        return String(format: "%g", rounded)
+    }
+
+    private var rulerBackgroundColor: Color { Color(nsColor: .controlBackgroundColor) }
+    private var rulerTickColor: Color { Color(nsColor: .separatorColor) }
+    private var rulerLabelColor: Color { Color(nsColor: .secondaryLabelColor) }
+
+    /// Oberes Lineal: X-Position in Design-Koordinaten (mm/Zoll je `AppSettings.preferredMeasurementUnit`).
+    /// Läuft über die GESAMTE sichtbare Breite (nicht nur innerhalb der Canvas-Seitenränder) — bei
+    /// weit rausgezoomter/verschobener Ansicht sind auch Positionen ausserhalb der Zeichenfläche
+    /// sichtbar, dieselbe Konvention wie in Illustrator/Figma.
+    private func horizontalRuler(width: CGFloat) -> some View {
+        let scale = effectiveZoomScale
+        let originX = effectivePanOffset.width
+        let stepMm = rulerMajorStepMillimeters()
+        let unitLabel = unit.symbol
+
+        return Canvas { context, size in
+            context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(rulerBackgroundColor))
+
+            guard scale > 0 else { return }
+            let firstMm = (floor((-originX / scale) / stepMm) - 1) * stepMm
+            let lastMm = (size.width - originX) / scale + stepMm
+
+            var mm = firstMm
+            while mm <= lastMm {
+                let viewX = originX + mm * scale
+                context.stroke(
+                    Path { path in
+                        path.move(to: CGPoint(x: viewX, y: size.height - 7))
+                        path.addLine(to: CGPoint(x: viewX, y: size.height))
+                    },
+                    with: .color(rulerTickColor)
+                )
+                context.draw(
+                    Text(rulerLabel(forMillimeters: mm)).font(.system(size: 9)).foregroundStyle(rulerLabelColor),
+                    at: CGPoint(x: viewX + 2, y: 4),
+                    anchor: .topLeading
+                )
+                mm += stepMm
+            }
+            context.draw(
+                Text(unitLabel).font(.system(size: 8)).foregroundStyle(rulerLabelColor),
+                at: CGPoint(x: size.width - 3, y: size.height - 2),
+                anchor: .bottomTrailing
+            )
+        }
+        .frame(width: width, height: Self.rulerThickness)
+        .clipped()
+        .border(rulerTickColor, width: 0.5)
+    }
+
+    /// Linkes Lineal: Y-Position, gespiegelte Logik zu `horizontalRuler` (Text um 90° gedreht,
+    /// damit er in der schmalen Spalte lesbar bleibt).
+    private func verticalRuler(height: CGFloat) -> some View {
+        let scale = effectiveZoomScale
+        let originY = effectivePanOffset.height
+        let stepMm = rulerMajorStepMillimeters()
+
+        return Canvas { context, size in
+            context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(rulerBackgroundColor))
+
+            guard scale > 0 else { return }
+            let firstMm = (floor((-originY / scale) / stepMm) - 1) * stepMm
+            let lastMm = (size.height - originY) / scale + stepMm
+
+            var mm = firstMm
+            while mm <= lastMm {
+                let viewY = originY + mm * scale
+                context.stroke(
+                    Path { path in
+                        path.move(to: CGPoint(x: size.width - 7, y: viewY))
+                        path.addLine(to: CGPoint(x: size.width, y: viewY))
+                    },
+                    with: .color(rulerTickColor)
+                )
+                let text = Text(rulerLabel(forMillimeters: mm)).font(.system(size: 9)).foregroundStyle(rulerLabelColor)
+                context.drawLayer { layerContext in
+                    layerContext.translateBy(x: 4, y: viewY + 2)
+                    layerContext.rotate(by: .degrees(-90))
+                    layerContext.draw(text, at: .zero, anchor: .topLeading)
+                }
+                mm += stepMm
+            }
+        }
+        .frame(width: Self.rulerThickness, height: height)
+        .clipped()
+        .border(rulerTickColor, width: 0.5)
+    }
+
+    /// Leere Ecke oben links, wo sich beide Lineale träfen.
+    private var rulerCorner: some View {
+        Rectangle()
+            .fill(rulerBackgroundColor)
+            .frame(width: Self.rulerThickness, height: Self.rulerThickness)
+            .border(rulerTickColor, width: 0.5)
     }
 
     /// Doppelklick auf ein Text-Objekt mit dem Auswahl-Werkzeug startet die Inline-Bearbeitung.
@@ -152,10 +311,20 @@ struct CanvasView: View {
         Binding(get: { object.text ?? "" }, set: { object.text = $0 })
     }
 
+    /// Zoom-Snap-Back-Bug: `liveMagnification` (der rohe, unbegrenzte Pinch-Faktor seit Gestenstart)
+    /// wurde bisher unverändert für die LIVE-Vorschau genutzt (`effectiveZoomScale`), während erst
+    /// `onEnded` → `store.zoom(by:)` auf `minZoomScale...maxZoomScale` klemmte. Nahe der Zoomgrenze
+    /// konnte man optisch beliebig weiterzoomen — beim Loslassen sprang die Ansicht dann abrupt auf
+    /// die tatsächlich erlaubte Grenze zurück. Klemmt jetzt bereits den Live-Faktor auf denselben
+    /// Bereich, den `onEnded` ohnehin committen würde — die Pinch-Geste "läuft" spürbar sanft gegen
+    /// die Grenze statt zu überschiessen und zurückzuschnappen.
     private var magnificationGesture: some Gesture {
         MagnificationGesture()
             .updating($liveMagnification) { value, state, _ in
-                state = value
+                guard store.zoomScale > 0 else { return }
+                let minFactor = CanvasStore.minZoomScale / store.zoomScale
+                let maxFactor = CanvasStore.maxZoomScale / store.zoomScale
+                state = min(max(value, minFactor), maxFactor)
             }
             .onEnded { value in
                 store.zoom(by: value)

@@ -221,12 +221,11 @@ struct CanvasView: View {
 
     // Issue #30 (Kontrast-Feedback): `.separatorColor`/`.secondaryLabelColor` waren als reine
     // Trennlinien-/Sekundärtöne kaum lesbar. Major-Striche/Zahlen nutzen jetzt die primäre
-    // Text-/Inhaltsfarbe (`.labelColor`), Minor-Striche bleiben bewusst dezenter (`.tertiaryLabelColor`)
+    // Text-/Inhaltsfarbe (`.labelColor`), Minor-Striche bleiben bewusst dezenter (`.secondaryLabelColor`)
     // — die dadurch entstehende Abstufung ist genau der gewünschte "10/20mm heben sich ab"-Effekt.
     private var rulerBackgroundColor: Color { Color(nsColor: .controlBackgroundColor) }
     private var rulerMajorTickColor: Color { Color(nsColor: .labelColor) }
     private var rulerMinorTickColor: Color { Color(nsColor: .secondaryLabelColor) }
-    private var rulerLabelColor: Color { Color(nsColor: .labelColor) }
     private var rulerBorderColor: Color { Color(nsColor: .separatorColor) }
 
     /// Zeichnet Minor- (kurz, dezent) und Major-Striche (lang, kräftig, beschriftet) für eine Achse.
@@ -275,26 +274,13 @@ struct CanvasView: View {
     }
 
     /// Issue #30 (Lineal-Positionsanzeiger): kleiner Punkt an der Ruler-Kante, der der Maus folgt
-    /// (Photoshop/Illustrator-Konvention) — `orientation` bestimmt, an welcher Kante (oben beim
-    /// horizontalen, links beim vertikalen Lineal). War ursprünglich als Dreieck geplant, aber ein
-    /// handgebauter `move/addLine/closeSubpath`-Pfad blieb aus ungeklärten Gründen unsichtbar
-    /// (vermutlich eine GraphicsContext-Eigenheit bei sehr kleinen, manuell konstruierten Pfaden) —
-    /// ein einfacher `Path(ellipseIn:)` rendert dagegen zuverlässig auf beiden Linealen.
-    private enum RulerCursorOrientation { case pointingDown, pointingRight }
-
-    private func drawRulerCursorMarker(
-        in context: inout GraphicsContext,
-        position: CGFloat,
-        orientation: RulerCursorOrientation
-    ) {
-        let markerSize: CGFloat = 6
-        let rect: CGRect
-        switch orientation {
-        case .pointingDown:
-            rect = CGRect(x: position - markerSize / 2, y: 0, width: markerSize, height: markerSize)
-        case .pointingRight:
-            rect = CGRect(x: 0, y: position - markerSize / 2, width: markerSize, height: markerSize)
-        }
+    /// (Photoshop/Illustrator-Konvention) — `rect` kommt bereits fertig positioniert vom Aufrufer
+    /// (an der Aussenkante des jeweiligen Lineals verankert: oben beim horizontalen, links beim
+    /// vertikalen Lineal). War ursprünglich als Dreieck geplant, aber ein handgebauter
+    /// `move/addLine/closeSubpath`-Pfad blieb aus ungeklärten Gründen unsichtbar (vermutlich eine
+    /// GraphicsContext-Eigenheit bei sehr kleinen, manuell konstruierten Pfaden) — ein einfacher
+    /// `Path(ellipseIn:)` rendert dagegen zuverlässig auf beiden Linealen.
+    private func drawRulerCursorMarker(in context: inout GraphicsContext, rect: CGRect) {
         context.fill(Path(ellipseIn: rect), with: .color(.accentColor))
     }
 
@@ -337,7 +323,7 @@ struct CanvasView: View {
                         lineWidth: 1.2
                     )
                     context.draw(
-                        Text(label).font(.system(size: 9.5, weight: .medium)).foregroundStyle(rulerLabelColor),
+                        Text(label).font(.system(size: 9.5, weight: .medium)).foregroundStyle(rulerMajorTickColor),
                         at: CGPoint(x: viewX + 2, y: 3),
                         anchor: .topLeading
                     )
@@ -349,7 +335,11 @@ struct CanvasView: View {
                 anchor: .bottomTrailing
             )
             if let cursorViewPosition {
-                drawRulerCursorMarker(in: &context, position: cursorViewPosition, orientation: .pointingDown)
+                let markerSize: CGFloat = 6
+                drawRulerCursorMarker(
+                    in: &context,
+                    rect: CGRect(x: cursorViewPosition - markerSize / 2, y: 0, width: markerSize, height: markerSize)
+                )
             }
         }
         .frame(width: width, height: Self.rulerThickness)
@@ -390,7 +380,7 @@ struct CanvasView: View {
                         with: .color(rulerMajorTickColor),
                         lineWidth: 1.2
                     )
-                    let text = Text(label).font(.system(size: 9.5, weight: .medium)).foregroundStyle(rulerLabelColor)
+                    let text = Text(label).font(.system(size: 9.5, weight: .medium)).foregroundStyle(rulerMajorTickColor)
                     context.drawLayer { layerContext in
                         layerContext.translateBy(x: 3, y: viewY + 2)
                         layerContext.rotate(by: .degrees(-90))
@@ -399,7 +389,11 @@ struct CanvasView: View {
                 }
             )
             if let cursorViewPosition {
-                drawRulerCursorMarker(in: &context, position: cursorViewPosition, orientation: .pointingRight)
+                let markerSize: CGFloat = 6
+                drawRulerCursorMarker(
+                    in: &context,
+                    rect: CGRect(x: 0, y: cursorViewPosition - markerSize / 2, width: markerSize, height: markerSize)
+                )
             }
         }
         .frame(width: Self.rulerThickness, height: height)

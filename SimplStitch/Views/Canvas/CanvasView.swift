@@ -50,6 +50,9 @@ struct CanvasView: View {
     @GestureState private var liveDragTranslation: CGSize = .zero
     @State private var selectionDrag = SelectionDragState()
     @FocusState private var isTextEditorFocused: Bool
+    /// Issue #30 (Lineal-Positionsanzeiger): aktuelle Mausposition relativ zum Canvas selbst (nicht
+    /// zum Lineal), `nil` sobald die Maus den Canvas verlässt — siehe `.onContinuousHover` in `body`.
+    @State private var hoverViewLocation: CGPoint?
     /// Issue #15/#26: `.onAppear` allein reicht nicht — bei einem frisch von `DocumentGroup`
     /// geöffneten Fenster durchläuft die `GeometryReader`-Grösse mehrere Zwischenwerte, bevor
     /// macOS das Fenster auf seine endgültige (jetzt grosszügige, siehe `.defaultSize` in
@@ -106,6 +109,16 @@ struct CanvasView: View {
                 .simultaneousGesture(doubleTapToEditGesture)
                 // Issue #19: Escape beendet den Punkt-Editier-Modus (Opus-Konsultation).
                 .onExitCommand { store.endPointEditing() }
+                // Issue #30 (Lineal-Positionsanzeiger): Hover-Position wird unabhängig vom aktiven
+                // Werkzeug getrackt (rein visuelles Feedback) — dieselbe lokale View-Koordinate wie
+                // Gesten (0,0 = obere linke Ecke des Canvas selbst), direkt als Ruler-Position
+                // wiederverwendbar, ohne Umweg über Design-Koordinaten und zurück.
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let location): hoverViewLocation = location
+                    case .ended: hoverViewLocation = nil
+                    }
+                }
                 .onAppear {
                     autoFitIfNeeded(canvasViewportSize)
                 }
@@ -122,9 +135,9 @@ struct CanvasView: View {
                         .offset(x: Self.rulerThickness, y: Self.rulerThickness)
                 }
 
-                horizontalRuler(width: canvasViewportSize.width)
+                horizontalRuler(width: canvasViewportSize.width, cursorViewPosition: hoverViewLocation?.x)
                     .offset(x: Self.rulerThickness, y: 0)
-                verticalRuler(height: canvasViewportSize.height)
+                verticalRuler(height: canvasViewportSize.height, cursorViewPosition: hoverViewLocation?.y)
                     .offset(x: 0, y: Self.rulerThickness)
                 rulerCorner
             }
@@ -235,7 +248,12 @@ struct CanvasView: View {
         let minMinorPixelSpacing: Double = 6
         let drawMinorTicks = minorStepMm * Double(scale) >= minMinorPixelSpacing
 
-        let firstMajorMm = (floor((-origin / scale) / majorStepMm) - 1) * majorStepMm
+        // Issue #30 (Nullpunkt-Bug): das Raster wird jetzt am gewählten Nullpunkt selbst verankert
+        // (`originOffsetMillimeters`), nicht mehr an der absoluten Canvas-Ecke — sonst landete "0"
+        // nur zufällig (falls der Versatz ein ganzzahliges Vielfaches des Strichabstands war) exakt
+        // auf einem Strich, oft aber daneben und wurde dadurch gar nicht angezeigt.
+        let firstMajorMm = originOffsetMillimeters
+            + (floor(((-origin / scale) - originOffsetMillimeters) / majorStepMm) - 1) * majorStepMm
         let lastMm = (axisLengthDesign - origin) / scale + majorStepMm
 
         if drawMinorTicks {
@@ -256,11 +274,37 @@ struct CanvasView: View {
         }
     }
 
+    /// Issue #30 (Lineal-Positionsanzeiger): kleiner Punkt an der Ruler-Kante, der der Maus folgt
+    /// (Photoshop/Illustrator-Konvention) — `orientation` bestimmt, an welcher Kante (oben beim
+    /// horizontalen, links beim vertikalen Lineal). War ursprünglich als Dreieck geplant, aber ein
+    /// handgebauter `move/addLine/closeSubpath`-Pfad blieb aus ungeklärten Gründen unsichtbar
+    /// (vermutlich eine GraphicsContext-Eigenheit bei sehr kleinen, manuell konstruierten Pfaden) —
+    /// ein einfacher `Path(ellipseIn:)` rendert dagegen zuverlässig auf beiden Linealen.
+    private enum RulerCursorOrientation { case pointingDown, pointingRight }
+
+    private func drawRulerCursorMarker(
+        in context: inout GraphicsContext,
+        position: CGFloat,
+        orientation: RulerCursorOrientation
+    ) {
+        let markerSize: CGFloat = 6
+        let rect: CGRect
+        switch orientation {
+        case .pointingDown:
+            rect = CGRect(x: position - markerSize / 2, y: 0, width: markerSize, height: markerSize)
+        case .pointingRight:
+            rect = CGRect(x: 0, y: position - markerSize / 2, width: markerSize, height: markerSize)
+        }
+        context.fill(Path(ellipseIn: rect), with: .color(.accentColor))
+    }
+
     /// Oberes Lineal: X-Position in Design-Koordinaten (mm/Zoll je `AppSettings.preferredMeasurementUnit`).
     /// Läuft über die GESAMTE sichtbare Breite (nicht nur innerhalb der Canvas-Seitenränder) — bei
     /// weit rausgezoomter/verschobener Ansicht sind auch Positionen ausserhalb der Zeichenfläche
-    /// sichtbar, dieselbe Konvention wie in Illustrator/Figma.
-    private func horizontalRuler(width: CGFloat) -> some View {
+    /// sichtbar, dieselbe Konvention wie in Illustrator/Figma. `cursorViewPosition` (aus
+    /// `hoverViewLocation`, dieselbe lokale Koordinate wie der Canvas selbst) zeichnet den kleinen
+    /// Positionszeiger, `nil` solange die Maus nicht über dem Canvas ist.
+    private func horizontalRuler(width: CGFloat, cursorViewPosition: CGFloat?) -> some View {
         let scale = effectiveZoomScale
         let originX = effectivePanOffset.width
         let originOffset = rulerOriginOffsetXMillimeters
@@ -304,6 +348,9 @@ struct CanvasView: View {
                 at: CGPoint(x: size.width - 3, y: size.height - 2),
                 anchor: .bottomTrailing
             )
+            if let cursorViewPosition {
+                drawRulerCursorMarker(in: &context, position: cursorViewPosition, orientation: .pointingDown)
+            }
         }
         .frame(width: width, height: Self.rulerThickness)
         .clipped()
@@ -312,7 +359,7 @@ struct CanvasView: View {
 
     /// Linkes Lineal: Y-Position, gespiegelte Logik zu `horizontalRuler` (Text um 90° gedreht,
     /// damit er in der schmalen Spalte lesbar bleibt).
-    private func verticalRuler(height: CGFloat) -> some View {
+    private func verticalRuler(height: CGFloat, cursorViewPosition: CGFloat?) -> some View {
         let scale = effectiveZoomScale
         let originY = effectivePanOffset.height
         let originOffset = rulerOriginOffsetYMillimeters
@@ -351,6 +398,9 @@ struct CanvasView: View {
                     }
                 }
             )
+            if let cursorViewPosition {
+                drawRulerCursorMarker(in: &context, position: cursorViewPosition, orientation: .pointingRight)
+            }
         }
         .frame(width: Self.rulerThickness, height: height)
         .clipped()

@@ -24,6 +24,19 @@ enum DesignObjectKind: String, Codable, CaseIterable {
     case text
 }
 
+/// Issue #30: Ausrichtung des Randes relativ zur Pfadkontur — bislang lag der Rand immer
+/// `centered` (hälftig nach innen/aussen, das native Verhalten von SwiftUI/CoreGraphics-`stroke`
+/// UND von InkStitchs `stroke-width`). `inside`/`outside` versetzen die tatsächliche Stichgeometrie
+/// (siehe `bridge.py`, `cmd_generate_stitches`/`_offset_node_geometry`) um die halbe Randdicke nach
+/// innen bzw. aussen, statt nur die Canvas-Vorschau zu verschieben — Vorschau (`CanvasView`) und
+/// echte Stickerei (`StitchGenerationService.generateBorderStitches`) nutzen dieselbe Randdicke,
+/// bleiben also konsistent.
+enum BorderAlignment: String, Codable, CaseIterable {
+    case centered
+    case inside
+    case outside
+}
+
 @Model
 final class DesignObject {
     @Attribute(.unique) var id: UUID = UUID()
@@ -72,6 +85,7 @@ final class DesignObject {
     var hasFill: Bool = true
     var hasBorder: Bool = false
     var borderWidthMillimeters: Double = 0.3
+    var borderAlignment: BorderAlignment = BorderAlignment.centered
     var borderColorHex: String?
     var borderThreadColor: ThreadColor?
 

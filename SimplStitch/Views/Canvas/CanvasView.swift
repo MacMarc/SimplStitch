@@ -375,17 +375,25 @@ struct CanvasView: View {
                     objectContext.fill(path, with: .color(color))
                 }
                 if object.hasBorder {
-                    objectContext.stroke(path, with: .color(borderColor(for: object)), lineWidth: object.borderWidthMillimeters)
+                    drawBorder(path, object: object, in: &objectContext)
                 }
             case .path, .line:
-                // Bestehende Freihand-Pfade (hasBorder=false per Default) behalten ihr bisheriges
-                // Rendering (Strich in Füllfarbe, feste 0.3mm) bei — nur wenn der Rand explizit
-                // aktiviert ist (immer der Fall bei .line, siehe CanvasStore.makeLineObject),
-                // kommen die eigenen Randeinstellungen zum Einsatz.
+                // Issue #30: `hasFill` wurde hier bislang komplett ignoriert — ein `.path`-Objekt mit
+                // aktiver Füllung (z.B. jeder importierte SVG-Pfad, siehe SVGDesignSerializer) sah auf
+                // dem Canvas dauerhaft ungefüllt aus, erkennbar nur an der Stichvorschau, und die zeigt
+                // ausschliesslich das aktuell SELEKTIERTE Objekt (CanvasStore.refreshStitchPreview) —
+                // ohne Klick liess sich "ist das gefüllt?" gar nicht sehen. Jetzt wie bei
+                // rect/circle/star: `hasFill` zeichnet eine echte Flächenfüllung. `.line` hat per
+                // Definition nie `hasFill = true` (siehe DesignObjectKind-Doku), daher hier unverändert.
+                // Der bisherige 0.3mm-Strich in Füllfarbe bleibt NUR der Fallback, wenn weder Füllung
+                // noch Rand aktiv sind — sonst wäre der Pfad komplett unsichtbar.
                 let path = object.designSpacePath().applying(object.visualTransform)
+                if object.hasFill {
+                    objectContext.fill(path, with: .color(color))
+                }
                 if object.hasBorder {
-                    objectContext.stroke(path, with: .color(borderColor(for: object)), lineWidth: object.borderWidthMillimeters)
-                } else {
+                    drawBorder(path, object: object, in: &objectContext)
+                } else if !object.hasFill {
                     objectContext.stroke(path, with: .color(color), lineWidth: 0.3)
                 }
             case .text:
@@ -396,6 +404,34 @@ struct CanvasView: View {
 
     private func borderColor(for object: DesignObject) -> Color {
         Color(cgColor: CGColor.fromHex(object.borderColorHex ?? object.fillColorHex) ?? CGColor(gray: 0, alpha: 1))
+    }
+
+    /// Issue #30: Rand-Ausrichtung (`BorderAlignment`) — SwiftUI/CoreGraphics kennt keine native
+    /// Inside/Outside-Stroke-Option, ein Strich liegt immer zentriert auf der Kontur. Statt einer
+    /// echten Offset-Kurve (die es auf Swift-/CoreGraphics-Seite nicht gibt — die serverseitige
+    /// Stichgenerierung in `bridge.py` nutzt dafür Shapely) zeichnet die Vorschau einen doppelt
+    /// breiten zentrierten Strich und clippt ihn auf die Innen- bzw. Aussenhälfte des Original-
+    /// Pfads — eine praktische Näherung, die bei den allermeisten Formen visuell nicht von einer
+    /// echten Offset-Kurve zu unterscheiden ist (bewusste Vereinfachung, siehe Rand-Sektion im
+    /// Objekt-Inspektor). `.outside` nutzt den Even-Odd-Trick (grosses Rechteck + Original-Pfad in
+    /// einem gemeinsamen `Path`) statt echter Pfad-Subtraktion, die SwiftUI ebenfalls nicht bietet.
+    private func drawBorder(_ path: Path, object: DesignObject, in context: inout GraphicsContext) {
+        let strokeColor = borderColor(for: object)
+        switch object.borderAlignment {
+        case .centered:
+            context.stroke(path, with: .color(strokeColor), lineWidth: object.borderWidthMillimeters)
+        case .inside:
+            var clippedContext = context
+            clippedContext.clip(to: path)
+            clippedContext.stroke(path, with: .color(strokeColor), lineWidth: object.borderWidthMillimeters * 2)
+        case .outside:
+            var clippedContext = context
+            var outsideMask = Path()
+            outsideMask.addRect(path.boundingRect.insetBy(dx: -object.borderWidthMillimeters, dy: -object.borderWidthMillimeters))
+            outsideMask.addPath(path)
+            clippedContext.clip(to: outsideMask, style: FillStyle(eoFill: true))
+            clippedContext.stroke(path, with: .color(strokeColor), lineWidth: object.borderWidthMillimeters * 2)
+        }
     }
 
     /// Text wird nicht als `Path` gerendert, sondern über `GraphicsContext.draw(Text:at:)` — die

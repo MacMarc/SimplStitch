@@ -166,6 +166,12 @@ struct ObjectInspectorView: View {
                         unitLabel("inspector.border.width")
                     }
 
+                    Picker("inspector.border.alignment", selection: borderAlignmentBinding) {
+                        ForEach(BorderAlignment.allCases, id: \.self) { alignment in
+                            Text(displayName(for: alignment)).tag(alignment)
+                        }
+                    }
+
                     currentColorRow(hex: object.borderColorHex ?? object.fillColorHex, threadName: object.borderThreadColor?.name)
 
                     if projectThreadColors.isEmpty {
@@ -416,7 +422,21 @@ struct ObjectInspectorView: View {
     private var borderWidthBinding: Binding<Double> {
         Binding(
             get: { unit.value(fromMillimeters: object.borderWidthMillimeters) },
-            set: { object.borderWidthMillimeters = max(unit.millimeters(from: $0), 0.1) }
+            set: {
+                object.borderWidthMillimeters = max(unit.millimeters(from: $0), 0.1)
+                store.refreshStitchPreview()
+            }
+        )
+    }
+
+    /// Issue #30: Ausrichtung des Randes relativ zur Pfadkontur (zentriert/innen/aussen) —
+    /// beeinflusst sowohl die Canvas-Vorschau (`CanvasView.drawObjects`) als auch die echte
+    /// Stichgenerierung (`StitchGenerationService.generateBorderStitches` → `bridge.py`), daher
+    /// wie `borderWidthBinding` mit `refreshStitchPreview()` nach jeder Änderung.
+    private var borderAlignmentBinding: Binding<BorderAlignment> {
+        Binding(
+            get: { object.borderAlignment },
+            set: { object.borderAlignment = $0; store.refreshStitchPreview() }
         )
     }
 
@@ -465,6 +485,14 @@ struct ObjectInspectorView: View {
         case .tatami: return String(localized: "inspector.stitch.type.tatami")
         case .straight: return String(localized: "inspector.stitch.type.straight")
         case .satin: return String(localized: "inspector.stitch.type.satin")
+        }
+    }
+
+    private func displayName(for alignment: BorderAlignment) -> String {
+        switch alignment {
+        case .centered: return String(localized: "inspector.border.alignment.centered")
+        case .inside: return String(localized: "inspector.border.alignment.inside")
+        case .outside: return String(localized: "inspector.border.alignment.outside")
         }
     }
 

@@ -234,6 +234,14 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             "data-ss-skew-x=\"\(fmt(object.skewXDegrees))\"",
             "data-ss-skew-y=\"\(fmt(object.skewYDegrees))\"",
             "fill=\"\(object.borderColorHex ?? object.fillColorHex)\"",
+            // Issue #30: `borderWidthMillimeters` floss bislang NIE in die echte Stichgenerierung
+            // ein — nur in die Canvas-Vorschau (SwiftUI-`lineWidth`). InkStitchs `stroke_width`-
+            // Property (Vendor/inkstitch_lib/lib/elements/element.py) liest exakt dieses SVG-
+            // `style="stroke-width:…"`-Attribut (Default sonst 1.0 "px", unabhängig von unserer
+            // Einstellung) — bestimmt bei Satin die Schienenbreite, bei Rand-Tatami die Füllbreite
+            // relativ zum Pfad. Die "mm"-Einheit lässt inkex selbst korrekt in sein internes
+            // px-Mass umrechnen, statt hier den PIXELS_PER_MM-Faktor von Hand nachzubilden.
+            "style=\"stroke-width:\(fmt(object.borderWidthMillimeters))mm\"",
         ]
         attrs.append(contentsOf: stitchAttributes(for: settings))
         return attrs.joined(separator: " ")
@@ -253,6 +261,7 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             "data-ss-has-fill=\"\(object.hasFill)\"",
             "data-ss-has-border=\"\(object.hasBorder)\"",
             "data-ss-border-width=\"\(fmt(object.borderWidthMillimeters))\"",
+            "data-ss-border-alignment=\"\(object.borderAlignment.rawValue)\"",
         ]
         if let groupID = object.groupID {
             attrs.append("data-ss-group=\"\(groupID.uuidString)\"")
@@ -534,6 +543,7 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             }
             object.hasBorder = (attrs["data-ss-has-border"] ?? "false") == "true"
             object.borderWidthMillimeters = parseDouble(attrs["data-ss-border-width"]) ?? 0.3
+            object.borderAlignment = BorderAlignment(rawValue: attrs["data-ss-border-alignment"] ?? "") ?? .centered
             object.borderColorHex = attrs["data-ss-border-color"]
             if let borderStitchTypeRaw = attrs["data-ss-border-stitch-type"],
                let borderStitchType = StitchType(rawValue: borderStitchTypeRaw) {

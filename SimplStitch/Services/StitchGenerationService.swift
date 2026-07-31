@@ -70,19 +70,32 @@ final class StitchGenerationService: StitchGenerationServicing {
               let objectSvg = svgSerializer.generationBorderElement(for: object) else {
             throw StitchGenerationError.missingStitchSettings
         }
-        return try await generate(objectSvg: objectSvg, stitchType: stitchType, canvasSize: canvasSize)
-    }
-
-    private func generate(objectSvg: String, stitchType: StitchType, canvasSize: CGSize) async throws -> [StitchPoint] {
-        let result = try await bridge.send(
-            command: "generate_stitches",
-            payload: [
-                "canvasWidthMm": Double(canvasSize.width),
-                "canvasHeightMm": Double(canvasSize.height),
-                "objectSvg": objectSvg,
-                "stitchType": stitchType.rawValue,
+        // Issue #30: `borderAlignment` (innen/aussen) braucht echtes Pfad-Offsetting VOR der
+        // InkStitch-Übergabe, das nur serverseitig (Shapely, siehe bridge.py) möglich ist — anders
+        // als Rotation/Skew (Issue #30 Punkt 1) reicht hier kein SVG-`transform`-Attribut, da eine
+        // Verschiebung der Kontur selbst nötig ist, keine affine Transformation. `centered` braucht
+        // kein Offsetting (bereits die native Bedeutung von `stroke-width`), wird aber trotzdem
+        // mitgeschickt, damit bridge.py nicht zwischen "kein Wert" und "zentriert" unterscheiden muss.
+        return try await generate(
+            objectSvg: objectSvg,
+            stitchType: stitchType,
+            canvasSize: canvasSize,
+            extraPayload: [
+                "borderWidthMm": object.borderWidthMillimeters,
+                "borderAlignment": object.borderAlignment.rawValue,
             ]
         )
+    }
+
+    private func generate(objectSvg: String, stitchType: StitchType, canvasSize: CGSize, extraPayload: [String: Any] = [:]) async throws -> [StitchPoint] {
+        var payload: [String: Any] = [
+            "canvasWidthMm": Double(canvasSize.width),
+            "canvasHeightMm": Double(canvasSize.height),
+            "objectSvg": objectSvg,
+            "stitchType": stitchType.rawValue,
+        ]
+        payload.merge(extraPayload) { _, new in new }
+        let result = try await bridge.send(command: "generate_stitches", payload: payload)
 
         guard let rawStitches = result["stitches"] as? [[Any]] else {
             throw PythonBridgeError.invalidResponse("Antwort enthält kein 'stitches'-Feld")

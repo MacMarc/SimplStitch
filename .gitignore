@@ -20,6 +20,8 @@ Pods/
 # Python-Runtime (wird per Scripts/bundle_python.sh gebündelt statt eingecheckt)
 /PythonRuntime/
 /.build-cache/
+__pycache__/
+*.pyc
 
 # Notarisierung / lokale Signierartefakte
 *.p12

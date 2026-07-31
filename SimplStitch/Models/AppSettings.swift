@@ -95,13 +95,26 @@ final class AppSettings {
     /// schon über `?? .medium` (ContentView/SettingsView).
     var toolbarSize: ToolbarSize?
 
+    /// Issue #30 (Lineal): Nullpunkt der Lineal-BESCHRIFTUNG auf die Canvas-Mitte statt die obere
+    /// linke Ecke — rein optisch (die tatsächlichen `positionX`/`positionY`-Koordinaten der Objekte,
+    /// Export/Stichgenerierung bleiben unverändert auf der Ecke). Bewusst `Optional` statt `= false`
+    /// — derselbe Bugfix-Präzedenzfall wie bei `toolbarSize` oben (SIGABRT bei einem bestehenden
+    /// AppSettings-Datensatz mit NULL-Spalte für ein nachträglich hinzugefügtes, nicht-optionales
+    /// Feld). Alle Lesestellen nutzen `?? false`.
+    var rulerOriginXCentered: Bool?
+    var rulerOriginYCentered: Bool?
+
     init(
         preferredMeasurementUnit: MeasurementUnit = .millimeters,
         maxRecentProjects: Int = 10,
-        toolbarSize: ToolbarSize = .medium
+        toolbarSize: ToolbarSize = .medium,
+        rulerOriginXCentered: Bool = false,
+        rulerOriginYCentered: Bool = false
     ) {
         self.preferredMeasurementUnit = preferredMeasurementUnit
         self.maxRecentProjects = maxRecentProjects
         self.toolbarSize = toolbarSize
+        self.rulerOriginXCentered = rulerOriginXCentered
+        self.rulerOriginYCentered = rulerOriginYCentered
     }
 }

@@ -133,6 +133,24 @@ struct SettingsView: View {
                     Text("settings.unit.millimeters").tag(MeasurementUnit.millimeters)
                     Text("settings.unit.inches").tag(MeasurementUnit.inches)
                 }
+
+                // Issue #30: rein optische Verschiebung der Lineal-BESCHRIFTUNG — betrifft weder
+                // die gespeicherten Objektkoordinaten noch Export/Stichgenerierung (siehe
+                // CanvasView.rulerLabel-Offset-Kommentar).
+                Toggle(
+                    "settings.ruler.originXCentered",
+                    isOn: Binding(
+                        get: { settings.rulerOriginXCentered ?? false },
+                        set: { settings.rulerOriginXCentered = $0 }
+                    )
+                )
+                Toggle(
+                    "settings.ruler.originYCentered",
+                    isOn: Binding(
+                        get: { settings.rulerOriginYCentered ?? false },
+                        set: { settings.rulerOriginYCentered = $0 }
+                    )
+                )
             }
 
             Section("settings.section.threads") {

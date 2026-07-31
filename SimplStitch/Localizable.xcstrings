@@ -2023,6 +2023,38 @@
         }
       }
     },
+    "settings.ruler.originXCentered" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lineal-Nullpunkt X-Achse mittig"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ruler Origin X-Axis Centered"
+          }
+        }
+      }
+    },
+    "settings.ruler.originYCentered" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lineal-Nullpunkt Y-Achse mittig"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ruler Origin Y-Axis Centered"
+          }
+        }
+      }
+    },
     "settings.palettes.disableAll" : {
       "localizations" : {
         "de" : {

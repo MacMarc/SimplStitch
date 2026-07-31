@@ -140,29 +140,48 @@ struct CanvasView: View {
 
     // MARK: Lineal (Issue #30)
 
-    /// "Nice" Zahlen in der jeweiligen Anzeige-Einheit (mm/Zoll) — dieselbe Idee wie ein
-    /// 1/2/5-Dekaden-Raster auf Papierlinealen. Wählt die kleinste, die auf dem aktuellen Zoom
-    /// mindestens `minPixelSpacing` zwischen zwei beschrifteten Strichen ergibt, sonst würden sich
-    /// Beschriftungen bei starkem Rauszoomen überlappen.
+    /// "Nice" Zahlen in der jeweiligen Anzeige-Einheit — für mm das klassische 1/2/5-Dekaden-Raster
+    /// von Papiralinealen, für Zoll die klassische Halbierungsfolge echter Zollmassstäbe/Bandmasse
+    /// (1", 1/2", 1/4", 1/8", …) statt Dezimalbrüchen. `rulerMajorStepValueInUnit` wählt die
+    /// kleinste, die auf dem aktuellen Zoom mindestens `minMajorPixelSpacing` zwischen zwei
+    /// beschrifteten Strichen ergibt, sonst würden sich Beschriftungen beim Rauszoomen überlappen.
     private static let niceStepsMillimeters: [Double] = [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000]
-    private static let niceStepsInches: [Double] = [0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 50, 100]
+    private static let niceStepsInches: [Double] = [
+        1.0 / 64, 1.0 / 32, 1.0 / 16, 1.0 / 8, 1.0 / 4, 1.0 / 2, 1, 2, 4, 8, 16, 32, 64, 128, 256,
+    ]
 
-    private func rulerMajorStepMillimeters() -> Double {
-        let minPixelSpacing: Double = 45
+    private func rulerMajorStepValueInUnit() -> Double {
+        let minMajorPixelSpacing: Double = 45
         let stepsInUnit = unit == .millimeters ? Self.niceStepsMillimeters : Self.niceStepsInches
         for step in stepsInUnit {
             let stepMm = unit.millimeters(from: step)
-            if stepMm * Double(effectiveZoomScale) >= minPixelSpacing {
-                return stepMm
+            if stepMm * Double(effectiveZoomScale) >= minMajorPixelSpacing {
+                return step
             }
         }
-        return unit.millimeters(from: stepsInUnit.last ?? 1000)
+        return stepsInUnit.last ?? 1000
+    }
+
+    /// Wie viele Minor-Striche zwischen zwei Major-Strichen liegen — mm folgt dem Leitziffer-Muster
+    /// echter Massstäbe (führende 1 → 10 Unterteilungen wie 10mm→1mm, führende 2 → 4 wie 20mm→5mm,
+    /// führende 5 → 5 wie 50mm→10mm), Zoll halbiert einfach jede Stufe (1/2, 1/4, 1/8, …).
+    private func rulerMinorSubdivisionFactor(majorStepValueInUnit: Double) -> Int {
+        guard unit == .millimeters else { return 2 }
+        let magnitude = pow(10, floor(log10(majorStepValueInUnit)))
+        let leadingDigit = (majorStepValueInUnit / magnitude).rounded()
+        switch leadingDigit {
+        case 2: return 4
+        case 5: return 5
+        default: return 10
+        }
     }
 
     /// Zeigt die Beschriftung ohne unnötige Nachkommastellen (z.B. "10" statt "10.0", aber "0.5"
-    /// bleibt bei Zoll-Zwischenschritten erhalten).
-    private func rulerLabel(forMillimeters millimeters: Double) -> String {
-        let value = unit.value(fromMillimeters: millimeters)
+    /// bleibt bei Zoll-Zwischenschritten erhalten). `originOffsetMillimeters` verschiebt NUR die
+    /// angezeigte Zahl (Nullpunkt-Zentrierung, siehe `rulerOriginOffsetXMillimeters`/…Y…) — die
+    /// tatsächliche Strich-POSITION bleibt unverändert an der realen Design-Koordinate.
+    private func rulerLabel(forMillimeters millimeters: Double, originOffsetMillimeters: Double) -> String {
+        let value = unit.value(fromMillimeters: millimeters - originOffsetMillimeters)
         let rounded = (value * 1000).rounded() / 1000
         if rounded == rounded.rounded() {
             return String(Int(rounded))
@@ -170,9 +189,72 @@ struct CanvasView: View {
         return String(format: "%g", rounded)
     }
 
+    /// Issue #30 (Nullpunkt zentrieren): rein optischer Versatz der Lineal-BESCHRIFTUNG, wenn
+    /// `AppSettings.rulerOriginXCentered`/`…YCentered` aktiv ist — `object.positionX`/`positionY`,
+    /// Export und Stichgenerierung bleiben unverändert auf der oberen linken Ecke verankert, nur die
+    /// gedruckte Zahl auf dem Lineal verschiebt sich um die halbe Canvas-Breite/-Höhe. Da dieser
+    /// Versatz i.A. kein ganzzahliges Vielfaches des Strichabstands ist, zeigt der Strich an der
+    /// tatsächlichen Mitte nicht zwingend exakt "0" (z.B. "-3" statt "0" bei ungerader Canvasgrösse)
+    /// — dasselbe erwartete Verhalten wie ein manuell verschobener Lineal-Nullpunkt in Illustrator.
+    private var rulerOriginOffsetXMillimeters: Double {
+        guard appSettingsList.first?.rulerOriginXCentered ?? false else { return 0 }
+        return store.canvasSizeMillimeters.width / 2
+    }
+
+    private var rulerOriginOffsetYMillimeters: Double {
+        guard appSettingsList.first?.rulerOriginYCentered ?? false else { return 0 }
+        return store.canvasSizeMillimeters.height / 2
+    }
+
+    // Issue #30 (Kontrast-Feedback): `.separatorColor`/`.secondaryLabelColor` waren als reine
+    // Trennlinien-/Sekundärtöne kaum lesbar. Major-Striche/Zahlen nutzen jetzt die primäre
+    // Text-/Inhaltsfarbe (`.labelColor`), Minor-Striche bleiben bewusst dezenter (`.tertiaryLabelColor`)
+    // — die dadurch entstehende Abstufung ist genau der gewünschte "10/20mm heben sich ab"-Effekt.
     private var rulerBackgroundColor: Color { Color(nsColor: .controlBackgroundColor) }
-    private var rulerTickColor: Color { Color(nsColor: .separatorColor) }
-    private var rulerLabelColor: Color { Color(nsColor: .secondaryLabelColor) }
+    private var rulerMajorTickColor: Color { Color(nsColor: .labelColor) }
+    private var rulerMinorTickColor: Color { Color(nsColor: .secondaryLabelColor) }
+    private var rulerLabelColor: Color { Color(nsColor: .labelColor) }
+    private var rulerBorderColor: Color { Color(nsColor: .separatorColor) }
+
+    /// Zeichnet Minor- (kurz, dezent) und Major-Striche (lang, kräftig, beschriftet) für eine Achse.
+    /// `tickAt`/`labelAt` bekommen die View-Position des jeweiligen Strichs; gemeinsame Iteration für
+    /// horizontales und vertikales Lineal, nur die Zeichen-Closures unterscheiden sich (siehe Aufrufer).
+    private func drawRulerTicks(
+        axisLengthDesign: Double,
+        origin: Double,
+        scale: CGFloat,
+        originOffsetMillimeters: Double,
+        minorTick: (Double) -> Void,
+        majorTick: (Double, String) -> Void
+    ) {
+        guard scale > 0 else { return }
+        let majorStepValueInUnit = rulerMajorStepValueInUnit()
+        let majorStepMm = unit.millimeters(from: majorStepValueInUnit)
+        let subdivisionFactor = rulerMinorSubdivisionFactor(majorStepValueInUnit: majorStepValueInUnit)
+        let minorStepMm = majorStepMm / Double(subdivisionFactor)
+        let minMinorPixelSpacing: Double = 6
+        let drawMinorTicks = minorStepMm * Double(scale) >= minMinorPixelSpacing
+
+        let firstMajorMm = (floor((-origin / scale) / majorStepMm) - 1) * majorStepMm
+        let lastMm = (axisLengthDesign - origin) / scale + majorStepMm
+
+        if drawMinorTicks {
+            var mm = firstMajorMm
+            while mm <= lastMm {
+                for step in 1..<subdivisionFactor {
+                    let minorMm = mm + minorStepMm * Double(step)
+                    minorTick(origin + minorMm * scale)
+                }
+                mm += majorStepMm
+            }
+        }
+
+        var mm = firstMajorMm
+        while mm <= lastMm {
+            majorTick(origin + mm * scale, rulerLabel(forMillimeters: mm, originOffsetMillimeters: originOffsetMillimeters))
+            mm += majorStepMm
+        }
+    }
 
     /// Oberes Lineal: X-Position in Design-Koordinaten (mm/Zoll je `AppSettings.preferredMeasurementUnit`).
     /// Läuft über die GESAMTE sichtbare Breite (nicht nur innerhalb der Canvas-Seitenränder) — bei
@@ -181,42 +263,51 @@ struct CanvasView: View {
     private func horizontalRuler(width: CGFloat) -> some View {
         let scale = effectiveZoomScale
         let originX = effectivePanOffset.width
-        let stepMm = rulerMajorStepMillimeters()
+        let originOffset = rulerOriginOffsetXMillimeters
         let unitLabel = unit.symbol
 
         return Canvas { context, size in
             context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(rulerBackgroundColor))
 
-            guard scale > 0 else { return }
-            let firstMm = (floor((-originX / scale) / stepMm) - 1) * stepMm
-            let lastMm = (size.width - originX) / scale + stepMm
-
-            var mm = firstMm
-            while mm <= lastMm {
-                let viewX = originX + mm * scale
-                context.stroke(
-                    Path { path in
-                        path.move(to: CGPoint(x: viewX, y: size.height - 7))
-                        path.addLine(to: CGPoint(x: viewX, y: size.height))
-                    },
-                    with: .color(rulerTickColor)
-                )
-                context.draw(
-                    Text(rulerLabel(forMillimeters: mm)).font(.system(size: 9)).foregroundStyle(rulerLabelColor),
-                    at: CGPoint(x: viewX + 2, y: 4),
-                    anchor: .topLeading
-                )
-                mm += stepMm
-            }
+            drawRulerTicks(
+                axisLengthDesign: size.width,
+                origin: originX,
+                scale: scale,
+                originOffsetMillimeters: originOffset,
+                minorTick: { viewX in
+                    context.stroke(
+                        Path { path in
+                            path.move(to: CGPoint(x: viewX, y: size.height - 4))
+                            path.addLine(to: CGPoint(x: viewX, y: size.height))
+                        },
+                        with: .color(rulerMinorTickColor)
+                    )
+                },
+                majorTick: { viewX, label in
+                    context.stroke(
+                        Path { path in
+                            path.move(to: CGPoint(x: viewX, y: size.height - 9))
+                            path.addLine(to: CGPoint(x: viewX, y: size.height))
+                        },
+                        with: .color(rulerMajorTickColor),
+                        lineWidth: 1.2
+                    )
+                    context.draw(
+                        Text(label).font(.system(size: 9.5, weight: .medium)).foregroundStyle(rulerLabelColor),
+                        at: CGPoint(x: viewX + 2, y: 3),
+                        anchor: .topLeading
+                    )
+                }
+            )
             context.draw(
-                Text(unitLabel).font(.system(size: 8)).foregroundStyle(rulerLabelColor),
+                Text(unitLabel).font(.system(size: 8)).foregroundStyle(rulerMinorTickColor),
                 at: CGPoint(x: size.width - 3, y: size.height - 2),
                 anchor: .bottomTrailing
             )
         }
         .frame(width: width, height: Self.rulerThickness)
         .clipped()
-        .border(rulerTickColor, width: 0.5)
+        .border(rulerBorderColor, width: 0.5)
     }
 
     /// Linkes Lineal: Y-Position, gespiegelte Logik zu `horizontalRuler` (Text um 90° gedreht,
@@ -224,37 +315,46 @@ struct CanvasView: View {
     private func verticalRuler(height: CGFloat) -> some View {
         let scale = effectiveZoomScale
         let originY = effectivePanOffset.height
-        let stepMm = rulerMajorStepMillimeters()
+        let originOffset = rulerOriginOffsetYMillimeters
 
         return Canvas { context, size in
             context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(rulerBackgroundColor))
 
-            guard scale > 0 else { return }
-            let firstMm = (floor((-originY / scale) / stepMm) - 1) * stepMm
-            let lastMm = (size.height - originY) / scale + stepMm
-
-            var mm = firstMm
-            while mm <= lastMm {
-                let viewY = originY + mm * scale
-                context.stroke(
-                    Path { path in
-                        path.move(to: CGPoint(x: size.width - 7, y: viewY))
-                        path.addLine(to: CGPoint(x: size.width, y: viewY))
-                    },
-                    with: .color(rulerTickColor)
-                )
-                let text = Text(rulerLabel(forMillimeters: mm)).font(.system(size: 9)).foregroundStyle(rulerLabelColor)
-                context.drawLayer { layerContext in
-                    layerContext.translateBy(x: 4, y: viewY + 2)
-                    layerContext.rotate(by: .degrees(-90))
-                    layerContext.draw(text, at: .zero, anchor: .topLeading)
+            drawRulerTicks(
+                axisLengthDesign: size.height,
+                origin: originY,
+                scale: scale,
+                originOffsetMillimeters: originOffset,
+                minorTick: { viewY in
+                    context.stroke(
+                        Path { path in
+                            path.move(to: CGPoint(x: size.width - 4, y: viewY))
+                            path.addLine(to: CGPoint(x: size.width, y: viewY))
+                        },
+                        with: .color(rulerMinorTickColor)
+                    )
+                },
+                majorTick: { viewY, label in
+                    context.stroke(
+                        Path { path in
+                            path.move(to: CGPoint(x: size.width - 9, y: viewY))
+                            path.addLine(to: CGPoint(x: size.width, y: viewY))
+                        },
+                        with: .color(rulerMajorTickColor),
+                        lineWidth: 1.2
+                    )
+                    let text = Text(label).font(.system(size: 9.5, weight: .medium)).foregroundStyle(rulerLabelColor)
+                    context.drawLayer { layerContext in
+                        layerContext.translateBy(x: 3, y: viewY + 2)
+                        layerContext.rotate(by: .degrees(-90))
+                        layerContext.draw(text, at: .zero, anchor: .topLeading)
+                    }
                 }
-                mm += stepMm
-            }
+            )
         }
         .frame(width: Self.rulerThickness, height: height)
         .clipped()
-        .border(rulerTickColor, width: 0.5)
+        .border(rulerBorderColor, width: 0.5)
     }
 
     /// Leere Ecke oben links, wo sich beide Lineale träfen.
@@ -262,7 +362,7 @@ struct CanvasView: View {
         Rectangle()
             .fill(rulerBackgroundColor)
             .frame(width: Self.rulerThickness, height: Self.rulerThickness)
-            .border(rulerTickColor, width: 0.5)
+            .border(rulerBorderColor, width: 0.5)
     }
 
     /// Doppelklick auf ein Text-Objekt mit dem Auswahl-Werkzeug startet die Inline-Bearbeitung.

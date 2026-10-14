@@ -57,6 +57,14 @@ struct SimplStitchCommands: Commands {
                 Text("menu.file.backgroundImage")
             }
             .disabled(canvasStore == nil)
+
+            // Issue #3: Bild → Stichdatei, auch über die Toolbar (Zauberstab) erreichbar.
+            Button {
+                canvasStore?.isImageTracePickerPresented = true
+            } label: {
+                Text("menu.file.traceImage")
+            }
+            .disabled(canvasStore == nil)
         }
 
         CommandGroup(after: .pasteboard) {

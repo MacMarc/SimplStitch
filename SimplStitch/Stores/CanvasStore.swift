@@ -2069,6 +2069,10 @@ final class CanvasStore {
     /// (`ProjectInspectorView`, hat `store` bereits direkt) gesetzt, kein eigener FocusedValueKey nötig.
     var isBackgroundImagePickerPresented = false
 
+    /// Issue #3: "Bild nachzeichnen…" — dasselbe Flag-Muster wie `isBackgroundImagePickerPresented`
+    /// (Menü und Toolbar setzen es, `ContentView` zeigt Dateiauswahl und Optionen-Sheet).
+    var isImageTracePickerPresented = false
+
     /// Entfernen muss über `StitchDesignDocument.removeBackgroundImage()` laufen (nicht nur
     /// `project.backgroundImageFileName` zurücksetzen) — nur das Dokument weiss, dass beim nächsten
     /// Speichern `assets/` tatsächlich weggelassen werden muss (`pendingBackgroundImageChange`,

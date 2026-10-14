@@ -81,6 +81,29 @@ struct SwiftDataModelsTests {
         #expect(try context.fetchCount(FetchDescriptor<StitchSettings>()) == 0)
     }
 
+    /// Issue #31: Hilfslinien überleben Speichern + Neu-Laden, und ein Projekt mit Hilfslinien
+    /// lässt sich löschen (ein direktes `[Guide]`-Attribut brachte SwiftData hier zum Absturz).
+    @Test func projectGuidesRoundtripAndSurviveDelete() throws {
+        let context = try makeInMemoryContext()
+
+        let project = StitchProject(name: "Hilfslinien", lastKnownPath: "/tmp/Hilfslinien.stitchdesign")
+        #expect(project.guides.isEmpty)
+        project.guides = [
+            Guide(orientation: .horizontal, position: 12.5),
+            Guide(orientation: .vertical, position: 40),
+        ]
+        context.insert(project)
+        try context.save()
+
+        let fetched = try #require(try context.fetch(FetchDescriptor<StitchProject>()).first)
+        #expect(fetched.guides.map(\.orientation) == [.horizontal, .vertical])
+        #expect(fetched.guides.map(\.position) == [12.5, 40])
+
+        context.delete(fetched)
+        try context.save()
+        #expect(try context.fetchCount(FetchDescriptor<StitchProject>()) == 0)
+    }
+
     @Test func threadPaletteWithColorsRoundtrips() throws {
         let context = try makeInMemoryContext()
 

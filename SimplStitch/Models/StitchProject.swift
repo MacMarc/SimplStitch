@@ -50,7 +50,16 @@ final class StitchProject {
     /// (`<line data-ss-role="guide">`, siehe SVGDesignSerializer) wie der restliche Inhalt.
     /// StitchProject liegt in keinem SQLite-Store (nicht im Schema von SimplStitchApp), daher kein
     /// Migrationsrisiko durch das neue Feld — anders als bei AppSettings (`toolbarSize`-Präzedenzfall).
-    var guides: [Guide] = []
+    ///
+    /// Gespeichert als JSON-`Data` statt direkt als `[Guide]`: SwiftData stürzt bei einem
+    /// Codable-Array-Attribut ab ("collection of codable but it failed to cast to a sequence"),
+    /// sobald der gespeicherte Wert nil ist, z.B. beim Löschen/Cascade eines Projekts.
+    private var guidesData: Data?
+
+    var guides: [Guide] {
+        get { guidesData.flatMap { try? JSONDecoder().decode([Guide].self, from: $0) } ?? [] }
+        set { guidesData = newValue.isEmpty ? nil : try? JSONEncoder().encode(newValue) }
+    }
 
     @Relationship(deleteRule: .cascade, inverse: \DesignObject.project)
     var objects: [DesignObject] = []

@@ -51,6 +51,10 @@ enum DesignSystem {
     /// Issue #31: Hilfslinien in Türkis wie klassische Photoshop-Guides — bewusst unterscheidbar von
     /// `.accentColor` (Selektion, Griffe, Lineal-Positionszeiger).
     static let guide = Color(nsColor: .systemTeal)
+
+    /// Issue #31 (Phase 2): temporäre Ausrichtungslinie beim Einrasten — Magenta wie die Smart Guides
+    /// in Illustrator/Figma, damit sie sich von den türkisen Hilfslinien abhebt.
+    static let snapLine = Color(nsColor: .systemPink)
 }
 
 /// Sektionsüberschrift für Inspector-/Einstellungen-Formulare — einheitlich `.headline` statt

@@ -335,7 +335,10 @@ struct CanvasRulers: View {
                 if store.draftGuide == nil {
                     store.beginNewGuide(orientation: orientation, atDesignPoint: designPoint)
                 } else {
-                    store.updateNewGuide(toDesignPoint: designPoint)
+                    store.updateNewGuide(
+                        toDesignPoint: designPoint,
+                        disableSnapping: NSEvent.modifierFlags.contains(.command)
+                    )
                 }
             }
             .onEnded { value in

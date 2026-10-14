@@ -108,7 +108,7 @@ protocol ImageTracing {
 
 /// Schlägt pro nachgezeichneter Fläche einen Stichtyp vor. Eigene Schnittstelle, damit später ein
 /// Apple-Intelligence- oder Plugin-Modell die Regeln ersetzen kann, ohne den Rest anzufassen.
-protocol StitchTypeSuggesting {
+nonisolated protocol StitchTypeSuggesting {
     func suggestedStitchType(for region: TracedRegion) -> StitchType
 }
 

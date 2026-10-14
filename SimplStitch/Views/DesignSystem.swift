@@ -48,6 +48,9 @@ enum DesignSystem {
     static let rulerMajorTick = Color(nsColor: .labelColor)
     static let rulerMinorTick = Color(nsColor: .secondaryLabelColor)
     static let rulerBorder = Color(nsColor: .separatorColor)
+    /// Issue #31: Hilfslinien in Türkis wie klassische Photoshop-Guides — bewusst unterscheidbar von
+    /// `.accentColor` (Selektion, Griffe, Lineal-Positionszeiger).
+    static let guide = Color(nsColor: .systemTeal)
 }
 
 /// Sektionsüberschrift für Inspector-/Einstellungen-Formulare — einheitlich `.headline` statt

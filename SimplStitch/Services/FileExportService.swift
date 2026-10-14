@@ -117,7 +117,9 @@ final class FileExportService: FileExportServicing {
             backgroundImageFileName: nil,
             backgroundImageOpacity: 1.0,
             isBackgroundImageVisible: true,
-            defaultThreadPaletteID: nil
+            defaultThreadPaletteID: nil,
+            // Hilfslinien (Issue #31) sind reine Arbeitshilfen und gehören nicht in den Export.
+            guides: []
         )
         try svg.write(to: url, atomically: true, encoding: .utf8)
 

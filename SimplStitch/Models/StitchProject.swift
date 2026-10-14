@@ -46,6 +46,12 @@ final class StitchProject {
     /// lassen sich nicht über eine Relationship verbinden.
     var defaultThreadPaletteID: UUID?
 
+    /// Issue #31: Hilfslinien des Projekts. Persistiert über `content.svg`
+    /// (`<line data-ss-role="guide">`, siehe SVGDesignSerializer) wie der restliche Inhalt.
+    /// StitchProject liegt in keinem SQLite-Store (nicht im Schema von SimplStitchApp), daher kein
+    /// Migrationsrisiko durch das neue Feld — anders als bei AppSettings (`toolbarSize`-Präzedenzfall).
+    var guides: [Guide] = []
+
     @Relationship(deleteRule: .cascade, inverse: \DesignObject.project)
     var objects: [DesignObject] = []
 

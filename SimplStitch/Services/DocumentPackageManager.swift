@@ -95,7 +95,8 @@ final class DocumentPackageManager: DocumentPackageManaging {
             backgroundImageFileName: project.backgroundImageFileName,
             backgroundImageOpacity: project.backgroundImageOpacity,
             isBackgroundImageVisible: project.isBackgroundImageVisible,
-            defaultThreadPaletteID: project.defaultThreadPaletteID
+            defaultThreadPaletteID: project.defaultThreadPaletteID,
+            guides: project.guides
         )
         try svg.write(to: packageURL.appendingPathComponent("content.svg"), atomically: true, encoding: .utf8)
 
@@ -131,6 +132,7 @@ final class DocumentPackageManager: DocumentPackageManaging {
         project.backgroundImageOpacity = decoded.backgroundImageOpacity
         project.isBackgroundImageVisible = decoded.isBackgroundImageVisible
         project.defaultThreadPaletteID = decoded.defaultThreadPaletteID
+        project.guides = decoded.guides
         project.objects = decoded.objects
         for object in decoded.objects {
             object.project = project
@@ -146,7 +148,8 @@ final class DocumentPackageManager: DocumentPackageManaging {
             backgroundImageFileName: project.backgroundImageFileName,
             backgroundImageOpacity: project.backgroundImageOpacity,
             isBackgroundImageVisible: project.isBackgroundImageVisible,
-            defaultThreadPaletteID: project.defaultThreadPaletteID
+            defaultThreadPaletteID: project.defaultThreadPaletteID,
+            guides: project.guides
         )
         guard let svgData = svg.data(using: .utf8) else {
             throw DocumentPackageError.previewRenderingFailed
@@ -176,6 +179,7 @@ final class DocumentPackageManager: DocumentPackageManaging {
         project.backgroundImageOpacity = decoded.backgroundImageOpacity
         project.isBackgroundImageVisible = decoded.isBackgroundImageVisible
         project.defaultThreadPaletteID = decoded.defaultThreadPaletteID
+        project.guides = decoded.guides
         project.objects = decoded.objects
         for object in decoded.objects {
             object.project = project

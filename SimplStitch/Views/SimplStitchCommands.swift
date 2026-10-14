@@ -195,6 +195,39 @@ struct SimplStitchCommands: Commands {
 
             Divider()
 
+            // Issue #31: Hilfslinien. Hauptweg ist das Ziehen aus dem Lineal, das Menü deckt
+            // dieselben Funktionen ohne Maus ab (CLAUDE.md: jede Funktion auch über die Menüleiste).
+            Button {
+                canvasStore?.areGuidesVisible.toggle()
+            } label: {
+                Text((canvasStore?.areGuidesVisible ?? true) ? LocalizedStringKey("menu.view.hideGuides") : LocalizedStringKey("menu.view.showGuides"))
+            }
+            .keyboardShortcut(";", modifiers: .command)
+            .disabled(canvasStore == nil)
+
+            Button {
+                canvasStore?.addGuideAtCanvasCenter(orientation: .horizontal)
+            } label: {
+                Text("menu.view.addHorizontalGuide")
+            }
+            .disabled(canvasStore == nil)
+
+            Button {
+                canvasStore?.addGuideAtCanvasCenter(orientation: .vertical)
+            } label: {
+                Text("menu.view.addVerticalGuide")
+            }
+            .disabled(canvasStore == nil)
+
+            Button {
+                canvasStore?.removeAllGuides()
+            } label: {
+                Text("menu.view.clearGuides")
+            }
+            .disabled(canvasStore?.guides.isEmpty ?? true)
+
+            Divider()
+
             Button {
                 isInspectorPresented?.wrappedValue.toggle()
             } label: {

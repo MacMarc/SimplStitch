@@ -91,6 +91,10 @@ final class CanvasStore {
             canvasHeightMillimeters: canvasSizeMillimeters.height
         )
         self.init(project: project, zoomScale: zoomScale, panOffset: panOffset, stitchGenerationService: stitchGenerationService)
+        // Issue #31: dieser Convenience-Init dient nur Tests und Previews (das echte Dokumentfenster
+        // nutzt `init(project:)`). Einrasten ist hier aus, damit von Hand durchgerechnete Drag-
+        // Ergebnisse nicht zufällig an Canvas-Kanten/-Mitten einrasten — Snap-Tests schalten es explizit ein.
+        isSnappingEnabled = false
     }
 
     func setZoomScale(_ newValue: CGFloat) {
@@ -881,6 +885,7 @@ final class CanvasStore {
         transformDragStartPoint = point
         activeTransform = .single(objectID: object.id, snapshot: TransformSnapshot(object: object))
         dragUndoSnapshot = fieldSnapshotAllObjects()
+        beginSnapSession(movingObjectIDs: [object.id], movingBounds: Self.groupBounds(of: [object]))
     }
 
     /// Startet einen Verzerren-Drag (Issue #9) — ⌥+Drag auf einem Kanten-Griff (nicht Ecke) verzerrt
@@ -904,8 +909,10 @@ final class CanvasStore {
         activeHandle = handle
         transformDragStartPoint = point
         let snapshots = Dictionary(uniqueKeysWithValues: members.map { ($0.id, TransformSnapshot(object: $0)) })
-        activeTransform = .group(GroupTransformSnapshot(bounds: Self.groupBounds(of: members), memberSnapshots: snapshots))
+        let bounds = Self.groupBounds(of: members)
+        activeTransform = .group(GroupTransformSnapshot(bounds: bounds, memberSnapshots: snapshots))
         dragUndoSnapshot = fieldSnapshotAllObjects()
+        beginSnapSession(movingObjectIDs: Set(members.map(\.id)), movingBounds: bounds)
     }
 
     /// Issue #19: startet einen Anker-/Kontrollpunkt-Drag im Punkt-Editier-Modus — eigenständig von
@@ -932,8 +939,13 @@ final class CanvasStore {
     /// wird nur an `applyResize`/`applyGroupResize` durchgereicht — dort wirkt es ausschliesslich an
     /// Ecken-Griffen (beide Achsen gleichzeitig aktiv), an Kantenmitten/Rotation/Eckenradius/
     /// Punkt-Editieren ist der Parameter wirkungslos.
-    func updateTransformDrag(toDesignPoint point: CGPoint, keepAspectRatio: Bool = false) {
+    ///
+    /// Issue #31: `disableSnapping` (⌘ während des Drags) übersteuert `isSnappingEnabled` für diesen
+    /// einen Drag-Schritt. Eingerastet wird über einen korrigierten Drag-Punkt (`snappedDragPoint`),
+    /// die Apply-Funktionen selbst bleiben unverändert.
+    func updateTransformDrag(toDesignPoint rawPoint: CGPoint, keepAspectRatio: Bool = false, disableSnapping: Bool = false) {
         guard let start = transformDragStartPoint, let transform = activeTransform else { return }
+        let point = snappedDragPoint(rawPoint, start: start, transform: transform, disableSnapping: disableSnapping)
 
         switch transform {
         case .pointEdit(let objectID, let component, let snapshot):
@@ -999,6 +1011,7 @@ final class CanvasStore {
         activeTransform = nil
         activeHandle = nil
         transformDragStartPoint = nil
+        endSnapSession()
         refreshStitchPreview()
     }
 
@@ -1761,16 +1774,24 @@ final class CanvasStore {
     func beginNewGuide(orientation: Guide.Orientation, atDesignPoint point: CGPoint) {
         areGuidesVisible = true
         draftGuide = Guide(orientation: orientation, position: Self.guideCoordinate(of: point, for: orientation))
+        beginSnapSession(movingObjectIDs: [], movingBounds: .zero)
     }
 
-    func updateNewGuide(toDesignPoint point: CGPoint) {
+    /// Issue #31 (Phase 3): auch eine neu gezogene Hilfslinie rastet an Objektkanten/-mitten,
+    /// der Canvas-Mitte/-Kante und anderen Hilfslinien ein.
+    func updateNewGuide(toDesignPoint point: CGPoint, disableSnapping: Bool = false) {
         guard let draft = draftGuide else { return }
-        draftGuide?.position = Self.guideCoordinate(of: point, for: draft.orientation)
+        draftGuide?.position = snappedGuidePosition(
+            Self.guideCoordinate(of: point, for: draft.orientation),
+            orientation: draft.orientation,
+            disableSnapping: disableSnapping
+        )
     }
 
     /// Legt die gezogene Hilfslinie ab. Losgelassen über dem Lineal verwirft der Aufrufer sie
     /// stattdessen über `cancelNewGuide()` (Illustrator-Verhalten).
     func commitNewGuide() {
+        endSnapSession()
         guard let draft = draftGuide else { return }
         draftGuide = nil
         performUndoableGuideChange(actionName: String(localized: "undo.action.addGuide")) {
@@ -1779,6 +1800,7 @@ final class CanvasStore {
     }
 
     func cancelNewGuide() {
+        endSnapSession()
         draftGuide = nil
     }
 
@@ -1803,16 +1825,23 @@ final class CanvasStore {
     func beginGuideDrag(_ id: UUID) {
         guard project.guides.contains(where: { $0.id == id }) else { return }
         guideDrag = (id, project.guides)
+        beginSnapSession(movingObjectIDs: [], movingBounds: .zero, excludingGuideID: id)
     }
 
-    func updateGuideDrag(toDesignPoint point: CGPoint) {
+    func updateGuideDrag(toDesignPoint point: CGPoint, disableSnapping: Bool = false) {
         guard let drag = guideDrag, let index = project.guides.firstIndex(where: { $0.id == drag.id }) else { return }
-        project.guides[index].position = Self.guideCoordinate(of: point, for: project.guides[index].orientation)
+        let orientation = project.guides[index].orientation
+        project.guides[index].position = snappedGuidePosition(
+            Self.guideCoordinate(of: point, for: orientation),
+            orientation: orientation,
+            disableSnapping: disableSnapping
+        )
     }
 
     /// `remove`: die Hilfslinie wurde zurück aufs Lineal gezogen und wird gelöscht. Ein Klick ohne
     /// Bewegung registriert keinen Undo-Schritt (wie `endTransformDrag`).
     func endGuideDrag(remove: Bool) {
+        endSnapSession()
         guard let drag = guideDrag else { return }
         guideDrag = nil
         // Inzwischen anderweitig gelöscht (z.B. Doppelklick während des Klicks) — kein eigener
@@ -1874,6 +1903,139 @@ final class CanvasStore {
         let before = project.guides
         mutation()
         registerGuidesUndo(before: before, actionName: actionName)
+    }
+
+    // MARK: Einrasten / Smart Guides (Issue #31, Phase 2 + 3)
+
+    /// Eine temporäre Ausrichtungslinie, solange ein Drag gerade eingerastet ist — `.vertical` an
+    /// einer X-, `.horizontal` an einer Y-Koordinate (mm). CanvasView zeichnet sie über die ganze
+    /// sichtbare Fläche.
+    struct SnapLine: Equatable {
+        var orientation: Guide.Orientation
+        var position: Double
+    }
+
+    /// Menü "Einrasten" — pro Fenster, nicht gespeichert (wie `areGuidesVisible`). ⌘ während
+    /// eines Drags schaltet es für diesen Drag zusätzlich ab (Figma-Konvention).
+    var isSnappingEnabled = true
+
+    private(set) var activeSnapLines: [SnapLine] = []
+
+    /// Toleranz in Bildschirmpunkten, über `zoomScale` in mm umgerechnet — gleich "stark" bei
+    /// jedem Zoom (dasselbe Muster wie `handleHitRadiusPoints`).
+    static let snapTolerancePoints: CGFloat = 8
+
+    var snapToleranceDesign: Double { Double(Self.snapTolerancePoints) / zoomScale }
+
+    /// Ziel-Koordinaten werden einmal beim Drag-Start gesammelt: während eines Drags bewegt sich
+    /// nur das gezogene Objekt (bzw. die gezogene Hilfslinie), alle Ziele bleiben stehen.
+    private struct SnapSession {
+        var xs: [Double]
+        var ys: [Double]
+        /// Achsenparalleler Rahmen des gezogenen Objekts/der Gruppe bei Drag-Beginn — rotierte
+        /// Objekte rasten bewusst vereinfacht über ihren achsenparallelen Umriss ein (dieselbe
+        /// Vereinfachung wie `groupBounds`/`applyGroupResize`).
+        var movingBounds: CGRect
+    }
+
+    private var snapSession: SnapSession?
+
+    /// Sucht unter `moving` (mehrere Kanten/Mitten des bewegten Objekts) und `candidates` das Paar
+    /// mit dem kleinsten Abstand innerhalb `tolerance` — liefert den Zielwert und den Versatz, der
+    /// auf die bewegte Geometrie addiert werden muss, sonst `nil`.
+    static func nearestSnap(moving: [Double], candidates: [Double], tolerance: Double) -> (target: Double, offset: Double)? {
+        var best: (target: Double, offset: Double)?
+        for value in moving {
+            for candidate in candidates {
+                let offset = candidate - value
+                guard abs(offset) <= tolerance else { continue }
+                if best == nil || abs(offset) < abs(best!.offset) {
+                    best = (candidate, offset)
+                }
+            }
+        }
+        return best
+    }
+
+    private func beginSnapSession(movingObjectIDs: Set<UUID>, movingBounds: CGRect, excludingGuideID: UUID? = nil) {
+        let canvas = canvasSizeMillimeters
+        var xs: [Double] = [0, canvas.width / 2, canvas.width]
+        var ys: [Double] = [0, canvas.height / 2, canvas.height]
+        for object in objects where object.isVisible && !movingObjectIDs.contains(object.id) {
+            let bounds = Self.groupBounds(of: [object])
+            xs += [bounds.minX, bounds.midX, bounds.maxX]
+            ys += [bounds.minY, bounds.midY, bounds.maxY]
+        }
+        if areGuidesVisible {
+            for guide in project.guides where guide.id != excludingGuideID {
+                switch guide.orientation {
+                case .horizontal: ys.append(guide.position)
+                case .vertical: xs.append(guide.position)
+                }
+            }
+        }
+        snapSession = SnapSession(xs: xs, ys: ys, movingBounds: movingBounds)
+        activeSnapLines = []
+    }
+
+    private func endSnapSession() {
+        snapSession = nil
+        activeSnapLines = []
+    }
+
+    /// Verschieben (Einzelobjekt/Gruppe): linke Kante/Mitte/rechte Kante bzw. oben/Mitte/unten des
+    /// verschobenen Rahmens rasten ein. Skalieren: `applyResize`/`applyGroupResize` setzen die
+    /// gezogene Kante direkt auf den Drag-Punkt, also rastet der Drag-Punkt selbst ein — nur auf
+    /// den Achsen, die der Griff bewegt, und nur bei unrotierten Einzelobjekten (bei gedrehten
+    /// läuft die gezogene Kante nicht achsenparallel). Drehen, Eckenradius, Verzerren und
+    /// Punkt-Editieren rasten nicht ein.
+    private func snappedDragPoint(_ point: CGPoint, start: CGPoint, transform: ActiveTransform, disableSnapping: Bool) -> CGPoint {
+        activeSnapLines = []
+        guard isSnappingEnabled, !disableSnapping, let session = snapSession else { return point }
+
+        var movingXs: [Double] = []
+        var movingYs: [Double] = []
+        switch (transform, activeHandle) {
+        case (.single, nil), (.group, nil):
+            let bounds = session.movingBounds.offsetBy(dx: point.x - start.x, dy: point.y - start.y)
+            movingXs = [bounds.minX, bounds.midX, bounds.maxX]
+            movingYs = [bounds.minY, bounds.midY, bounds.maxY]
+        case (.single(_, let snapshot), let handle?):
+            guard snapshot.rotationDegrees == 0, let sign = handle.resizeSign else { return point }
+            if sign.x != 0 { movingXs = [point.x] }
+            if sign.y != 0 { movingYs = [point.y] }
+        case (.group, let handle?):
+            guard let sign = handle.resizeSign else { return point }
+            if sign.x != 0 { movingXs = [point.x] }
+            if sign.y != 0 { movingYs = [point.y] }
+        default:
+            return point
+        }
+
+        var adjusted = point
+        let tolerance = snapToleranceDesign
+        if let snap = Self.nearestSnap(moving: movingXs, candidates: session.xs, tolerance: tolerance) {
+            adjusted.x += snap.offset
+            activeSnapLines.append(SnapLine(orientation: .vertical, position: snap.target))
+        }
+        if let snap = Self.nearestSnap(moving: movingYs, candidates: session.ys, tolerance: tolerance) {
+            adjusted.y += snap.offset
+            activeSnapLines.append(SnapLine(orientation: .horizontal, position: snap.target))
+        }
+        return adjusted
+    }
+
+    /// Phase 3: dieselbe Engine für Hilfslinien — eine horizontale Hilfslinie rastet an Y-Zielen,
+    /// eine vertikale an X-Zielen ein.
+    private func snappedGuidePosition(_ position: Double, orientation: Guide.Orientation, disableSnapping: Bool) -> Double {
+        activeSnapLines = []
+        guard isSnappingEnabled, !disableSnapping, let session = snapSession else { return position }
+        let candidates = orientation == .horizontal ? session.ys : session.xs
+        guard let snap = Self.nearestSnap(moving: [position], candidates: candidates, tolerance: snapToleranceDesign) else {
+            return position
+        }
+        activeSnapLines = [SnapLine(orientation: orientation, position: snap.target)]
+        return snap.target
     }
 
     // MARK: Hintergrundbild (Issue #10)

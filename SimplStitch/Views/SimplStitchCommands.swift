@@ -226,6 +226,18 @@ struct SimplStitchCommands: Commands {
             }
             .disabled(canvasStore?.guides.isEmpty ?? true)
 
+            // Issue #31 (Phase 2): Einrasten an Objektkanten/-mitten, Canvas-Mitte und Hilfslinien.
+            // Als Toggle mit Häkchen; ⌘ während eines Drags setzt es zusätzlich nur für diesen Drag aus.
+            Toggle(
+                "menu.view.snapping",
+                isOn: Binding(
+                    get: { canvasStore?.isSnappingEnabled ?? true },
+                    set: { canvasStore?.isSnappingEnabled = $0 }
+                )
+            )
+            .keyboardShortcut(";", modifiers: [.command, .shift])
+            .disabled(canvasStore == nil)
+
             Divider()
 
             Button {

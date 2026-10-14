@@ -104,6 +104,7 @@ struct CanvasView: View {
                         drawDraftPreview(in: &context)
                         drawStitchPreview(in: &context)
                         drawGuides(in: &context, size: size)
+                        drawSnapLines(in: &context, size: size)
                         drawSelectionOutline(in: &context)
                         drawHandles(in: &context)
                         drawStitchPreviewError(in: &context)
@@ -273,7 +274,10 @@ struct CanvasView: View {
                 }
                 switch selectionDrag.mode {
                 case .moveGuide:
-                    store.updateGuideDrag(toDesignPoint: store.designPoint(fromView: value.location))
+                    store.updateGuideDrag(
+                        toDesignPoint: store.designPoint(fromView: value.location),
+                        disableSnapping: NSEvent.modifierFlags.contains(.command)
+                    )
                 case .moveObject, .handle:
                     // Issue #30 (Punkt 4): ⇧ wird hier LIVE bei jedem Drag-Update abgefragt (nicht nur
                     // beim Gestenstart in `beginSelectionInteraction`) — dort entscheidet Shift bereits
@@ -283,7 +287,9 @@ struct CanvasView: View {
                     // exakt wie in Keynote/PowerPoint.
                     store.updateTransformDrag(
                         toDesignPoint: store.designPoint(fromView: value.location),
-                        keepAspectRatio: NSEvent.modifierFlags.contains(.shift)
+                        keepAspectRatio: NSEvent.modifierFlags.contains(.shift),
+                        // Issue #31: ⌘ gedrückt halten setzt das Einrasten für diesen Drag aus.
+                        disableSnapping: NSEvent.modifierFlags.contains(.command)
                     )
                 case .marquee:
                     store.updateMarqueeSelection(toDesignPoint: store.designPoint(fromView: value.location))
@@ -687,6 +693,29 @@ struct CanvasView: View {
         }
         if let draft = store.draftGuide {
             context.stroke(linePath(for: draft), with: .color(DesignSystem.guide), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+        }
+    }
+
+    /// Issue #31 (Phase 2): Ausrichtungslinien, solange ein Drag gerade eingerastet ist — über die
+    /// ganze sichtbare Fläche, in eigener Farbe, damit sie sich von dauerhaften Hilfslinien abheben.
+    private func drawSnapLines(in context: inout GraphicsContext, size: CGSize) {
+        guard !store.activeSnapLines.isEmpty else { return }
+        let scale = effectiveZoomScale
+        let origin = CGPoint(x: effectivePanOffset.width, y: effectivePanOffset.height)
+        for line in store.activeSnapLines {
+            let path = Path { path in
+                switch line.orientation {
+                case .horizontal:
+                    let viewY = origin.y + line.position * scale
+                    path.move(to: CGPoint(x: 0, y: viewY))
+                    path.addLine(to: CGPoint(x: size.width, y: viewY))
+                case .vertical:
+                    let viewX = origin.x + line.position * scale
+                    path.move(to: CGPoint(x: viewX, y: 0))
+                    path.addLine(to: CGPoint(x: viewX, y: size.height))
+                }
+            }
+            context.stroke(path, with: .color(DesignSystem.snapLine), lineWidth: 1)
         }
     }
 

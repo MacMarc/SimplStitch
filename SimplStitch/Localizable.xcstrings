@@ -1671,6 +1671,22 @@
         }
       }
     },
+    "menu.view.snapping" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einrasten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snapping"
+          }
+        }
+      }
+    },
     "menu.view.zoomIn" : {
       "localizations" : {
         "de" : {

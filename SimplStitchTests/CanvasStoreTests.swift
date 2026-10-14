@@ -34,6 +34,21 @@ struct CanvasStoreTests {
         #expect(abs(store.zoomScale - 1) < 0.0001)
     }
 
+    @Test func clampedZoomFactorKeepsLiveZoomWithinBounds() {
+        // Issue #32 (Finding 2): nahe maxZoomScale darf ein grosser roher Pinch-Faktor nur bis
+        // genau an die Grenze reichen, ein Faktor innerhalb des Bereichs bleibt unverändert.
+        let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
+        store.setZoomScale(CanvasStore.maxZoomScale / 1.1)
+        let clampedUp = store.clampedZoomFactor(5)
+        #expect(abs(clampedUp - 1.1) < 0.0001)
+        #expect(abs(store.zoomScale * clampedUp - CanvasStore.maxZoomScale) < 0.0001)
+        #expect(store.clampedZoomFactor(1.05) == 1.05)
+
+        store.setZoomScale(CanvasStore.minZoomScale * 2)
+        let clampedDown = store.clampedZoomFactor(0.01)
+        #expect(abs(store.zoomScale * clampedDown - CanvasStore.minZoomScale) < 0.0001)
+    }
+
     @Test func panAccumulatesOffset() {
         let store = CanvasStore(canvasSizeMillimeters: CGSize(width: 100, height: 100))
         store.pan(by: CGSize(width: 10, height: -5))

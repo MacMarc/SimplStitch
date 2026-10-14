@@ -118,3 +118,34 @@ final class AppSettings {
         self.rulerOriginYCentered = rulerOriginYCentered
     }
 }
+
+// Issue #32 (Finding 8): die `?? default`-Fallbacks für die optionalen bzw. evtl. noch fehlenden
+// Felder lagen bisher an sechs Stellen in vier Views dupliziert. Hier zentral, damit eine künftige
+// Default-/Migrationsänderung nur noch eine Stelle betrifft.
+extension AppSettings {
+    var isRulerOriginXCentered: Bool {
+        get { rulerOriginXCentered ?? false }
+        set { rulerOriginXCentered = newValue }
+    }
+
+    var isRulerOriginYCentered: Bool {
+        get { rulerOriginYCentered ?? false }
+        set { rulerOriginYCentered = newValue }
+    }
+}
+
+/// Lesezugriff auf die (einzige, Issue #23) AppSettings-Zeile aus einem `@Query`-Ergebnis — mit
+/// denselben Defaults, falls Previews/Tests noch keine Zeile haben.
+extension Collection where Element == AppSettings {
+    var measurementUnit: MeasurementUnit {
+        first?.preferredMeasurementUnit ?? .millimeters
+    }
+
+    var isRulerOriginXCentered: Bool {
+        first?.isRulerOriginXCentered ?? false
+    }
+
+    var isRulerOriginYCentered: Bool {
+        first?.isRulerOriginYCentered ?? false
+    }
+}

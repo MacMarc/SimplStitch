@@ -48,7 +48,7 @@ struct ObjectInspectorView: View {
     @Query private var appSettingsList: [AppSettings]
 
     private var unit: MeasurementUnit {
-        appSettingsList.first?.preferredMeasurementUnit ?? .millimeters
+        appSettingsList.measurementUnit
     }
 
     var body: some View {

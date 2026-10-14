@@ -101,6 +101,15 @@ final class CanvasStore {
         setZoomScale(zoomScale * factor)
     }
 
+    /// Issue #32 (Finding 2): klemmt einen rohen, relativen Zoom-Faktor (z.B. den Live-Wert einer
+    /// Pinch-Geste) so, dass `zoomScale * factor` innerhalb `minZoomScale...maxZoomScale` bleibt —
+    /// derselbe Bereich, den `setZoomScale` beim Commit erzwingt. Die Grenzen leben damit nur noch
+    /// hier im Store statt zusätzlich in der View. `zoomScale` ist strukturell immer > 0
+    /// (`setZoomScale` klemmt auf `minZoomScale`).
+    func clampedZoomFactor(_ rawFactor: CGFloat) -> CGFloat {
+        min(max(rawFactor, Self.minZoomScale / zoomScale), Self.maxZoomScale / zoomScale)
+    }
+
     func pan(by delta: CGSize) {
         panOffset.width += delta.width
         panOffset.height += delta.height

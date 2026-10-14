@@ -44,7 +44,7 @@ struct ProjectInspectorView: View {
     }
 
     private var unit: MeasurementUnit {
-        appSettingsList.first?.preferredMeasurementUnit ?? .millimeters
+        appSettingsList.measurementUnit
     }
 
     private var nameBinding: Binding<String> {

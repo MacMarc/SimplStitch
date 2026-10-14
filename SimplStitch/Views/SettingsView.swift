@@ -67,7 +67,7 @@ struct SettingsView: View {
     @State private var selectedSection: SettingsSection = .general
 
     private var unit: MeasurementUnit {
-        settingsList.first?.preferredMeasurementUnit ?? .millimeters
+        settingsList.measurementUnit
     }
 
     init(paletteImporter: GPLPaletteImporting = GPLPaletteImporter()) {
@@ -136,19 +136,19 @@ struct SettingsView: View {
 
                 // Issue #30: rein optische Verschiebung der Lineal-BESCHRIFTUNG — betrifft weder
                 // die gespeicherten Objektkoordinaten noch Export/Stichgenerierung (siehe
-                // CanvasView.rulerLabel-Offset-Kommentar).
+                // CanvasRulers.originOffsetXMillimeters-Kommentar).
                 Toggle(
                     "settings.ruler.originXCentered",
                     isOn: Binding(
-                        get: { settings.rulerOriginXCentered ?? false },
-                        set: { settings.rulerOriginXCentered = $0 }
+                        get: { settings.isRulerOriginXCentered },
+                        set: { settings.isRulerOriginXCentered = $0 }
                     )
                 )
                 Toggle(
                     "settings.ruler.originYCentered",
                     isOn: Binding(
-                        get: { settings.rulerOriginYCentered ?? false },
-                        set: { settings.rulerOriginYCentered = $0 }
+                        get: { settings.isRulerOriginYCentered },
+                        set: { settings.isRulerOriginYCentered = $0 }
                     )
                 )
             }

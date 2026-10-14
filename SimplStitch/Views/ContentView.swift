@@ -32,6 +32,7 @@ struct ContentView: View {
     // Issue #7: eigener Subprocess wie exportService — Import und Export teilen sich bewusst
     // keinen Bridge-Prozess, derselbe Grund wie oben (Lebenszyklus/Fehlerisolation pro Feature).
     @State private var importService = FileImportService(bridge: PythonBridge())
+    private let imageTraceService: ImageTracing = ImageTraceService()
 
     init(document: StitchDesignDocument) {
         self.document = document
@@ -81,6 +82,17 @@ struct ContentView: View {
                 // bewusst NICHT im selben Segmented-Control, sondern als eigenständige, schlichte
                 // Icon-Buttons am Rand (führende Werkzeug-Auswahl / abschliessende Aktionen ist das
                 // übliche Muster nativer Dokument-Toolbars, z.B. Vorschau/Notizen).
+                // Issue #3: Bild nachzeichnen — dieselbe reine Icon-Optik wie Exportieren/Inspektor.
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        canvasStore.isImageTracePickerPresented = true
+                    } label: {
+                        Image(systemName: "wand.and.stars")
+                    }
+                    .help(Text("imageTrace.toolbar.button"))
+                    .accessibilityLabel(Text("imageTrace.toolbar.button"))
+                }
+
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         isExportDialogPresented = true
@@ -148,6 +160,13 @@ struct ContentView: View {
                     onPick: { url in importBackgroundImage(at: url) },
                     onError: { message in importErrorMessage = message }
                 )
+            }
+            // Issue #3: Bild nachzeichnen — eigene Hilfsview aus demselben Grund wie oben (eigene
+            // View-Identität für `.fileImporter` und das Optionen-Sheet).
+            .background {
+                ImageTraceModifierHost(store: canvasStore, traceService: imageTraceService) { message in
+                    importErrorMessage = message
+                }
             }
             .alert(
                 "import.embroidery.error.title",
@@ -283,6 +302,43 @@ private struct BackgroundImagePickerModifierHost: View {
                     if let url = urls.first { onPick(url) }
                 case .failure(let error):
                     onError(error.localizedDescription)
+                }
+            }
+    }
+}
+
+/// Issue #3: Dateiauswahl → Optionen-Sheet → nachgezeichnete Formen auf den Canvas.
+private struct ImageTraceModifierHost: View {
+    @Bindable var store: CanvasStore
+    let traceService: ImageTracing
+    let onError: (String) -> Void
+
+    @State private var pickedImageURL: URL?
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .fileImporter(
+                isPresented: $store.isImageTracePickerPresented,
+                allowedContentTypes: [.png, .jpeg, .heic, .image],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    pickedImageURL = urls.first
+                case .failure(let error):
+                    onError(error.localizedDescription)
+                }
+            }
+            .sheet(isPresented: Binding(get: { pickedImageURL != nil }, set: { if !$0 { pickedImageURL = nil } })) {
+                if let pickedImageURL {
+                    ImageTraceSheet(
+                        imageURL: pickedImageURL,
+                        canvasSizeMillimeters: store.canvasSizeMillimeters,
+                        traceService: traceService
+                    ) { objects in
+                        store.importObjects(objects)
+                    }
                 }
             }
     }

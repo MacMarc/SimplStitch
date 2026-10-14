@@ -407,6 +407,198 @@
     "H" : {
 
     },
+    "imageTrace.error.noShapes" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Im Bild wurden keine Formen gefunden. Versuche mehr Farben, oder lass den Hintergrund drin."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No shapes were found in the image. Try more colors, or keep the background."
+          }
+        }
+      }
+    },
+    "imageTrace.error.unreadable" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Bild konnte nicht gelesen werden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The image could not be read."
+          }
+        }
+      }
+    },
+    "imageTrace.object.defaultName" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nachgezeichnete Form"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Traced Shape"
+          }
+        }
+      }
+    },
+    "imageTrace.sheet.cancel" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abbrechen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        }
+      }
+    },
+    "imageTrace.sheet.colorCount" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Farben: %lld"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Colors: %lld"
+          }
+        }
+      }
+    },
+    "imageTrace.sheet.file" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bild"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Image"
+          }
+        }
+      }
+    },
+    "imageTrace.sheet.message" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SimplStitch reduziert das Bild auf wenige Garnfarben und legt für jede Farbfläche eine bearbeitbare Form mit passendem Stichtyp an."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SimplStitch reduces the image to a few thread colors and creates an editable shape with a suitable stitch type for each color area."
+          }
+        }
+      }
+    },
+    "imageTrace.sheet.removeBackground" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hintergrund weglassen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave out background"
+          }
+        }
+      }
+    },
+    "imageTrace.sheet.title" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bild nachzeichnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trace Image"
+          }
+        }
+      }
+    },
+    "imageTrace.sheet.trace" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nachzeichnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trace"
+          }
+        }
+      }
+    },
+    "imageTrace.sheet.working" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bild wird nachgezeichnet…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tracing image…"
+          }
+        }
+      }
+    },
+    "imageTrace.toolbar.button" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bild nachzeichnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trace Image"
+          }
+        }
+      }
+    },
     "import.embroidery.empty" : {
       "localizations" : {
         "de" : {
@@ -1507,6 +1699,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Import…"
+          }
+        }
+      }
+    },
+    "menu.file.traceImage" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bild nachzeichnen…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trace Image…"
           }
         }
       }

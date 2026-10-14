@@ -119,6 +119,18 @@ final class CanvasStore {
         panOffset.height += delta.height
     }
 
+    /// Issue #12: Pan-Versatz für ein Scroll-Event. Trackpads liefern pixelgenaue Deltas
+    /// (`hasPreciseScrollingDeltas`), klassische Mausräder nur Zeilen-Schritte — die werden auf
+    /// `scrollLinePoints` hochgerechnet, sonst kriecht die Zeichenfläche mit 1pt pro Raste. Die
+    /// Richtung übernimmt macOS (natürliches Scrollen ist in `scrollingDelta*` schon eingerechnet),
+    /// der Inhalt folgt also den Fingern.
+    static let scrollLinePoints: CGFloat = 10
+
+    static func panDelta(scrollingDeltaX: CGFloat, scrollingDeltaY: CGFloat, hasPreciseScrollingDeltas: Bool) -> CGSize {
+        let factor = hasPreciseScrollingDeltas ? 1 : scrollLinePoints
+        return CGSize(width: scrollingDeltaX * factor, height: scrollingDeltaY * factor)
+    }
+
     func resetView() {
         zoomScale = 1
         panOffset = .zero

@@ -55,6 +55,8 @@ struct CanvasView: View {
     /// hier nur beschrieben und ausschliesslich von `CanvasRulers` gelesen wird. Sonst wertete jede
     /// Mausbewegung den kompletten `body` inkl. der teuren Haupt-Canvas neu aus.
     @State private var hoverTracker = RulerHoverTracker()
+    /// Issue #12: Zweifinger-Scroll/Mausrad pannt, solange die Maus über dem Canvas steht.
+    @State private var scrollPanMonitor = CanvasScrollPanMonitor()
     /// Issue #15/#26: `.onAppear` allein reicht nicht — bei einem frisch von `DocumentGroup`
     /// geöffneten Fenster durchläuft die `GeometryReader`-Grösse mehrere Zwischenwerte, bevor
     /// macOS das Fenster auf seine endgültige (jetzt grosszügige, siehe `.defaultSize` in
@@ -134,6 +136,10 @@ struct CanvasView: View {
                     }
                     .onAppear {
                         autoFitIfNeeded(canvasViewportSize)
+                        scrollPanMonitor.start(handleScrollWheel)
+                    }
+                    .onDisappear {
+                        scrollPanMonitor.stop()
                     }
                     .onChange(of: canvasViewportSize) { _, newSize in
                         autoFitIfNeeded(newSize)
@@ -162,6 +168,22 @@ struct CanvasView: View {
                 )
             }
         }
+    }
+
+    /// Issue #12: nur Scroll-Events über DIESEM Canvas (Hover-Position gesetzt) pannen — andere
+    /// Fenster, Inspector und Seitenleisten scrollen normal weiter. Während der Text-Bearbeitung
+    /// gehört das Scrollen dem Text-Editor.
+    private func handleScrollWheel(_ event: NSEvent) -> Bool {
+        guard hoverTracker.location != nil, store.editingTextObject == nil else { return false }
+        let delta = CanvasStore.panDelta(
+            scrollingDeltaX: event.scrollingDeltaX,
+            scrollingDeltaY: event.scrollingDeltaY,
+            hasPreciseScrollingDeltas: event.hasPreciseScrollingDeltas
+        )
+        guard delta != .zero else { return true }
+        store.pan(by: delta)
+        hasUserAdjustedView = true
+        return true
     }
 
     /// Issue #15/#26: automatisches Einpassen bei jeder Grössenänderung, solange der Nutzer noch

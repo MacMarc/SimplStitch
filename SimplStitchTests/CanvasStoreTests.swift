@@ -56,6 +56,14 @@ struct CanvasStoreTests {
         #expect(store.panOffset == CGSize(width: 15, height: 0))
     }
 
+    /// Issue #12: Trackpad-Deltas 1:1, Mausrad-Zeilen hochgerechnet.
+    @Test func scrollPanDeltaScalesOnlyLineBasedScrolling() {
+        #expect(CanvasStore.panDelta(scrollingDeltaX: 3, scrollingDeltaY: -7.5, hasPreciseScrollingDeltas: true)
+            == CGSize(width: 3, height: -7.5))
+        #expect(CanvasStore.panDelta(scrollingDeltaX: 0, scrollingDeltaY: -1, hasPreciseScrollingDeltas: false)
+            == CGSize(width: 0, height: -CanvasStore.scrollLinePoints))
+    }
+
     @Test func designAndViewPointConversionsRoundtrip() {
         let store = CanvasStore(
             canvasSizeMillimeters: CGSize(width: 100, height: 100),

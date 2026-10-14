@@ -96,13 +96,14 @@ struct CanvasView: View {
                 // EINEM Container, der einmal um die Lineal-Dicke verschoben wird. Vorher brauchte
                 // jedes Geschwister im ZStack seinen eigenen, von Hand nachgezogenen `.offset`.
                 ZStack(alignment: .topLeading) {
-                    Canvas { context, _ in
+                    Canvas { context, size in
                         drawCanvasBackground(in: &context)
                         drawBackgroundImage(in: &context)
                         drawGrid(in: &context)
                         drawObjects(in: &context)
                         drawDraftPreview(in: &context)
                         drawStitchPreview(in: &context)
+                        drawGuides(in: &context, size: size)
                         drawSelectionOutline(in: &context)
                         drawHandles(in: &context)
                         drawStitchPreviewError(in: &context)
@@ -120,8 +121,14 @@ struct CanvasView: View {
                     // wiederverwendbar, ohne Umweg über Design-Koordinaten und zurück.
                     .onContinuousHover { phase in
                         switch phase {
-                        case .active(let location): hoverTracker.location = location
-                        case .ended: hoverTracker.location = nil
+                        case .active(let location):
+                            hoverTracker.location = location
+                            // Issue #31: Resize-Cursor über einer greifbaren Hilfslinie.
+                            let hoveredGuide = store.currentTool == .select ? store.guide(atViewPoint: location) : nil
+                            hoverTracker.setGuideCursor(hoveredGuide?.orientation)
+                        case .ended:
+                            hoverTracker.location = nil
+                            hoverTracker.setGuideCursor(nil)
                         }
                     }
                     .onAppear {
@@ -143,6 +150,7 @@ struct CanvasView: View {
                 .offset(x: Self.rulerThickness, y: Self.rulerThickness)
 
                 CanvasRulers(
+                    store: store,
                     viewportSize: canvasViewportSize,
                     zoomScale: effectiveZoomScale,
                     panOffset: effectivePanOffset,
@@ -185,6 +193,11 @@ struct CanvasView: View {
         SpatialTapGesture(count: 2)
             .onEnded { value in
                 guard store.currentTool == .select else { return }
+                // Issue #31: Doppelklick auf eine Hilfslinie löscht sie.
+                if let guide = store.guide(atViewPoint: value.location) {
+                    store.removeGuide(guide.id)
+                    return
+                }
                 let designPoint = store.designPoint(fromView: value.location)
                 guard let hit = store.object(atDesignPoint: designPoint), !hit.isLocked else { return }
                 if hit.kind == .text {
@@ -259,6 +272,8 @@ struct CanvasView: View {
                     selectionDrag.mode = beginSelectionInteraction(atViewPoint: value.startLocation)
                 }
                 switch selectionDrag.mode {
+                case .moveGuide:
+                    store.updateGuideDrag(toDesignPoint: store.designPoint(fromView: value.location))
                 case .moveObject, .handle:
                     // Issue #30 (Punkt 4): ⇧ wird hier LIVE bei jedem Drag-Update abgefragt (nicht nur
                     // beim Gestenstart in `beginSelectionInteraction`) — dort entscheidet Shift bereits
@@ -281,6 +296,11 @@ struct CanvasView: View {
                 case .pan:
                     store.pan(by: value.translation)
                     hasUserAdjustedView = true
+                case .moveGuide(let orientation):
+                    // Issue #31: zurück aufs Lineal gezogen (über den Canvas-Rand hinaus) löscht die
+                    // Hilfslinie — Illustrator/Photoshop-Verhalten.
+                    let isOverRuler = orientation == .horizontal ? value.location.y < 0 : value.location.x < 0
+                    store.endGuideDrag(remove: isOverRuler)
                 case .moveObject, .handle:
                     store.endTransformDrag()
                 case .marquee:
@@ -315,6 +335,13 @@ struct CanvasView: View {
                 return .handle(component)
             }
             store.endPointEditing()
+        }
+
+        // Issue #31: Hilfslinien liegen über den Objekten und bleiben auch über einem Objekt
+        // greifbar — deshalb vor der normalen Objekt-/Griff-Erkennung.
+        if !shiftHeld, let guide = store.guide(atViewPoint: viewPoint) {
+            store.beginGuideDrag(guide.id)
+            return .moveGuide(guide.orientation)
         }
 
         if !shiftHeld, let groupBounds = store.selectedGroupBounds,
@@ -629,6 +656,40 @@ struct CanvasView: View {
         outlineContext.stroke(path, with: .color(.accentColor), style: style)
     }
 
+    /// Issue #31: Hilfslinien über die gesamte sichtbare Fläche (nicht nur die Zeichenfläche), in
+    /// View-Koordinaten mit fester Haarlinienstärke unabhängig vom Zoom. Eigene Farbe, da
+    /// `.accentColor` schon Selektion, Griffe und den Lineal-Positionszeiger belegt. Die gerade aus
+    /// dem Lineal gezogene Hilfslinie ist gestrichelt.
+    private func drawGuides(in context: inout GraphicsContext, size: CGSize) {
+        guard store.areGuidesVisible || store.draftGuide != nil else { return }
+        let scale = effectiveZoomScale
+        let origin = CGPoint(x: effectivePanOffset.width, y: effectivePanOffset.height)
+
+        func linePath(for guide: Guide) -> Path {
+            Path { path in
+                switch guide.orientation {
+                case .horizontal:
+                    let viewY = origin.y + guide.position * scale
+                    path.move(to: CGPoint(x: 0, y: viewY))
+                    path.addLine(to: CGPoint(x: size.width, y: viewY))
+                case .vertical:
+                    let viewX = origin.x + guide.position * scale
+                    path.move(to: CGPoint(x: viewX, y: 0))
+                    path.addLine(to: CGPoint(x: viewX, y: size.height))
+                }
+            }
+        }
+
+        if store.areGuidesVisible {
+            for guide in store.guides {
+                context.stroke(linePath(for: guide), with: .color(DesignSystem.guide), lineWidth: 1)
+            }
+        }
+        if let draft = store.draftGuide {
+            context.stroke(linePath(for: draft), with: .color(DesignSystem.guide), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+        }
+    }
+
     /// Gummiband-Rechteck während einer Shift-Drag-Auswahl über leere Canvas-Fläche.
     private func drawMarqueeRect(in context: inout GraphicsContext) {
         guard let rect = store.marqueeRect else { return }
@@ -768,6 +829,8 @@ final class SelectionDragState {
         case handle(CanvasHandleKind)
         /// Gummiband-Auswahl (Shift+Drag über leere Fläche, siehe CanvasView-Klassenkommentar).
         case marquee
+        /// Issue #31: eine bestehende Hilfslinie wird verschoben (oder zurück aufs Lineal gezogen).
+        case moveGuide(Guide.Orientation)
         /// Getroffen, aber ohne Wirkung (z.B. gesperrtes Objekt oder Shift-Klick-Toggle) —
         /// verhindert versehentliches Pannen.
         case inert

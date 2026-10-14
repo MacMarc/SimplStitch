@@ -1575,6 +1575,70 @@
         }
       }
     },
+    "menu.view.addHorizontalGuide" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Horizontale Hilfslinie hinzufügen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Horizontal Guide"
+          }
+        }
+      }
+    },
+    "menu.view.addVerticalGuide" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vertikale Hilfslinie hinzufügen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Vertical Guide"
+          }
+        }
+      }
+    },
+    "menu.view.clearGuides" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle Hilfslinien löschen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear Guides"
+          }
+        }
+      }
+    },
+    "menu.view.hideGuides" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hilfslinien ausblenden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide Guides"
+          }
+        }
+      }
+    },
     "menu.view.resetZoom" : {
       "localizations" : {
         "de" : {
@@ -1587,6 +1651,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Actual Size"
+          }
+        }
+      }
+    },
+    "menu.view.showGuides" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hilfslinien einblenden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Guides"
           }
         }
       }
@@ -2279,6 +2359,22 @@
         }
       }
     },
+    "undo.action.addGuide" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hilfslinie hinzufügen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Guide"
+          }
+        }
+      }
+    },
     "undo.action.delete" : {
       "localizations" : {
         "de" : {
@@ -2291,6 +2387,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Delete"
+          }
+        }
+      }
+    },
+    "undo.action.deleteAllGuides" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle Hilfslinien löschen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear Guides"
+          }
+        }
+      }
+    },
+    "undo.action.deleteGuide" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hilfslinie löschen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Guide"
           }
         }
       }
@@ -2323,6 +2451,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lock/Unlock"
+          }
+        }
+      }
+    },
+    "undo.action.moveGuide" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hilfslinie verschieben"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move Guide"
           }
         }
       }

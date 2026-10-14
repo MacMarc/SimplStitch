@@ -1738,6 +1738,144 @@ final class CanvasStore {
         set { project.defaultThreadPaletteID = newValue }
     }
 
+    // MARK: Hilfslinien (Issue #31, Phase 1)
+
+    /// Gespeicherte Hilfslinien des Projekts (persistiert über content.svg, siehe StitchProject).
+    var guides: [Guide] { project.guides }
+
+    /// Rein ansichtsbezogen (wie Zoom/Pan), nicht im Projekt gespeichert — Menü
+    /// "Hilfslinien einblenden/ausblenden". Ausgeblendete Hilfslinien sind auch nicht greifbar.
+    var areGuidesVisible = true
+
+    /// Hilfslinie, die gerade aus einem Lineal gezogen und noch nicht abgelegt wurde (analog zu
+    /// `draftShapeRect`/`marqueeRect`) — CanvasView zeichnet sie gestrichelt.
+    private(set) var draftGuide: Guide?
+
+    /// ID der Hilfslinie, die gerade verschoben wird, plus Projektzustand vor dem Drag (für Undo).
+    private var guideDrag: (id: UUID, before: [Guide])?
+
+    /// Trefferzone in Bildschirmpunkten (nicht mm), damit eine Hilfslinie bei jedem Zoom gleich
+    /// "dick" zu greifen ist — dasselbe Muster wie `handleHitRadiusPoints`.
+    static let guideHitRadiusPoints: CGFloat = 5
+
+    func beginNewGuide(orientation: Guide.Orientation, atDesignPoint point: CGPoint) {
+        areGuidesVisible = true
+        draftGuide = Guide(orientation: orientation, position: Self.guideCoordinate(of: point, for: orientation))
+    }
+
+    func updateNewGuide(toDesignPoint point: CGPoint) {
+        guard let draft = draftGuide else { return }
+        draftGuide?.position = Self.guideCoordinate(of: point, for: draft.orientation)
+    }
+
+    /// Legt die gezogene Hilfslinie ab. Losgelassen über dem Lineal verwirft der Aufrufer sie
+    /// stattdessen über `cancelNewGuide()` (Illustrator-Verhalten).
+    func commitNewGuide() {
+        guard let draft = draftGuide else { return }
+        draftGuide = nil
+        performUndoableGuideChange(actionName: String(localized: "undo.action.addGuide")) {
+            project.guides.append(draft)
+        }
+    }
+
+    func cancelNewGuide() {
+        draftGuide = nil
+    }
+
+    /// Nächstgelegene sichtbare Hilfslinie innerhalb `guideHitRadiusPoints` um einen Punkt in
+    /// View-Koordinaten (Canvas-lokal), sonst `nil`.
+    func guide(atViewPoint viewPoint: CGPoint) -> Guide? {
+        guard areGuidesVisible else { return nil }
+        let origin = self.viewPoint(fromDesign: .zero)
+        func viewDistance(to guide: Guide) -> CGFloat {
+            switch guide.orientation {
+            case .horizontal: return abs(viewPoint.y - (origin.y + guide.position * zoomScale))
+            case .vertical: return abs(viewPoint.x - (origin.x + guide.position * zoomScale))
+            }
+        }
+        return project.guides
+            .map { (guide: $0, distance: viewDistance(to: $0)) }
+            .filter { $0.distance <= Self.guideHitRadiusPoints }
+            .min { $0.distance < $1.distance }?
+            .guide
+    }
+
+    func beginGuideDrag(_ id: UUID) {
+        guard project.guides.contains(where: { $0.id == id }) else { return }
+        guideDrag = (id, project.guides)
+    }
+
+    func updateGuideDrag(toDesignPoint point: CGPoint) {
+        guard let drag = guideDrag, let index = project.guides.firstIndex(where: { $0.id == drag.id }) else { return }
+        project.guides[index].position = Self.guideCoordinate(of: point, for: project.guides[index].orientation)
+    }
+
+    /// `remove`: die Hilfslinie wurde zurück aufs Lineal gezogen und wird gelöscht. Ein Klick ohne
+    /// Bewegung registriert keinen Undo-Schritt (wie `endTransformDrag`).
+    func endGuideDrag(remove: Bool) {
+        guard let drag = guideDrag else { return }
+        guideDrag = nil
+        // Inzwischen anderweitig gelöscht (z.B. Doppelklick während des Klicks) — kein eigener
+        // Undo-Schritt, sonst würde "Verschieben rückgängig" die Hilfslinie wiederherstellen.
+        guard remove || project.guides.contains(where: { $0.id == drag.id }) else { return }
+        if remove {
+            project.guides.removeAll { $0.id == drag.id }
+        }
+        guard project.guides != drag.before else { return }
+        registerGuidesUndo(
+            before: drag.before,
+            actionName: remove ? String(localized: "undo.action.deleteGuide") : String(localized: "undo.action.moveGuide")
+        )
+    }
+
+    func removeGuide(_ id: UUID) {
+        guard project.guides.contains(where: { $0.id == id }) else { return }
+        if guideDrag?.id == id {
+            guideDrag = nil
+        }
+        performUndoableGuideChange(actionName: String(localized: "undo.action.deleteGuide")) {
+            project.guides.removeAll { $0.id == id }
+        }
+    }
+
+    func removeAllGuides() {
+        guard !project.guides.isEmpty else { return }
+        performUndoableGuideChange(actionName: String(localized: "undo.action.deleteAllGuides")) {
+            project.guides.removeAll()
+        }
+    }
+
+    /// Menü "Hilfslinie hinzufügen": legt eine Hilfslinie mittig auf die Zeichenfläche.
+    func addGuideAtCanvasCenter(orientation: Guide.Orientation) {
+        let position = orientation == .horizontal ? canvasSizeMillimeters.height / 2 : canvasSizeMillimeters.width / 2
+        areGuidesVisible = true
+        performUndoableGuideChange(actionName: String(localized: "undo.action.addGuide")) {
+            project.guides.append(Guide(orientation: orientation, position: position))
+        }
+    }
+
+    private static func guideCoordinate(of point: CGPoint, for orientation: Guide.Orientation) -> Double {
+        orientation == .horizontal ? point.y : point.x
+    }
+
+    /// Hilfslinien liegen nicht in `DesignObjectFieldSnapshot` (nur Objektfelder) — eigener,
+    /// paralleler Undo-Pfad nach demselben rekursiven Muster wie `registerFieldUndo`.
+    private func registerGuidesUndo(before: [Guide], actionName: String) {
+        guard let undoManager else { return }
+        undoManager.registerUndo(withTarget: self) { target in
+            let after = target.project.guides
+            target.project.guides = before
+            target.registerGuidesUndo(before: after, actionName: actionName)
+        }
+        undoManager.setActionName(actionName)
+    }
+
+    private func performUndoableGuideChange(actionName: String, _ mutation: () -> Void) {
+        let before = project.guides
+        mutation()
+        registerGuidesUndo(before: before, actionName: actionName)
+    }
+
     // MARK: Hintergrundbild (Issue #10)
 
     var backgroundImageOpacity: Double {

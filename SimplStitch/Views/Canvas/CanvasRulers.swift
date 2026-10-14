@@ -8,6 +8,7 @@
 //  aus, nicht mehr der kompletten Haupt-Canvas (Objekte, Stichvorschau, Griffe) in CanvasView.
 //
 
+import AppKit
 import SwiftUI
 
 /// Mausposition relativ zum Canvas selbst (nicht zum Lineal), `nil` sobald die Maus den Canvas
@@ -17,6 +18,23 @@ import SwiftUI
 @MainActor
 final class RulerHoverTracker {
     var location: CGPoint?
+
+    /// Issue #31: Orientierung der Hilfslinie, für die gerade ein Resize-Cursor auf dem
+    /// `NSCursor`-Stapel liegt — sorgt dafür, dass `push()`/`pop()` immer paarweise bleiben.
+    @ObservationIgnored private var pushedGuideCursorOrientation: Guide.Orientation?
+
+    /// `NSCursor.resizeUpDown` über einer horizontalen, `.resizeLeftRight` über einer vertikalen
+    /// Hilfslinie, `nil` stellt den vorherigen Cursor wieder her. Wirkt nur bei einem Wechsel.
+    func setGuideCursor(_ orientation: Guide.Orientation?) {
+        guard orientation != pushedGuideCursorOrientation else { return }
+        if pushedGuideCursorOrientation != nil {
+            NSCursor.pop()
+        }
+        if let orientation {
+            (orientation == .horizontal ? NSCursor.resizeUpDown : NSCursor.resizeLeftRight).push()
+        }
+        pushedGuideCursorOrientation = orientation
+    }
 }
 
 /// Reine Beschriftungs-Logik der Lineale, separat testbar (siehe `RulerLabelFormatterTests`).
@@ -59,6 +77,9 @@ enum RulerLabelFormatter {
 struct CanvasRulers: View {
     static let thickness: CGFloat = 20
 
+    /// Issue #31: nur für die Ziehen-Geste neuer Hilfslinien — das Zeichnen liest ausschliesslich
+    /// die unten übergebenen Werte.
+    let store: CanvasStore
     let viewportSize: CGSize
     let zoomScale: CGFloat
     let panOffset: CGSize
@@ -239,6 +260,8 @@ struct CanvasRulers: View {
         .frame(width: viewportSize.width, height: Self.thickness)
         .clipped()
         .border(DesignSystem.rulerBorder, width: 0.5)
+        .contentShape(Rectangle())
+        .gesture(newGuideGesture(orientation: .horizontal))
     }
 
     /// Linkes Lineal: Y-Position, gespiegelte Logik zu `horizontalRuler` (Text um 90° gedreht,
@@ -293,6 +316,38 @@ struct CanvasRulers: View {
         .frame(width: Self.thickness, height: viewportSize.height)
         .clipped()
         .border(DesignSystem.rulerBorder, width: 0.5)
+        .contentShape(Rectangle())
+        .gesture(newGuideGesture(orientation: .vertical))
+    }
+
+    /// Issue #31: Ziehen aus dem oberen Lineal erzeugt eine horizontale, aus dem linken eine
+    /// vertikale Hilfslinie. Die Geste bleibt an der Lineal-View, auch wenn die Maus in den Canvas
+    /// läuft, ihre Koordinaten sind lineal-lokal: das obere Lineal liegt genau `thickness` über
+    /// dem Canvas (gleiche X-Achse), das linke genau `thickness` links davon (gleiche Y-Achse).
+    /// Losgelassen noch über dem Lineal wird die Hilfslinie verworfen (Illustrator-Verhalten).
+    private func newGuideGesture(orientation: Guide.Orientation) -> some Gesture {
+        DragGesture(minimumDistance: 2)
+            .onChanged { value in
+                let canvasPoint = orientation == .horizontal
+                    ? CGPoint(x: value.location.x, y: value.location.y - Self.thickness)
+                    : CGPoint(x: value.location.x - Self.thickness, y: value.location.y)
+                let designPoint = store.designPoint(fromView: canvasPoint)
+                if store.draftGuide == nil {
+                    store.beginNewGuide(orientation: orientation, atDesignPoint: designPoint)
+                } else {
+                    store.updateNewGuide(toDesignPoint: designPoint)
+                }
+            }
+            .onEnded { value in
+                let isStillOverRuler = orientation == .horizontal
+                    ? value.location.y < Self.thickness
+                    : value.location.x < Self.thickness
+                if isStillOverRuler {
+                    store.cancelNewGuide()
+                } else {
+                    store.commitNewGuide()
+                }
+            }
     }
 
     /// Leere Ecke oben links, wo sich beide Lineale träfen.

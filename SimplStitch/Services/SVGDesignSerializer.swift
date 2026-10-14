@@ -27,7 +27,8 @@ protocol SVGDesignSerializing {
         backgroundImageFileName: String?,
         backgroundImageOpacity: Double,
         isBackgroundImageVisible: Bool,
-        defaultThreadPaletteID: UUID?
+        defaultThreadPaletteID: UUID?,
+        guides: [Guide]
     ) -> String
     func decode(svg: String) throws -> SVGDecodedDesign
     /// Markup für ein einzelnes Objekt (dasselbe Fragment, das `encode` pro Objekt in `content.svg`
@@ -60,6 +61,8 @@ struct SVGDecodedDesign {
     var backgroundImageOpacity: Double = 1.0
     var isBackgroundImageVisible: Bool = true
     var defaultThreadPaletteID: UUID?
+    /// Issue #31: Default leer für Dateien aus einer Zeit vor Hilfslinien.
+    var guides: [Guide] = []
 }
 
 enum SVGDesignSerializerError: Error, LocalizedError {
@@ -94,7 +97,8 @@ final class SVGDesignSerializer: SVGDesignSerializing {
         backgroundImageFileName: String?,
         backgroundImageOpacity: Double = 1.0,
         isBackgroundImageVisible: Bool = true,
-        defaultThreadPaletteID: UUID? = nil
+        defaultThreadPaletteID: UUID? = nil,
+        guides: [Guide] = []
     ) -> String {
         let defaultPaletteAttr = defaultThreadPaletteID.map { " data-ss-default-palette=\"\($0.uuidString)\"" } ?? ""
         var svg = """
@@ -118,8 +122,27 @@ final class SVGDesignSerializer: SVGDesignSerializing {
         for object in objects.sorted(by: { $0.zIndex < $1.zIndex }) {
             svg += "  " + element(for: object) + "\n"
         }
+        for guide in guides {
+            svg += "  " + guideElement(for: guide, canvasSize: canvasSize) + "\n"
+        }
         svg += "</svg>\n"
         return svg
+    }
+
+    /// Issue #31: valides, unsichtbares `<line>` (`stroke="none"`), das andere SVG-Programme
+    /// harmlos ignorieren. `x1/y1/x2/y2` spannen die Linie über die ganze Canvasbreite/-höhe, kanonisch
+    /// gelesen werden aber nur die eindeutigen `data-ss-guide-*`-Attribute (analog zu
+    /// `data-ss-role="background"` beim Hintergrundbild).
+    private func guideElement(for guide: Guide, canvasSize: CGSize) -> String {
+        let position = fmt(guide.position)
+        let coordinates: String
+        switch guide.orientation {
+        case .horizontal:
+            coordinates = "x1=\"0\" y1=\"\(position)\" x2=\"\(fmt(canvasSize.width))\" y2=\"\(position)\""
+        case .vertical:
+            coordinates = "x1=\"\(position)\" y1=\"0\" x2=\"\(position)\" y2=\"\(fmt(canvasSize.height))\""
+        }
+        return "<line data-ss-role=\"guide\" data-ss-guide-orientation=\"\(guide.orientation.rawValue)\" data-ss-guide-pos=\"\(position)\" \(coordinates) stroke=\"none\" />"
     }
 
     func element(for object: DesignObject) -> String {
@@ -363,7 +386,8 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             backgroundImageFileName: delegate.backgroundImageFileName,
             backgroundImageOpacity: delegate.backgroundImageOpacity,
             isBackgroundImageVisible: delegate.isBackgroundImageVisible,
-            defaultThreadPaletteID: delegate.defaultThreadPaletteID
+            defaultThreadPaletteID: delegate.defaultThreadPaletteID,
+            guides: delegate.guides
         )
     }
 
@@ -380,6 +404,7 @@ final class SVGDesignSerializer: SVGDesignSerializing {
         var backgroundImageOpacity: Double = 1.0
         var isBackgroundImageVisible: Bool = true
         var defaultThreadPaletteID: UUID?
+        var guides: [Guide] = []
 
         private var currentTextObject: DesignObject?
         private var currentTextBuffer = ""
@@ -469,6 +494,14 @@ final class SVGDesignSerializer: SVGDesignSerializing {
                 objects.append(makePolyShape(attributeDict, closed: false))
             case "path":
                 objects.append(makePathElement(attributeDict))
+            case "line":
+                // Issue #31: nur unsere eigenen Hilfslinien. Ein fremdes `<line>` ohne
+                // `data-ss-role="guide"` wird weiterhin ignoriert (wie vor diesem Fall).
+                if attributeDict["data-ss-role"] == "guide",
+                   let orientation = attributeDict["data-ss-guide-orientation"].flatMap(Guide.Orientation.init(rawValue:)),
+                   let position = Self.parseDouble(attributeDict["data-ss-guide-pos"]) {
+                    guides.append(Guide(orientation: orientation, position: position))
+                }
             case "text":
                 let object = Self.makeText(attributeDict)
                 currentTextObject = object

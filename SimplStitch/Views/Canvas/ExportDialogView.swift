@@ -43,12 +43,22 @@ struct ExportDialogView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             } else if let previewError {
-                Text(previewError)
-                    .font(.caption)
-                    .foregroundStyle(.red)
+                HStack(alignment: .top, spacing: 8) {
+                    BobbiView(mood: .oops)
+                        .frame(width: 30, height: 36)
+                    Text(previewError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             } else {
-                ProgressView()
-                    .controlSize(.small)
+                // Issue #27: Bobbi dreht Faden, solange die Stiche gerechnet werden.
+                HStack(spacing: 8) {
+                    BobbiView(mood: .working, isSpinning: true)
+                        .frame(width: 30, height: 36)
+                    Text("bobbi.export.working")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             if let exportError {

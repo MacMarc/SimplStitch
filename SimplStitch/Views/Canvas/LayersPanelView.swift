@@ -75,11 +75,16 @@ struct LayersPanelView: View {
     var body: some View {
         VStack(spacing: 0) {
             if store.objects.isEmpty {
-                ContentUnavailableView(
-                    "layers.panel.empty",
-                    systemImage: "square.3.layers.3d",
-                    description: Text("layers.panel.empty.description")
-                )
+                ContentUnavailableView {
+                    Label {
+                        Text("layers.panel.empty")
+                    } icon: {
+                        BobbiView(mood: .idle)
+                            .frame(width: 48, height: 58)
+                    }
+                } description: {
+                    Text("layers.panel.empty.description")
+                }
             } else {
                 List(selection: selectionBinding) {
                     ForEach(rows) { row in

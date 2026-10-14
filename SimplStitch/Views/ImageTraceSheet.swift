@@ -16,7 +16,7 @@ struct ImageTraceSheet: View {
     let onTraced: ([DesignObject]) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var colorCount = ImageTraceOptions().colorCount
+    @State private var colorCount = ImageTraceOptions.defaultColorCount
     @State private var removesBackground = true
     @State private var isTracing = false
     @State private var errorMessage: String?

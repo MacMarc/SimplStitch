@@ -25,8 +25,9 @@ import simd
 
 nonisolated struct ImageTraceOptions: Equatable, Sendable {
     static let colorCountRange = 2...8
+    static let defaultColorCount = 4
 
-    var colorCount: Int = 4
+    var colorCount: Int = defaultColorCount
     /// Die Farbe, die am Bildrand überwiegt, gilt als Hintergrund und wird nicht nachgezeichnet.
     var removesBackground: Bool = true
     /// Das Bild wird unter Beibehaltung des Seitenverhältnisses in diese Grösse eingepasst.
@@ -114,7 +115,7 @@ protocol StitchTypeSuggesting {
 /// Feine Linien (im Mittel schmaler als `runningStitchMaxWidthMillimeters`) werden als Laufstich
 /// nachgefahren, alles andere als Tatami-Füllung. Satin bewusst nicht: InkStitchs SatinColumn
 /// erwartet zwei Schienen, eine beliebige nachgezeichnete Fläche hat nur einen Umriss.
-struct RuleBasedStitchTypeSuggester: StitchTypeSuggesting {
+nonisolated struct RuleBasedStitchTypeSuggester: StitchTypeSuggesting {
     static let runningStitchMaxWidthMillimeters = 1.0
 
     func suggestedStitchType(for region: TracedRegion) -> StitchType {

@@ -17,6 +17,54 @@
         }
       }
     },
+    "bobbi.accessibilityLabel" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bobbi, das SimplStitch-Maskottchen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bobbi, the SimplStitch mascot"
+          }
+        }
+      }
+    },
+    "bobbi.emptyCanvas" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeichne etwas – ich mache die Stiche."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Draw something – I'll do the stitches."
+          }
+        }
+      }
+    },
+    "bobbi.export.working" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bobbi dreht Faden …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bobbi is twisting thread …"
+          }
+        }
+      }
+    },
     "canvas.tool.circle" : {
       "localizations" : {
         "de" : {

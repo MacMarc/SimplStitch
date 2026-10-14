@@ -152,6 +152,21 @@ struct CanvasView: View {
                     if let editingObject = store.editingTextObject {
                         textEditorOverlay(for: editingObject)
                     }
+
+                    // Issue #27: leerer Canvas — Bobbi lädt zum Zeichnen ein. Unten links und ohne
+                    // Hit-Testing, damit er weder Zeichenfläche noch Gesten verdeckt.
+                    if store.objects.isEmpty {
+                        HStack(alignment: .bottom, spacing: 8) {
+                            BobbiView(mood: .idle)
+                                .frame(width: 56, height: 67)
+                            BobbiSpeechBubble(text: "bobbi.emptyCanvas")
+                                .frame(maxWidth: 240, alignment: .leading)
+                        }
+                        .padding(16)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                    }
                 }
                 .frame(width: canvasViewportSize.width, height: canvasViewportSize.height, alignment: .topLeading)
                 .offset(x: Self.rulerThickness, y: Self.rulerThickness)

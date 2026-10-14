@@ -136,11 +136,16 @@ struct CanvasInspectorView: View {
                 // eine bestehende Gruppe längst im Inspector verfügbar ist (GroupInspectorView).
                 MultiSelectionInspectorView(memberCount: store.selectedObjectIDs.count, store: store)
             } else {
-                ContentUnavailableView(
-                    "inspector.object.empty",
-                    systemImage: "square.dashed.inset.filled",
-                    description: Text("inspector.object.empty.description")
-                )
+                ContentUnavailableView {
+                    Label {
+                        Text("inspector.object.empty")
+                    } icon: {
+                        BobbiView(mood: .idle)
+                            .frame(width: 48, height: 58)
+                    }
+                } description: {
+                    Text("inspector.object.empty.description")
+                }
             }
         case .project:
             ProjectInspectorView(store: store)

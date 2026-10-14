@@ -14,6 +14,7 @@
 //  mit einem grossflächigen Refactor zu vermischen.
 //
 
+import AppKit
 import SwiftUI
 
 enum DesignSystem {
@@ -38,6 +39,15 @@ enum DesignSystem {
     /// Sanft eingefärbte Auswahl-Fläche (z.B. aktives Werkzeug) statt einer harten Vollfarbe —
     /// näher am dezenten macOS-Standard-Selektionslook.
     static let selectionTint = Color.accentColor.opacity(0.15)
+
+    // Lineal (Issue #30, zentralisiert in Issue #32 Finding 9): `.separatorColor`/
+    // `.secondaryLabelColor` waren als reine Trennlinien-/Sekundärtöne kaum lesbar. Major-Striche/
+    // Zahlen nutzen die primäre Text-/Inhaltsfarbe (`.labelColor`), Minor-Striche bleiben bewusst
+    // dezenter (`.secondaryLabelColor`) — die Abstufung ist der gewünschte "10/20mm heben sich ab"-Effekt.
+    static let rulerBackground = Color(nsColor: .controlBackgroundColor)
+    static let rulerMajorTick = Color(nsColor: .labelColor)
+    static let rulerMinorTick = Color(nsColor: .secondaryLabelColor)
+    static let rulerBorder = Color(nsColor: .separatorColor)
 }
 
 /// Sektionsüberschrift für Inspector-/Einstellungen-Formulare — einheitlich `.headline` statt

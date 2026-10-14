@@ -41,18 +41,20 @@ struct CanvasView: View {
     @Query private var appSettingsList: [AppSettings]
 
     private var unit: MeasurementUnit {
-        appSettingsList.first?.preferredMeasurementUnit ?? .millimeters
+        appSettingsList.measurementUnit
     }
 
-    static let rulerThickness: CGFloat = 20
+    static let rulerThickness: CGFloat = CanvasRulers.thickness
 
     @GestureState private var liveMagnification: CGFloat = 1
     @GestureState private var liveDragTranslation: CGSize = .zero
     @State private var selectionDrag = SelectionDragState()
     @FocusState private var isTextEditorFocused: Bool
     /// Issue #30 (Lineal-Positionsanzeiger): aktuelle Mausposition relativ zum Canvas selbst (nicht
-    /// zum Lineal), `nil` sobald die Maus den Canvas verlässt — siehe `.onContinuousHover` in `body`.
-    @State private var hoverViewLocation: CGPoint?
+    /// zum Lineal) — Issue #32 (Finding 1): bewusst kein `@State`-Wert mehr, sondern ein Objekt, das
+    /// hier nur beschrieben und ausschliesslich von `CanvasRulers` gelesen wird. Sonst wertete jede
+    /// Mausbewegung den kompletten `body` inkl. der teuren Haupt-Canvas neu aus.
+    @State private var hoverTracker = RulerHoverTracker()
     /// Issue #15/#26: `.onAppear` allein reicht nicht — bei einem frisch von `DocumentGroup`
     /// geöffneten Fenster durchläuft die `GeometryReader`-Grösse mehrere Zwischenwerte, bevor
     /// macOS das Fenster auf seine endgültige (jetzt grosszügige, siehe `.defaultSize` in
@@ -78,9 +80,9 @@ struct CanvasView: View {
     var body: some View {
         GeometryReader { proxy in
             // Issue #30: Lineal oben+links braucht dauerhaft reservierten Platz (kein Overlay über
-            // der Zeichenfläche) — der Canvas selbst bekommt eine explizite, um `rulerThickness`
-            // verkleinerte Grösse und wird um denselben Betrag verschoben. Seine eigene lokale
-            // Koordinaten-/Gesten-Basis (0,0 = eigene obere linke Ecke) bleibt dabei unverändert,
+            // der Zeichenfläche) — der Canvas-Container bekommt eine explizite, um `rulerThickness`
+            // verkleinerte Grösse und wird um denselben Betrag verschoben. Die lokale Koordinaten-/
+            // Gesten-Basis des Canvas (0,0 = eigene obere linke Ecke) bleibt dabei unverändert,
             // SwiftUI berichtet Gesten-Koordinaten relativ zur View selbst, nicht zum Elternrahmen —
             // Hit-Testing/`store.designPoint(fromView:)` brauchen deshalb keine Anpassung.
             let canvasViewportSize = CGSize(
@@ -89,57 +91,66 @@ struct CanvasView: View {
             )
 
             ZStack(alignment: .topLeading) {
-                Canvas { context, _ in
-                    drawCanvasBackground(in: &context)
-                    drawBackgroundImage(in: &context)
-                    drawGrid(in: &context)
-                    drawObjects(in: &context)
-                    drawDraftPreview(in: &context)
-                    drawStitchPreview(in: &context)
-                    drawSelectionOutline(in: &context)
-                    drawHandles(in: &context)
-                    drawStitchPreviewError(in: &context)
-                    drawMarqueeRect(in: &context)
-                }
-                .frame(width: canvasViewportSize.width, height: canvasViewportSize.height)
-                .offset(x: Self.rulerThickness, y: Self.rulerThickness)
-                .background(Color(nsColor: .underPageBackgroundColor))
-                .gesture(store.currentTool == .select ? AnyGesture(selectionGesture) : AnyGesture(drawGesture))
-                .gesture(magnificationGesture)
-                .simultaneousGesture(doubleTapToEditGesture)
-                // Issue #19: Escape beendet den Punkt-Editier-Modus (Opus-Konsultation).
-                .onExitCommand { store.endPointEditing() }
-                // Issue #30 (Lineal-Positionsanzeiger): Hover-Position wird unabhängig vom aktiven
-                // Werkzeug getrackt (rein visuelles Feedback) — dieselbe lokale View-Koordinate wie
-                // Gesten (0,0 = obere linke Ecke des Canvas selbst), direkt als Ruler-Position
-                // wiederverwendbar, ohne Umweg über Design-Koordinaten und zurück.
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active(let location): hoverViewLocation = location
-                    case .ended: hoverViewLocation = nil
+                // Issue #32 (Finding 3): alles, was in Canvas-Koordinaten liegt (Zeichenfläche,
+                // Text-Editor-Overlay und künftige Overlays wie Hilfslinien aus Issue #31), steckt in
+                // EINEM Container, der einmal um die Lineal-Dicke verschoben wird. Vorher brauchte
+                // jedes Geschwister im ZStack seinen eigenen, von Hand nachgezogenen `.offset`.
+                ZStack(alignment: .topLeading) {
+                    Canvas { context, _ in
+                        drawCanvasBackground(in: &context)
+                        drawBackgroundImage(in: &context)
+                        drawGrid(in: &context)
+                        drawObjects(in: &context)
+                        drawDraftPreview(in: &context)
+                        drawStitchPreview(in: &context)
+                        drawSelectionOutline(in: &context)
+                        drawHandles(in: &context)
+                        drawStitchPreviewError(in: &context)
+                        drawMarqueeRect(in: &context)
+                    }
+                    .background(Color(nsColor: .underPageBackgroundColor))
+                    .gesture(store.currentTool == .select ? AnyGesture(selectionGesture) : AnyGesture(drawGesture))
+                    .gesture(magnificationGesture)
+                    .simultaneousGesture(doubleTapToEditGesture)
+                    // Issue #19: Escape beendet den Punkt-Editier-Modus (Opus-Konsultation).
+                    .onExitCommand { store.endPointEditing() }
+                    // Issue #30 (Lineal-Positionsanzeiger): Hover-Position wird unabhängig vom aktiven
+                    // Werkzeug getrackt (rein visuelles Feedback) — dieselbe lokale View-Koordinate wie
+                    // Gesten (0,0 = obere linke Ecke des Canvas selbst), direkt als Ruler-Position
+                    // wiederverwendbar, ohne Umweg über Design-Koordinaten und zurück.
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active(let location): hoverTracker.location = location
+                        case .ended: hoverTracker.location = nil
+                        }
+                    }
+                    .onAppear {
+                        autoFitIfNeeded(canvasViewportSize)
+                    }
+                    .onChange(of: canvasViewportSize) { _, newSize in
+                        autoFitIfNeeded(newSize)
+                    }
+                    .focusedSceneValue(\.zoomToFitAction) {
+                        store.zoomToFit(viewportSize: canvasViewportSize)
+                        hasUserAdjustedView = true
+                    }
+
+                    if let editingObject = store.editingTextObject {
+                        textEditorOverlay(for: editingObject)
                     }
                 }
-                .onAppear {
-                    autoFitIfNeeded(canvasViewportSize)
-                }
-                .onChange(of: canvasViewportSize) { _, newSize in
-                    autoFitIfNeeded(newSize)
-                }
-                .focusedSceneValue(\.zoomToFitAction) {
-                    store.zoomToFit(viewportSize: canvasViewportSize)
-                    hasUserAdjustedView = true
-                }
+                .frame(width: canvasViewportSize.width, height: canvasViewportSize.height, alignment: .topLeading)
+                .offset(x: Self.rulerThickness, y: Self.rulerThickness)
 
-                if let editingObject = store.editingTextObject {
-                    textEditorOverlay(for: editingObject)
-                        .offset(x: Self.rulerThickness, y: Self.rulerThickness)
-                }
-
-                horizontalRuler(width: canvasViewportSize.width, cursorViewPosition: hoverViewLocation?.x)
-                    .offset(x: Self.rulerThickness, y: 0)
-                verticalRuler(height: canvasViewportSize.height, cursorViewPosition: hoverViewLocation?.y)
-                    .offset(x: 0, y: Self.rulerThickness)
-                rulerCorner
+                CanvasRulers(
+                    viewportSize: canvasViewportSize,
+                    zoomScale: effectiveZoomScale,
+                    panOffset: effectivePanOffset,
+                    unit: unit,
+                    originOffsetXMillimeters: rulerOriginOffsetXMillimeters,
+                    originOffsetYMillimeters: rulerOriginOffsetYMillimeters,
+                    hoverTracker: hoverTracker
+                )
             }
         }
     }
@@ -151,262 +162,20 @@ struct CanvasView: View {
         store.zoomToFit(viewportSize: size)
     }
 
-    // MARK: Lineal (Issue #30)
+    // MARK: Lineal (Issue #30, Zeichnen in CanvasRulers.swift)
 
-    /// "Nice" Zahlen in der jeweiligen Anzeige-Einheit — für mm das klassische 1/2/5-Dekaden-Raster
-    /// von Papiralinealen, für Zoll die klassische Halbierungsfolge echter Zollmassstäbe/Bandmasse
-    /// (1", 1/2", 1/4", 1/8", …) statt Dezimalbrüchen. `rulerMajorStepValueInUnit` wählt die
-    /// kleinste, die auf dem aktuellen Zoom mindestens `minMajorPixelSpacing` zwischen zwei
-    /// beschrifteten Strichen ergibt, sonst würden sich Beschriftungen beim Rauszoomen überlappen.
-    private static let niceStepsMillimeters: [Double] = [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000]
-    private static let niceStepsInches: [Double] = [
-        1.0 / 64, 1.0 / 32, 1.0 / 16, 1.0 / 8, 1.0 / 4, 1.0 / 2, 1, 2, 4, 8, 16, 32, 64, 128, 256,
-    ]
-
-    private func rulerMajorStepValueInUnit() -> Double {
-        let minMajorPixelSpacing: Double = 45
-        let stepsInUnit = unit == .millimeters ? Self.niceStepsMillimeters : Self.niceStepsInches
-        for step in stepsInUnit {
-            let stepMm = unit.millimeters(from: step)
-            if stepMm * Double(effectiveZoomScale) >= minMajorPixelSpacing {
-                return step
-            }
-        }
-        return stepsInUnit.last ?? 1000
-    }
-
-    /// Wie viele Minor-Striche zwischen zwei Major-Strichen liegen — mm folgt dem Leitziffer-Muster
-    /// echter Massstäbe (führende 1 → 10 Unterteilungen wie 10mm→1mm, führende 2 → 4 wie 20mm→5mm,
-    /// führende 5 → 5 wie 50mm→10mm), Zoll halbiert einfach jede Stufe (1/2, 1/4, 1/8, …).
-    private func rulerMinorSubdivisionFactor(majorStepValueInUnit: Double) -> Int {
-        guard unit == .millimeters else { return 2 }
-        let magnitude = pow(10, floor(log10(majorStepValueInUnit)))
-        let leadingDigit = (majorStepValueInUnit / magnitude).rounded()
-        switch leadingDigit {
-        case 2: return 4
-        case 5: return 5
-        default: return 10
-        }
-    }
-
-    /// Zeigt die Beschriftung ohne unnötige Nachkommastellen (z.B. "10" statt "10.0", aber "0.5"
-    /// bleibt bei Zoll-Zwischenschritten erhalten). `originOffsetMillimeters` verschiebt NUR die
-    /// angezeigte Zahl (Nullpunkt-Zentrierung, siehe `rulerOriginOffsetXMillimeters`/…Y…) — die
-    /// tatsächliche Strich-POSITION bleibt unverändert an der realen Design-Koordinate.
-    private func rulerLabel(forMillimeters millimeters: Double, originOffsetMillimeters: Double) -> String {
-        let value = unit.value(fromMillimeters: millimeters - originOffsetMillimeters)
-        let rounded = (value * 1000).rounded() / 1000
-        if rounded == rounded.rounded() {
-            return String(Int(rounded))
-        }
-        return String(format: "%g", rounded)
-    }
-
-    /// Issue #30 (Nullpunkt zentrieren): rein optischer Versatz der Lineal-BESCHRIFTUNG, wenn
-    /// `AppSettings.rulerOriginXCentered`/`…YCentered` aktiv ist — `object.positionX`/`positionY`,
-    /// Export und Stichgenerierung bleiben unverändert auf der oberen linken Ecke verankert, nur die
-    /// gedruckte Zahl auf dem Lineal verschiebt sich um die halbe Canvas-Breite/-Höhe. Da dieser
-    /// Versatz i.A. kein ganzzahliges Vielfaches des Strichabstands ist, zeigt der Strich an der
-    /// tatsächlichen Mitte nicht zwingend exakt "0" (z.B. "-3" statt "0" bei ungerader Canvasgrösse)
+    /// Issue #30 (Nullpunkt zentrieren): rein optischer Versatz der Lineal-BESCHRIFTUNG — siehe
+    /// `CanvasRulers.originOffsetXMillimeters`. Da dieser Versatz i.A. kein ganzzahliges Vielfaches
+    /// des Strichabstands ist, zeigt der Strich an der tatsächlichen Mitte nicht zwingend exakt "0"
     /// — dasselbe erwartete Verhalten wie ein manuell verschobener Lineal-Nullpunkt in Illustrator.
     private var rulerOriginOffsetXMillimeters: Double {
-        guard appSettingsList.first?.rulerOriginXCentered ?? false else { return 0 }
+        guard appSettingsList.isRulerOriginXCentered else { return 0 }
         return store.canvasSizeMillimeters.width / 2
     }
 
     private var rulerOriginOffsetYMillimeters: Double {
-        guard appSettingsList.first?.rulerOriginYCentered ?? false else { return 0 }
+        guard appSettingsList.isRulerOriginYCentered else { return 0 }
         return store.canvasSizeMillimeters.height / 2
-    }
-
-    // Issue #30 (Kontrast-Feedback): `.separatorColor`/`.secondaryLabelColor` waren als reine
-    // Trennlinien-/Sekundärtöne kaum lesbar. Major-Striche/Zahlen nutzen jetzt die primäre
-    // Text-/Inhaltsfarbe (`.labelColor`), Minor-Striche bleiben bewusst dezenter (`.secondaryLabelColor`)
-    // — die dadurch entstehende Abstufung ist genau der gewünschte "10/20mm heben sich ab"-Effekt.
-    private var rulerBackgroundColor: Color { Color(nsColor: .controlBackgroundColor) }
-    private var rulerMajorTickColor: Color { Color(nsColor: .labelColor) }
-    private var rulerMinorTickColor: Color { Color(nsColor: .secondaryLabelColor) }
-    private var rulerBorderColor: Color { Color(nsColor: .separatorColor) }
-
-    /// Zeichnet Minor- (kurz, dezent) und Major-Striche (lang, kräftig, beschriftet) für eine Achse.
-    /// `tickAt`/`labelAt` bekommen die View-Position des jeweiligen Strichs; gemeinsame Iteration für
-    /// horizontales und vertikales Lineal, nur die Zeichen-Closures unterscheiden sich (siehe Aufrufer).
-    private func drawRulerTicks(
-        axisLengthDesign: Double,
-        origin: Double,
-        scale: CGFloat,
-        originOffsetMillimeters: Double,
-        minorTick: (Double) -> Void,
-        majorTick: (Double, String) -> Void
-    ) {
-        guard scale > 0 else { return }
-        let majorStepValueInUnit = rulerMajorStepValueInUnit()
-        let majorStepMm = unit.millimeters(from: majorStepValueInUnit)
-        let subdivisionFactor = rulerMinorSubdivisionFactor(majorStepValueInUnit: majorStepValueInUnit)
-        let minorStepMm = majorStepMm / Double(subdivisionFactor)
-        let minMinorPixelSpacing: Double = 6
-        let drawMinorTicks = minorStepMm * Double(scale) >= minMinorPixelSpacing
-
-        // Issue #30 (Nullpunkt-Bug): das Raster wird jetzt am gewählten Nullpunkt selbst verankert
-        // (`originOffsetMillimeters`), nicht mehr an der absoluten Canvas-Ecke — sonst landete "0"
-        // nur zufällig (falls der Versatz ein ganzzahliges Vielfaches des Strichabstands war) exakt
-        // auf einem Strich, oft aber daneben und wurde dadurch gar nicht angezeigt.
-        let firstMajorMm = originOffsetMillimeters
-            + (floor(((-origin / scale) - originOffsetMillimeters) / majorStepMm) - 1) * majorStepMm
-        let lastMm = (axisLengthDesign - origin) / scale + majorStepMm
-
-        if drawMinorTicks {
-            var mm = firstMajorMm
-            while mm <= lastMm {
-                for step in 1..<subdivisionFactor {
-                    let minorMm = mm + minorStepMm * Double(step)
-                    minorTick(origin + minorMm * scale)
-                }
-                mm += majorStepMm
-            }
-        }
-
-        var mm = firstMajorMm
-        while mm <= lastMm {
-            majorTick(origin + mm * scale, rulerLabel(forMillimeters: mm, originOffsetMillimeters: originOffsetMillimeters))
-            mm += majorStepMm
-        }
-    }
-
-    /// Issue #30 (Lineal-Positionsanzeiger): kleiner Punkt an der Ruler-Kante, der der Maus folgt
-    /// (Photoshop/Illustrator-Konvention) — `rect` kommt bereits fertig positioniert vom Aufrufer
-    /// (an der Aussenkante des jeweiligen Lineals verankert: oben beim horizontalen, links beim
-    /// vertikalen Lineal). War ursprünglich als Dreieck geplant, aber ein handgebauter
-    /// `move/addLine/closeSubpath`-Pfad blieb aus ungeklärten Gründen unsichtbar (vermutlich eine
-    /// GraphicsContext-Eigenheit bei sehr kleinen, manuell konstruierten Pfaden) — ein einfacher
-    /// `Path(ellipseIn:)` rendert dagegen zuverlässig auf beiden Linealen.
-    private func drawRulerCursorMarker(in context: inout GraphicsContext, rect: CGRect) {
-        context.fill(Path(ellipseIn: rect), with: .color(.accentColor))
-    }
-
-    /// Oberes Lineal: X-Position in Design-Koordinaten (mm/Zoll je `AppSettings.preferredMeasurementUnit`).
-    /// Läuft über die GESAMTE sichtbare Breite (nicht nur innerhalb der Canvas-Seitenränder) — bei
-    /// weit rausgezoomter/verschobener Ansicht sind auch Positionen ausserhalb der Zeichenfläche
-    /// sichtbar, dieselbe Konvention wie in Illustrator/Figma. `cursorViewPosition` (aus
-    /// `hoverViewLocation`, dieselbe lokale Koordinate wie der Canvas selbst) zeichnet den kleinen
-    /// Positionszeiger, `nil` solange die Maus nicht über dem Canvas ist.
-    private func horizontalRuler(width: CGFloat, cursorViewPosition: CGFloat?) -> some View {
-        let scale = effectiveZoomScale
-        let originX = effectivePanOffset.width
-        let originOffset = rulerOriginOffsetXMillimeters
-        let unitLabel = unit.symbol
-
-        return Canvas { context, size in
-            context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(rulerBackgroundColor))
-
-            drawRulerTicks(
-                axisLengthDesign: size.width,
-                origin: originX,
-                scale: scale,
-                originOffsetMillimeters: originOffset,
-                minorTick: { viewX in
-                    context.stroke(
-                        Path { path in
-                            path.move(to: CGPoint(x: viewX, y: size.height - 4))
-                            path.addLine(to: CGPoint(x: viewX, y: size.height))
-                        },
-                        with: .color(rulerMinorTickColor)
-                    )
-                },
-                majorTick: { viewX, label in
-                    context.stroke(
-                        Path { path in
-                            path.move(to: CGPoint(x: viewX, y: size.height - 9))
-                            path.addLine(to: CGPoint(x: viewX, y: size.height))
-                        },
-                        with: .color(rulerMajorTickColor),
-                        lineWidth: 1.2
-                    )
-                    context.draw(
-                        Text(label).font(.system(size: 9.5, weight: .medium)).foregroundStyle(rulerMajorTickColor),
-                        at: CGPoint(x: viewX + 2, y: 3),
-                        anchor: .topLeading
-                    )
-                }
-            )
-            context.draw(
-                Text(unitLabel).font(.system(size: 8)).foregroundStyle(rulerMinorTickColor),
-                at: CGPoint(x: size.width - 3, y: size.height - 2),
-                anchor: .bottomTrailing
-            )
-            if let cursorViewPosition {
-                let markerSize: CGFloat = 6
-                drawRulerCursorMarker(
-                    in: &context,
-                    rect: CGRect(x: cursorViewPosition - markerSize / 2, y: 0, width: markerSize, height: markerSize)
-                )
-            }
-        }
-        .frame(width: width, height: Self.rulerThickness)
-        .clipped()
-        .border(rulerBorderColor, width: 0.5)
-    }
-
-    /// Linkes Lineal: Y-Position, gespiegelte Logik zu `horizontalRuler` (Text um 90° gedreht,
-    /// damit er in der schmalen Spalte lesbar bleibt).
-    private func verticalRuler(height: CGFloat, cursorViewPosition: CGFloat?) -> some View {
-        let scale = effectiveZoomScale
-        let originY = effectivePanOffset.height
-        let originOffset = rulerOriginOffsetYMillimeters
-
-        return Canvas { context, size in
-            context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(rulerBackgroundColor))
-
-            drawRulerTicks(
-                axisLengthDesign: size.height,
-                origin: originY,
-                scale: scale,
-                originOffsetMillimeters: originOffset,
-                minorTick: { viewY in
-                    context.stroke(
-                        Path { path in
-                            path.move(to: CGPoint(x: size.width - 4, y: viewY))
-                            path.addLine(to: CGPoint(x: size.width, y: viewY))
-                        },
-                        with: .color(rulerMinorTickColor)
-                    )
-                },
-                majorTick: { viewY, label in
-                    context.stroke(
-                        Path { path in
-                            path.move(to: CGPoint(x: size.width - 9, y: viewY))
-                            path.addLine(to: CGPoint(x: size.width, y: viewY))
-                        },
-                        with: .color(rulerMajorTickColor),
-                        lineWidth: 1.2
-                    )
-                    let text = Text(label).font(.system(size: 9.5, weight: .medium)).foregroundStyle(rulerMajorTickColor)
-                    context.drawLayer { layerContext in
-                        layerContext.translateBy(x: 3, y: viewY + 2)
-                        layerContext.rotate(by: .degrees(-90))
-                        layerContext.draw(text, at: .zero, anchor: .topLeading)
-                    }
-                }
-            )
-            if let cursorViewPosition {
-                let markerSize: CGFloat = 6
-                drawRulerCursorMarker(
-                    in: &context,
-                    rect: CGRect(x: 0, y: cursorViewPosition - markerSize / 2, width: markerSize, height: markerSize)
-                )
-            }
-        }
-        .frame(width: Self.rulerThickness, height: height)
-        .clipped()
-        .border(rulerBorderColor, width: 0.5)
-    }
-
-    /// Leere Ecke oben links, wo sich beide Lineale träfen.
-    private var rulerCorner: some View {
-        Rectangle()
-            .fill(rulerBackgroundColor)
-            .frame(width: Self.rulerThickness, height: Self.rulerThickness)
-            .border(rulerBorderColor, width: 0.5)
     }
 
     /// Doppelklick auf ein Text-Objekt mit dem Auswahl-Werkzeug startet die Inline-Bearbeitung.
@@ -465,10 +234,8 @@ struct CanvasView: View {
     private var magnificationGesture: some Gesture {
         MagnificationGesture()
             .updating($liveMagnification) { value, state, _ in
-                guard store.zoomScale > 0 else { return }
-                let minFactor = CanvasStore.minZoomScale / store.zoomScale
-                let maxFactor = CanvasStore.maxZoomScale / store.zoomScale
-                state = min(max(value, minFactor), maxFactor)
+                // Issue #32 (Finding 2): Grenzen kommen aus dem Store statt hier dupliziert.
+                state = store.clampedZoomFactor(value)
             }
             .onEnded { value in
                 store.zoom(by: value)

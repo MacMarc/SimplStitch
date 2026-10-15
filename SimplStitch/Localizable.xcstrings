@@ -316,13 +316,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "DST"
+            "value" : "DST – Tajima und viele Profimaschinen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "DST"
+            "value" : "DST – Tajima and many professional machines"
           }
         }
       }
@@ -332,13 +332,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "EXP"
+            "value" : "EXP – Bernina, Melco"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "EXP"
+            "value" : "EXP – Bernina, Melco"
           }
         }
       }
@@ -348,13 +348,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "JEF"
+            "value" : "JEF – Janome, Elna"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "JEF"
+            "value" : "JEF – Janome, Elna"
           }
         }
       }
@@ -364,13 +364,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PES"
+            "value" : "PES – Brother, Baby Lock"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PES"
+            "value" : "PES – Brother, Baby Lock"
           }
         }
       }
@@ -380,13 +380,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "SVG"
+            "value" : "SVG – Vektorgrafik, keine Stichdatei"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "SVG"
+            "value" : "SVG – vector graphic, not a stitch file"
           }
         }
       }
@@ -396,13 +396,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "VP3"
+            "value" : "VP3 – Pfaff, Husqvarna Viking"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "VP3"
+            "value" : "VP3 – Pfaff, Husqvarna Viking"
           }
         }
       }
@@ -2714,6 +2714,38 @@
         }
       }
     },
+    "settings.export.defaultFormat" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bevorzugtes Format"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preferred Format"
+          }
+        }
+      }
+    },
+    "settings.export.defaultFormat.footer" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ist beim Exportieren schon ausgewählt. Wähle das Format deiner Stickmaschine."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pre-selected when you export. Choose the format of your embroidery machine."
+          }
+        }
+      }
+    },
     "settings.hoopSizes.add" : {
       "localizations" : {
         "de" : {
@@ -2918,6 +2950,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Apple Intelligence"
+          }
+        }
+      }
+    },
+    "settings.section.export" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export"
           }
         }
       }

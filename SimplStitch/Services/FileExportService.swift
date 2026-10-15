@@ -33,6 +33,8 @@ enum EmbroideryFileFormat: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var fileExtension: String { rawValue }
 
+    /// Mit den üblichen Maschinenherstellern dahinter (z.B. "VP3 – Pfaff, Husqvarna Viking"),
+    /// damit Einsteiger nicht wissen müssen, welches Kürzel zu ihrer Maschine passt.
     var displayName: String {
         switch self {
         case .vp3: return String(localized: "export.format.vp3")

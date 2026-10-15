@@ -2538,6 +2538,22 @@
         }
       }
     },
+    "settings.about.version" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version"
+          }
+        }
+      }
+    },
     "settings.appleIntelligence.footer.available" : {
       "localizations" : {
         "de" : {
@@ -2870,6 +2886,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ruler Origin Y-Axis Centered"
+          }
+        }
+      }
+    },
+    "settings.section.about" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Über SimplStitch"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About SimplStitch"
           }
         }
       }

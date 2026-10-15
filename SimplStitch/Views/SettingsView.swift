@@ -175,9 +175,22 @@ struct SettingsView: View {
             } header: {
                 Text("settings.section.appleIntelligence")
             }
+
+            Section("settings.section.about") {
+                LabeledContent("settings.about.version", value: Self.versionDescription)
+            }
         }
         .inspectorForm()
         .onAppear { appleIntelligenceStatus = AppleIntelligenceStatus.current }
+    }
+
+    /// "0.1-alpha (76)": Version von Hand gesetzt, Build-Nummer zählt automatisch (Build-Phase
+    /// "Set Build Number", Anzahl Git-Commits).
+    private static var versionDescription: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "\(version) (\(build))"
     }
 
     /// Ohne Apple Intelligence (ausgeschaltet oder auf dem Mac nicht verfügbar) wählt SimplStitch

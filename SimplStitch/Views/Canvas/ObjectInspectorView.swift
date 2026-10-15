@@ -115,7 +115,12 @@ struct ObjectInspectorView: View {
                 Toggle("inspector.fill.enabled", isOn: hasFillBinding)
 
                 if object.hasFill {
-                    currentColorRow(hex: object.fillColorHex, threadName: object.threadColor?.name)
+                    // Nur zeigen, wenn die Garnauswahl darunter die Farbe nicht selbst anzeigt (kein
+                    // Garn zugeordnet oder eines, das nicht in der Projekt-Garnliste ist) — sonst
+                    // doppelt (Marcs Rückmeldung, Okt. 2026).
+                    if threadColorSelectionBinding.wrappedValue == nil {
+                        currentColorRow(hex: object.fillColorHex, threadName: object.threadColor?.name)
+                    }
 
                     if projectThreadColors.isEmpty {
                         Text("inspector.color.noProjectThreads")
@@ -173,7 +178,9 @@ struct ObjectInspectorView: View {
                         }
                     }
 
-                    currentColorRow(hex: object.borderColorHex ?? object.fillColorHex, threadName: object.borderThreadColor?.name)
+                    if borderThreadColorSelectionBinding.wrappedValue == nil {
+                        currentColorRow(hex: object.borderColorHex ?? object.fillColorHex, threadName: object.borderThreadColor?.name)
+                    }
 
                     if projectThreadColors.isEmpty {
                         Text("inspector.color.noProjectThreads")

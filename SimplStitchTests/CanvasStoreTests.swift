@@ -1154,7 +1154,7 @@ struct CanvasStoreTests {
 
         store.selectObject(object.id)
         // Debounce (CanvasStore.stitchPreviewDebounce) abwarten, bevor die Vorschau gesetzt wird.
-        try await Task.sleep(for: .milliseconds(400))
+        try await waitUntil { store.stitchPreview != nil }
 
         #expect(store.stitchPreview == mockStitches)
     }
@@ -1193,10 +1193,19 @@ struct CanvasStoreTests {
 
         store.selectObject(nil)
         store.selectObject(object.id)
-        try await Task.sleep(for: .milliseconds(400))
+        try await waitUntil { store.stitchPreviewError != nil }
 
         #expect(store.stitchPreview == nil)
         #expect(store.stitchPreviewError == "Stichgenerierung fehlgeschlagen: Testfehler")
+    }
+
+    /// Feste 400 ms reichten in CI unter Last nicht (alle Suites laufen parallel auf dem Main
+    /// Actor, der Debounce-Task kam zu spät dran) — daher bis zu 5 s auf die Bedingung warten.
+    private func waitUntil(timeout: Duration = .seconds(5), _ condition: () -> Bool) async throws {
+        let deadline = ContinuousClock.now + timeout
+        while !condition(), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+        }
     }
 
     // MARK: Mehrfachauswahl & Gruppierung (Issue #16)

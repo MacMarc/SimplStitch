@@ -649,8 +649,29 @@ struct CanvasView: View {
             previous = point
         }
 
-        previewContext.stroke(stitchPath, with: .color(.black.opacity(0.7)), lineWidth: 0.12)
-        previewContext.stroke(movementPath, with: .color(.gray.opacity(0.6)), style: StrokeStyle(lineWidth: 0.1, dash: [0.6, 0.4]))
+        // Kontrast zur Garnfarbe darunter (StitchPreviewStyle): auf dunklem Garn hell, sonst
+        // dunkel, jeweils mit Saum in der Gegenfarbe — vorher immer schwarz, auf dunklen Garnen
+        // war die Stichreihenfolge kaum zu sehen.
+        let underlyingHex: String? = store.selectedObject.map { object in
+            object.hasFill ? object.fillColorHex : (object.borderColorHex ?? object.fillColorHex)
+        }
+        let isLight = StitchPreviewStyle.usesLightStitches(onHex: underlyingHex)
+        let lineColor: Color = isLight ? .white.opacity(0.9) : .black.opacity(0.75)
+        let haloColor: Color = isLight ? .black.opacity(0.45) : .white.opacity(0.55)
+
+        previewContext.stroke(stitchPath, with: .color(haloColor), style: StrokeStyle(lineWidth: 0.3, lineCap: .round, lineJoin: .round))
+        previewContext.stroke(stitchPath, with: .color(lineColor), lineWidth: 0.12)
+        previewContext.stroke(movementPath, with: .color(lineColor.opacity(0.7)), style: StrokeStyle(lineWidth: 0.1, dash: [0.6, 0.4]))
+
+        // Anfang (grün) und Ende (rot) der Stichfolge markieren, damit die Reihenfolge lesbar ist.
+        let markerRadius = 0.5
+        let start = CGPoint(x: stitches[0].x, y: stitches[0].y)
+        let end = CGPoint(x: stitches[stitches.count - 1].x, y: stitches[stitches.count - 1].y)
+        for (point, color) in [(start, Color.green), (end, Color.red)] {
+            let marker = Path(ellipseIn: CGRect(x: point.x - markerRadius, y: point.y - markerRadius, width: markerRadius * 2, height: markerRadius * 2))
+            previewContext.fill(marker, with: .color(color))
+            previewContext.stroke(marker, with: .color(haloColor), lineWidth: 0.1)
+        }
     }
 
     private func polyline(through points: [CGPoint]) -> Path {

@@ -104,6 +104,15 @@ final class AppSettings {
     var rulerOriginXCentered: Bool?
     var rulerOriginYCentered: Bool?
 
+    /// Apple Intelligence beim Bild-Nachzeichnen mitentscheiden lassen. Optional aus demselben
+    /// Grund wie `toolbarSize` (bestehende Zeilen haben NULL); `nil` heisst "an" — wirkt ohnehin
+    /// nur, wenn Apple Intelligence auf dem Mac verfügbar ist (`AppleIntelligenceStatus`).
+    var usesAppleIntelligence: Bool?
+
+    /// Einmalig gesetzt, sobald die Grundfarben als Standard-Garnliste vorbelegt wurden — danach
+    /// darf der Nutzer auch bewusst "Keine" wählen, ohne dass der nächste Start das überschreibt.
+    var didSeedDefaultThreadPalette: Bool?
+
     init(
         preferredMeasurementUnit: MeasurementUnit = .millimeters,
         maxRecentProjects: Int = 10,
@@ -132,6 +141,11 @@ extension AppSettings {
         get { rulerOriginYCentered ?? false }
         set { rulerOriginYCentered = newValue }
     }
+
+    var isAppleIntelligenceEnabled: Bool {
+        get { usesAppleIntelligence ?? true }
+        set { usesAppleIntelligence = newValue }
+    }
 }
 
 /// Lesezugriff auf die (einzige, Issue #23) AppSettings-Zeile aus einem `@Query`-Ergebnis — mit
@@ -147,5 +161,9 @@ extension Collection where Element == AppSettings {
 
     var isRulerOriginYCentered: Bool {
         first?.isRulerOriginYCentered ?? false
+    }
+
+    var isAppleIntelligenceEnabled: Bool {
+        first?.isAppleIntelligenceEnabled ?? true
     }
 }

@@ -5,9 +5,9 @@
 //  Issue #3: Bild → Stichdatei. Reduziert ein Foto/eine Grafik auf wenige Garnfarben
 //  (k-means), sucht pro Farbe die Umrisse mit `VNDetectContoursRequest` (Vision-Framework,
 //  läuft ohne Apple Intelligence und damit auch in der EU) und liefert sie als geschlossene
-//  Polygone in Millimetern. Der Stichtyp pro Fläche kommt aus einem austauschbaren
-//  `StitchTypeSuggesting` — vorerst regelbasiert, ein Apple-Intelligence- oder Plugin-Modell
-//  kann später dieselbe Schnittstelle bedienen.
+//  Polygone in Millimetern. Stichart, Dichte, Winkel und Unterlage pro Fläche kommen aus einem
+//  `StitchAdvising` (StitchAdvisor.swift): immer die Stickregeln nach Ink/Stitch, auf Wunsch
+//  zusätzlich Apple Intelligence.
 //
 //  Bewusste Vereinfachungen (v1):
 //  - Löcher (innere Konturen) werden nicht ausgespart: kleinere Flächen liegen in der Z-Order
@@ -106,8 +106,7 @@ protocol ImageTracing {
     func traceImage(at url: URL, options: ImageTraceOptions) async throws -> [TracedRegion]
 }
 
-/// Schlägt pro nachgezeichneter Fläche einen Stichtyp vor. Eigene Schnittstelle, damit später ein
-/// Apple-Intelligence- oder Plugin-Modell die Regeln ersetzen kann, ohne den Rest anzufassen.
+/// Schlägt pro nachgezeichneter Fläche einen Stichtyp vor (Grundregel für `RuleBasedStitchAdvisor`).
 nonisolated protocol StitchTypeSuggesting {
     func suggestedStitchType(for region: TracedRegion) -> StitchType
 }
@@ -229,9 +228,19 @@ nonisolated struct ImageTraceService: ImageTracing {
 extension ImageTraceService {
     /// Läuft auf dem MainActor (DesignObject ist ein SwiftData-Model). Reihenfolge = Z-Order:
     /// grosse Flächen zuerst (hinten), kleinere darüber.
+    /// `advice` gehört Index für Index zu `regions` (siehe `StitchAdvising`); ohne (oder bei
+    /// abweichender Länge) gelten die Stickregeln.
+    /// `threads`: Garne der Standard-Garnliste — jede Fläche bekommt das nächstliegende davon, damit
+    /// das Ergebnis ohne Nacharbeit mit echten Garnen exportiert werden kann. Leer → Bildfarbe.
     @MainActor
-    static func designObjects(from regions: [TracedRegion], suggester: StitchTypeSuggesting = RuleBasedStitchTypeSuggester()) -> [DesignObject] {
-        regions.map { region in
+    static func designObjects(
+        from regions: [TracedRegion],
+        advice: [RegionStitchAdvice]? = nil,
+        threads: [ThreadCandidate] = []
+    ) -> [DesignObject] {
+        let advice = advice.flatMap { $0.count == regions.count ? $0 : nil }
+            ?? RuleBasedStitchAdvisor().ruleAdvice(for: regions)
+        return zip(regions, advice).map { region, regionAdvice in
             let bounds = region.bounds
             let object = DesignObject(
                 name: String(localized: "imageTrace.object.defaultName"),
@@ -242,15 +251,25 @@ extension ImageTraceService {
                 height: max(bounds.height, 0.01)
             )
             object.pathData = pathData(for: region.points)
-            object.fillColorHex = region.color.hex
+            if let thread = ThreadCandidate.nearest(to: region.color, in: threads) {
+                object.fillColorHex = thread.hex
+                object.threadColor = ThreadColor(
+                    name: thread.name,
+                    red: thread.red,
+                    green: thread.green,
+                    blue: thread.blue,
+                    catalogNumber: thread.catalogNumber
+                )
+            } else {
+                object.fillColorHex = region.color.hex
+            }
 
-            let stitchType = suggester.suggestedStitchType(for: region)
+            // Beim Laufstich ist `density` die Stichlänge (siehe SVGDesignSerializer).
             let settings = StitchSettings(
-                stitchType: stitchType,
-                // Beim Laufstich ist `density` die Stichlänge (siehe SVGDesignSerializer).
-                density: stitchType == .straight ? 2.5 : 0.4,
-                angleDegrees: 0,
-                underlayType: UnderlayType.suggested(for: stitchType)
+                stitchType: regionAdvice.stitchType,
+                density: regionAdvice.density,
+                angleDegrees: regionAdvice.angleDegrees,
+                underlayType: regionAdvice.underlayType
             )
             settings.designObject = object
             object.stitchSettings = settings
@@ -270,6 +289,33 @@ extension ImageTraceService {
 
     private static func format(_ value: Double) -> String {
         String(format: "%.3f", value)
+    }
+}
+
+// MARK: Garnzuordnung
+
+/// Wertkopie einer `ThreadColor` (SwiftData-Model), damit die Zuordnung ohne ModelContext testbar ist.
+nonisolated struct ThreadCandidate: Equatable, Sendable {
+    var name: String
+    var red: Int
+    var green: Int
+    var blue: Int
+    var catalogNumber: String?
+
+    var hex: String { String(format: "#%02X%02X%02X", red, green, blue) }
+
+    /// Nächstes Garn nach "Redmean"-Abstand — eine einfache, wahrnehmungsnähere Gewichtung als der
+    /// reine RGB-Abstand (Rot/Blau je nach Rotanteil unterschiedlich stark).
+    static func nearest(to color: TraceColor, in candidates: [ThreadCandidate]) -> ThreadCandidate? {
+        candidates.min { distance($0, color) < distance($1, color) }
+    }
+
+    static func distance(_ candidate: ThreadCandidate, _ color: TraceColor) -> Double {
+        let redMean = (Double(candidate.red) + Double(color.red)) / 2
+        let dr = Double(candidate.red) - Double(color.red)
+        let dg = Double(candidate.green) - Double(color.green)
+        let db = Double(candidate.blue) - Double(color.blue)
+        return (2 + redMean / 256) * dr * dr + 4 * dg * dg + (2 + (255 - redMean) / 256) * db * db
     }
 }
 

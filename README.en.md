@@ -112,7 +112,7 @@ Building in Xcode runs a build-script phase that automatically downloads a match
 
 SimplStitch is under active development. The canvas engine, stitch generation, import/export, and the core UI (toolbar, menu bar, sidebar, settings) are functional. Larger open items:
 
-- Apple Intelligence integration (image → stitch file via Vision/Foundation Models)
+- Optional Claude integration for image → stitch file (in addition to Apple Intelligence)
 - Release pipeline (notarization, automated GitHub releases)
 
 For a detailed, continuously updated progress log, see the "Aktueller Stand" (current status) section in [`CLAUDE.md`](CLAUDE.md).

@@ -91,4 +91,41 @@ struct BuiltInThreadPaletteBootstrapperTests {
         let palettes = try context.fetch(FetchDescriptor<ThreadPalette>())
         #expect(palettes.map(\.name) == ["Grundfarben"])
     }
+
+    @Test func basicColorsBecomeDefaultThreadPalette() throws {
+        let context = try makeInMemoryContext()
+        BuiltInThreadPaletteBootstrapper(paletteDirectory: nil).bootstrapIfNeeded(context: context)
+
+        let basics = try #require(try context.fetch(FetchDescriptor<ThreadPalette>()).first { $0.name == "Grundfarben" })
+        let settings = try #require(try context.fetch(FetchDescriptor<AppSettings>()).first)
+        #expect(settings.defaultThreadPaletteID == basics.id)
+        #expect(settings.didSeedDefaultThreadPalette == true)
+    }
+
+    /// Bestehende Installationen (Paletten schon da, Standard noch "Keine") bekommen die Grundfarben
+    /// einmalig — eine danach bewusst gewählte "Keine" bleibt aber erhalten.
+    @Test func seedingHappensOnceAndRespectsLaterChoice() throws {
+        let context = try makeInMemoryContext()
+        let bootstrapper = BuiltInThreadPaletteBootstrapper(paletteDirectory: nil)
+        bootstrapper.bootstrapIfNeeded(context: context)
+        let settings = try #require(try context.fetch(FetchDescriptor<AppSettings>()).first)
+
+        settings.defaultThreadPaletteID = nil
+        bootstrapper.bootstrapIfNeeded(context: context)
+
+        #expect(settings.defaultThreadPaletteID == nil)
+        #expect(try context.fetchCount(FetchDescriptor<AppSettings>()) == 1)
+    }
+
+    @Test func existingInstallWithoutSeedFlagGetsBasicColors() throws {
+        let context = try makeInMemoryContext()
+        context.insert(BuiltInThreadPaletteBootstrapper.makeBasicColorsPalette())
+        let settings = AppSettings()
+        context.insert(settings)
+
+        BuiltInThreadPaletteBootstrapper(paletteDirectory: nil).bootstrapIfNeeded(context: context)
+
+        let basics = try #require(try context.fetch(FetchDescriptor<ThreadPalette>()).first { $0.name == "Grundfarben" })
+        #expect(settings.defaultThreadPaletteID == basics.id)
+    }
 }

@@ -138,7 +138,7 @@ struct ObjectInspectorView: View {
                     }
 
                     if let settings = object.stitchSettings {
-                        degreeField("inspector.stitch.density", binding: densityBinding(settings), range: 0.1...2.0, suffix: "mm")
+                        degreeField(densityLabel(for: settings.stitchType), binding: densityBinding(settings), range: densityRange(for: settings.stitchType), suffix: "mm")
                         if settings.stitchType == .tatami {
                             degreeField("inspector.stitch.angle", binding: angleBinding(settings), range: 0...180)
                         }
@@ -147,6 +147,7 @@ struct ObjectInspectorView: View {
                                 Text(displayName(for: underlay)).tag(underlay)
                             }
                         }
+                        stitchHints(for: settings, width: fillWidth)
                     }
                 }
             } header: {
@@ -193,12 +194,13 @@ struct ObjectInspectorView: View {
                         }
                     }
                     if let borderSettings = object.borderStitchSettings {
-                        degreeField("inspector.stitch.density", binding: densityBinding(borderSettings), range: 0.1...2.0, suffix: "mm")
+                        degreeField(densityLabel(for: borderSettings.stitchType), binding: densityBinding(borderSettings), range: densityRange(for: borderSettings.stitchType), suffix: "mm")
                         Picker("inspector.stitch.underlay", selection: underlayBinding(borderSettings)) {
                             ForEach(UnderlayType.allCases, id: \.self) { underlay in
                                 Text(displayName(for: underlay)).tag(underlay)
                             }
                         }
+                        stitchHints(for: borderSettings, width: object.borderWidthMillimeters)
                     }
                 }
             } header: {
@@ -393,7 +395,11 @@ struct ObjectInspectorView: View {
                     let stitchType: StitchType = object.kind == .text
                         ? .tatami
                         : StitchType.suggested(forShapeWidth: object.width, height: object.height)
-                    let settings = StitchSettings(stitchType: stitchType, underlayType: UnderlayType.suggested(for: stitchType))
+                    let settings = StitchSettings(
+                        stitchType: stitchType,
+                        density: EmbroideryKnowledge.recommendedDensity(for: stitchType),
+                        underlayType: UnderlayType.suggested(for: stitchType, width: fillWidth)
+                    )
                     settings.designObject = object
                     object.stitchSettings = settings
                 }
@@ -410,7 +416,11 @@ struct ObjectInspectorView: View {
                 // Randeinstellungen bleiben beim Deaktivieren erhalten (Datenverlust vermeiden) —
                 // beim ERSTEN Aktivieren gibt es aber noch keine, die erzeugen wir hier vor.
                 if newValue, object.borderStitchSettings == nil {
-                    let settings = StitchSettings(stitchType: .straight, underlayType: UnderlayType.suggested(for: .straight))
+                    let settings = StitchSettings(
+                        stitchType: .straight,
+                        density: EmbroideryKnowledge.recommendedDensity(for: .straight),
+                        underlayType: UnderlayType.suggested(for: .straight)
+                    )
                     settings.borderOwner = object
                     object.borderStitchSettings = settings
                 }
@@ -467,9 +477,10 @@ struct ObjectInspectorView: View {
             get: { object.borderStitchSettings?.stitchType ?? .straight },
             set: { newType in
                 if let settings = object.borderStitchSettings {
-                    settings.stitchType = newType
+                    applyStitchType(newType, to: settings, width: object.borderWidthMillimeters)
                 } else {
                     let settings = StitchSettings(stitchType: newType)
+                    applyStitchType(newType, to: settings, width: object.borderWidthMillimeters)
                     settings.borderOwner = object
                     object.borderStitchSettings = settings
                 }
@@ -511,9 +522,10 @@ struct ObjectInspectorView: View {
             set: { newType in
                 if let newType {
                     if let settings = object.stitchSettings {
-                        settings.stitchType = newType
+                        applyStitchType(newType, to: settings, width: fillWidth)
                     } else {
                         let settings = StitchSettings(stitchType: newType)
+                        applyStitchType(newType, to: settings, width: fillWidth)
                         settings.designObject = object
                         object.stitchSettings = settings
                     }
@@ -544,5 +556,88 @@ struct ObjectInspectorView: View {
             get: { settings.underlayType },
             set: { settings.underlayType = $0; store.refreshStitchPreview() }
         )
+    }
+
+    // MARK: Stickwissen (Ink/Stitch-Regeln, EmbroideryKnowledge)
+
+    /// Breite quer zur Stichrichtung — für Formen die kürzere Seite der Bounding-Box. Bei Text
+    /// unbekannt (die Box umfasst das ganze Wort, nicht die Strichstärke), daher `nil`.
+    private var fillWidth: Double? {
+        object.kind == .text ? nil : min(object.width, object.height)
+    }
+
+    /// `density` bedeutet je Stichart etwas anderes (Reihenabstand, Zickzackabstand, Stichlänge) —
+    /// beim Wechsel der Stichart daher Dichte und Unterlage passend zur neuen Art neu vorbelegen,
+    /// statt z.B. 0,4 mm Reihenabstand als 0,4 mm Laufstichlänge weiterzuverwenden.
+    private func applyStitchType(_ type: StitchType, to settings: StitchSettings, width: Double?) {
+        settings.stitchType = type
+        settings.density = EmbroideryKnowledge.recommendedDensity(for: type)
+        settings.underlayType = UnderlayType.suggested(for: type, width: width)
+    }
+
+    private func densityLabel(for type: StitchType) -> LocalizedStringKey {
+        type == .straight ? "inspector.stitch.length" : "inspector.stitch.density"
+    }
+
+    private func densityRange(for type: StitchType) -> ClosedRange<Double> {
+        type == .straight ? 0.5...5.0 : 0.1...2.0
+    }
+
+    /// Hinweise nach Ink/Stitch, wenn eine Einstellung nicht zur Form passt (z.B. Füllung ohne
+    /// Unterlage, zu breite Satinsäule) — mit "Übernehmen", wo sich der Hinweis direkt umsetzen lässt.
+    @ViewBuilder
+    private func stitchHints(for settings: StitchSettings, width: Double?) -> some View {
+        let hints = EmbroideryKnowledge.hints(
+            stitchType: settings.stitchType,
+            density: settings.density,
+            underlay: settings.underlayType,
+            width: width
+        )
+        ForEach(hints) { hint in
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: "lightbulb")
+                    .foregroundStyle(.yellow)
+                Text(hintMessage(hint.kind))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 4)
+                if let adjustment = hint.adjustment {
+                    Button("inspector.hint.apply") {
+                        apply(adjustment, to: settings, width: width)
+                    }
+                    .controlSize(.small)
+                }
+            }
+        }
+    }
+
+    private func apply(_ adjustment: EmbroideryKnowledge.Adjustment, to settings: StitchSettings, width: Double?) {
+        switch adjustment {
+        case .stitchType(let type):
+            applyStitchType(type, to: settings, width: width)
+        case .underlay(let underlay):
+            settings.underlayType = underlay
+        case .density(let density):
+            settings.density = density
+        }
+        store.refreshStitchPreview()
+    }
+
+    private func hintMessage(_ kind: EmbroideryKnowledge.HintKind) -> String {
+        switch kind {
+        case .satinTooNarrow: return String(localized: "hint.satinTooNarrow")
+        case .satinTooWide: return String(localized: "hint.satinTooWide")
+        case .satinUnderlay: return String(localized: "hint.satinUnderlay")
+        case .fillTooSmall: return String(localized: "hint.fillTooSmall")
+        case .fillNeedsUnderlay: return String(localized: "hint.fillNeedsUnderlay")
+        case .fillUnderlayOptional: return String(localized: "hint.fillUnderlayOptional")
+        case .fillTooDense: return String(localized: "hint.fillTooDense")
+        case .fillTooSparse: return String(localized: "hint.fillTooSparse")
+        case .satinTooDense: return String(localized: "hint.satinTooDense")
+        case .satinTooSparse: return String(localized: "hint.satinTooSparse")
+        case .runningStitchTooShort: return String(localized: "hint.runningStitchTooShort")
+        case .runningStitchTooLong: return String(localized: "hint.runningStitchTooLong")
+        }
     }
 }

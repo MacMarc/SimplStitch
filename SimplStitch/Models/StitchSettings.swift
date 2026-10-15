@@ -8,7 +8,7 @@
 import Foundation
 import SwiftData
 
-enum StitchType: String, Codable, CaseIterable {
+nonisolated enum StitchType: String, Codable, CaseIterable {
     case straight   // Laufstich
     case satin      // Satinstich
     case tatami     // Füllung
@@ -31,11 +31,13 @@ enum StitchType: String, Codable, CaseIterable {
         return .satin
     }
 
-    static let satinMaxShortSideMillimeters: Double = 15
+    /// Früher 15 mm — breitere Satinstiche liegen lose auf und verhaken sich; seit dem Stickwissen
+    /// nach Ink/Stitch gleich `EmbroideryKnowledge.satinMaxWidthMillimeters`.
+    static let satinMaxShortSideMillimeters: Double = EmbroideryKnowledge.satinMaxWidthMillimeters
     static let satinAspectRatioThreshold: Double = 0.3
 }
 
-enum UnderlayType: String, Codable, CaseIterable {
+nonisolated enum UnderlayType: String, Codable, CaseIterable {
     case none
     case centerWalk
     case edgeWalk
@@ -45,11 +47,12 @@ enum UnderlayType: String, Codable, CaseIterable {
     /// (Issue #11): reine Vorbelegung beim Erzeugen der Sticheinstellungen, im Objekt-Inspektor
     /// jederzeit manuell überschreibbar. Laufstich (offene Linie, kein Flächengebiet) bekommt keine
     /// Unterlage; Tatami-Füllung und Satin profitieren beide von einer Center-Walk-Unterlage.
-    static func suggested(for stitchType: StitchType) -> UnderlayType {
-        switch stitchType {
-        case .straight: return .none
-        case .tatami, .satin: return .centerWalk
-        }
+    ///
+    /// Mit bekannter Breite (`width`, mm quer zur Stichrichtung) entscheidet das Stickwissen nach
+    /// Ink/Stitch (`EmbroideryKnowledge`): schmale Satinsäulen Mittellinie, mittlere Kontur, breite
+    /// Kontur + Zickzack.
+    static func suggested(for stitchType: StitchType, width: Double? = nil) -> UnderlayType {
+        EmbroideryKnowledge.recommendedUnderlay(for: stitchType, width: width)
     }
 }
 

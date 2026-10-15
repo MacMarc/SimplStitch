@@ -24,7 +24,7 @@ struct StitchSettingsTests {
 
     @Test func suggestsTatamiForNarrowButLargeShape() {
         // Seitenverhältnis wäre satin-tauglich (0.1), aber die kürzere Seite (20mm) überschreitet
-        // satinMaxShortSideMillimeters (15mm) — zu breit für einen sinnvollen Satin-Steg.
+        // satinMaxShortSideMillimeters (8mm) — zu breit für einen sinnvollen Satin-Steg.
         #expect(StitchType.suggested(forShapeWidth: 200, height: 20) == .tatami)
     }
 

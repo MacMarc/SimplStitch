@@ -335,7 +335,8 @@ private struct ImageTraceModifierHost: View {
                     ImageTraceSheet(
                         imageURL: pickedImageURL,
                         canvasSizeMillimeters: store.canvasSizeMillimeters,
-                        traceService: traceService
+                        traceService: traceService,
+                        threadPaletteID: store.defaultThreadPaletteID
                     ) { objects in
                         store.importObjects(objects)
                     }

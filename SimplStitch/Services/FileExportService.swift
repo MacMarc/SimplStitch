@@ -61,6 +61,8 @@ enum FileExportError: Error, LocalizedError {
     }
 }
 
+/// `@MainActor` aus demselben Grund wie `StitchGenerationServicing`.
+@MainActor
 protocol FileExportServicing {
     func export(objects: [DesignObject], canvasSize: CGSize, to url: URL, format: EmbroideryFileFormat) async throws -> ExportSummary
     /// Stichgenerierung ohne Datei-Schreiben — fürs Export-Dialog-Vorschaufeld

@@ -31,6 +31,7 @@ private actor StubBridge: PythonBridging {
 /// Liefert pro Objekt-Identität unterschiedliche Stiche (anders als
 /// MockStitchGenerationService, das immer dasselbe Ergebnis zurückgibt) — damit
 /// die Kombinationslogik (Reihenfolge, Farbwechsel-Einfügepunkt) prüfbar ist.
+@MainActor
 private final class RecordingStitchGenerationService: StitchGenerationServicing {
     var stitchesByObjectID: [UUID: [StitchPoint]] = [:]
     private(set) var requestedObjectIDsInOrder: [UUID] = []
@@ -52,6 +53,7 @@ private final class RecordingStitchGenerationService: StitchGenerationServicing 
     }
 }
 
+@MainActor
 struct FileExportServiceTests {
 
     private func makeObject(name: String, zIndex: Int, isVisible: Bool = true, hasStitchSettings: Bool = true, fillColorHex: String = "#FF0000") -> DesignObject {

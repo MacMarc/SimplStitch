@@ -40,6 +40,9 @@ enum StitchGenerationError: Error, LocalizedError {
     }
 }
 
+/// Ausdrücklich `@MainActor` wie die Umsetzungen (Standard-Isolation des App-Targets) — sonst
+/// warnt Swift, dass `DesignObject` (SwiftData-Modell, nicht `Sendable`) über die Actor-Grenze geht.
+@MainActor
 protocol StitchGenerationServicing {
     func generateStitches(for object: DesignObject, canvasSize: CGSize) async throws -> [StitchPoint]
     /// Issue #18: separater Stichgenerierungs-Pass für den Rand (`object.borderStitchSettings`)

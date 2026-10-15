@@ -67,12 +67,14 @@ final class CanvasStore {
         project: StitchProject,
         zoomScale: CGFloat = 1,
         panOffset: CGSize = .zero,
-        stitchGenerationService: StitchGenerationServicing = StitchGenerationService(bridge: PythonBridge())
+        stitchGenerationService: StitchGenerationServicing? = nil
     ) {
         self.project = project
         self.zoomScale = min(max(zoomScale, Self.minZoomScale), Self.maxZoomScale)
         self.panOffset = panOffset
-        self.stitchGenerationService = stitchGenerationService
+        // Standardwert erst hier bauen: Default-Argumente laufen ausserhalb des Main Actors, die
+        // Initializer von Service und Bridge sind aber Main-Actor-isoliert.
+        self.stitchGenerationService = stitchGenerationService ?? StitchGenerationService(bridge: PythonBridge())
     }
 
     /// Komfort-Initializer für Tests/Previews ohne eigenes `StitchProject` — erzeugt intern ein
@@ -82,7 +84,7 @@ final class CanvasStore {
         canvasSizeMillimeters: CGSize,
         zoomScale: CGFloat = 1,
         panOffset: CGSize = .zero,
-        stitchGenerationService: StitchGenerationServicing = StitchGenerationService(bridge: PythonBridge())
+        stitchGenerationService: StitchGenerationServicing? = nil
     ) {
         let project = StitchProject(
             name: "",

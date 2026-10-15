@@ -161,6 +161,26 @@ struct SettingsView: View {
             }
 
             Section {
+                Picker(
+                    "settings.export.defaultFormat",
+                    selection: Binding(
+                        get: { settings.preferredExportFormat },
+                        set: { settings.preferredExportFormat = $0 }
+                    )
+                ) {
+                    ForEach(EmbroideryFileFormat.allCases) { format in
+                        Text(format.displayName).tag(format)
+                    }
+                }
+                Text("settings.export.defaultFormat.footer")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } header: {
+                Text("settings.section.export")
+            }
+
+            Section {
                 Toggle(
                     "settings.appleIntelligence.toggle",
                     isOn: Binding(

@@ -18,7 +18,15 @@ struct ExportDialogView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var format: EmbroideryFileFormat = .vp3
+    /// `initialFormat`: das in den Einstellungen gewählte bevorzugte Format, vorausgewählt.
+    init(objects: [DesignObject], canvasSize: CGSize, exportService: FileExportServicing, initialFormat: EmbroideryFileFormat) {
+        self.objects = objects
+        self.canvasSize = canvasSize
+        self.exportService = exportService
+        _format = State(initialValue: initialFormat)
+    }
+
+    @State private var format: EmbroideryFileFormat
     @State private var preview: ExportSummary?
     @State private var previewError: String?
     @State private var isExporting = false

@@ -113,6 +113,10 @@ final class AppSettings {
     /// darf der Nutzer auch bewusst "Keine" wählen, ohne dass der nächste Start das überschreibt.
     var didSeedDefaultThreadPalette: Bool?
 
+    /// Bevorzugtes Exportformat (Rohwert von `EmbroideryFileFormat`), im Export-Dialog
+    /// vorausgewählt. Optional aus demselben Grund wie `toolbarSize`; `nil` heisst VP3.
+    var preferredExportFormatRawValue: String?
+
     init(
         preferredMeasurementUnit: MeasurementUnit = .millimeters,
         maxRecentProjects: Int = 10,
@@ -146,6 +150,11 @@ extension AppSettings {
         get { usesAppleIntelligence ?? true }
         set { usesAppleIntelligence = newValue }
     }
+
+    var preferredExportFormat: EmbroideryFileFormat {
+        get { preferredExportFormatRawValue.flatMap(EmbroideryFileFormat.init(rawValue:)) ?? .vp3 }
+        set { preferredExportFormatRawValue = newValue.rawValue }
+    }
 }
 
 /// Lesezugriff auf die (einzige, Issue #23) AppSettings-Zeile aus einem `@Query`-Ergebnis — mit
@@ -165,5 +174,9 @@ extension Collection where Element == AppSettings {
 
     var isAppleIntelligenceEnabled: Bool {
         first?.isAppleIntelligenceEnabled ?? true
+    }
+
+    var preferredExportFormat: EmbroideryFileFormat {
+        first?.preferredExportFormat ?? .vp3
     }
 }

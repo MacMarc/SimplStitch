@@ -121,7 +121,8 @@ struct ContentView: View {
                 ExportDialogView(
                     objects: canvasStore.objects,
                     canvasSize: canvasStore.canvasSizeMillimeters,
-                    exportService: exportService
+                    exportService: exportService,
+                    initialFormat: appSettingsList.preferredExportFormat
                 )
             }
             // Issue #7: Stickdatei-Import ans Menü (Ablage > Importieren…, SimplStitchCommands)

@@ -226,66 +226,50 @@ struct SettingsView: View {
         }
     }
 
-    /// Erster Punkt im Bereich Garnlisten: welche Liste neue Dokumente als Standard bekommen.
-    @ViewBuilder
-    private var defaultPalettePicker: some View {
-        if let settings = settingsList.first {
-            VStack(alignment: .leading, spacing: 4) {
-                Picker(
-                    "settings.defaultPalette",
-                    selection: Binding(
-                        get: { settings.defaultThreadPaletteID },
-                        set: { settings.defaultThreadPaletteID = $0 }
-                    )
-                ) {
-                    Text("settings.defaultPalette.none").tag(UUID?.none)
-                    ForEach(palettes) { palette in
-                        Text(palette.name).tag(Optional(palette.id))
-                    }
-                }
-                // Ausserhalb eines `Form` ist das Aufklappmenü so breit wie der längste der über
-                // 70 Garnlisten-Namen und sprengte die Detailspalte (Sidebar leer, Inhalt
-                // verschoben). Begrenzen; lange Namen werden im Menüknopf gekürzt.
-                .frame(minWidth: 0, maxWidth: DesignSystem.settingsPalettePickerMaxWidth, alignment: .leading)
-                Text("settings.defaultPalette.footer")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Divider()
-        }
-    }
-
     /// Issue #20: Garnlisten aktivieren/deaktivieren (deaktivierte Paletten werden im
     /// Projekt-Eigenschaften-Tab beim Hinzufügen neuer Garnfarben ausgeblendet) sowie
     /// Import/Löschen — appweite Palettenverwaltung gehört hierhin, nicht ins projektbezogene
     /// Inspector-Panel (ProjectInspectorView).
-    /// Issue #21: eigene `List` statt `Form`-`Section` — scrollt bei vielen Paletten intern,
-    /// statt das Fenster (das jetzt eine feste Grösse hat) zu sprengen.
+    ///
+    /// Erster Punkt ist die Standard-Garnliste (Okt. 2026). Alles steckt in EINEM gruppierten
+    /// `Form`, das als Ganzes scrollt: der erste Umbau (Picker über einer eigenen `List` in einem
+    /// `VStack`) liess bei über 70 Garnlisten die Detailspalte überlaufen (leere Sidebar, Inhalt
+    /// unter der Titelleiste). Ein `Form` begrenzt Breite und Höhe seiner Zeilen selbst — wie im
+    /// Allgemein-Bereich, wo der Picker vorher problemlos stand.
     @ViewBuilder
     private var palettesPane: some View {
-        VStack(spacing: 0) {
-            defaultPalettePicker
-
-            if palettes.isEmpty {
-                ContentUnavailableView(
-                    "settings.section.palettes",
-                    systemImage: "swatchpalette",
-                    description: Text("settings.palettes.empty")
-                )
-            } else {
-                HStack {
-                    Spacer()
-                    Button("settings.palettes.enableAll") { setAllPalettes(enabled: true) }
-                    Button("settings.palettes.disableAll") { setAllPalettes(enabled: false) }
+        Form {
+            if let settings = settingsList.first {
+                Section {
+                    Picker(
+                        "settings.defaultPalette",
+                        selection: Binding(
+                            get: { settings.defaultThreadPaletteID },
+                            set: { settings.defaultThreadPaletteID = $0 }
+                        )
+                    ) {
+                        Text("settings.defaultPalette.none").tag(UUID?.none)
+                        ForEach(palettes) { palette in
+                            Text(palette.name).tag(Optional(palette.id))
+                        }
+                    }
+                } footer: {
+                    Text("settings.defaultPalette.footer")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .padding(.horizontal, 12)
-                .padding(.top, 8)
+            }
 
-                List {
+            Section {
+                if palettes.isEmpty {
+                    Text("settings.palettes.empty")
+                        .foregroundStyle(.secondary)
+                } else {
+                    HStack {
+                        Spacer()
+                        Button("settings.palettes.enableAll") { setAllPalettes(enabled: true) }
+                        Button("settings.palettes.disableAll") { setAllPalettes(enabled: false) }
+                    }
                     ForEach(palettes) { palette in
                         Toggle(
                             palette.name,
@@ -297,20 +281,22 @@ struct SettingsView: View {
                     }
                     .onDelete(perform: deletePalettes)
                 }
+            } header: {
+                Text("settings.section.palettes")
             }
 
-            Divider()
-
-            HStack {
-                Spacer()
-                Button {
-                    isImporterPresented = true
-                } label: {
-                    Label("threads.import.button", systemImage: "square.and.arrow.down")
+            Section {
+                HStack {
+                    Spacer()
+                    Button {
+                        isImporterPresented = true
+                    } label: {
+                        Label("threads.import.button", systemImage: "square.and.arrow.down")
+                    }
                 }
-                .padding(12)
             }
         }
+        .inspectorForm()
     }
 
     private func deletePalettes(at offsets: IndexSet) {

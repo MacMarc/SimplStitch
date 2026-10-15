@@ -30,8 +30,6 @@ enum DesignSystem {
     /// Feste Sidebar-Breite im Einstellungen-Fenster (Issue #26, Bug 3a) — bewusst nicht
     /// ausblendbar, siehe `SettingsView`.
     static let settingsSidebarWidth: CGFloat = 180
-    /// Standard-Garnliste in den Einstellungen: Detailspalte (560 − 180) minus Ränder.
-    static let settingsPalettePickerMaxWidth: CGFloat = 340
     /// Bildschirmgrösse der Canvas-Griff-Marker (Skalier-/Rotations-/Eckenradius-Griffe).
     static let handleMarkerSize: CGFloat = 7
     static let selectionCornerRadius: CGFloat = 8

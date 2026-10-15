@@ -1,7 +1,7 @@
 # Vendor-Patches
 
 `lib/` ist unverändert übernommen von [inkstitch/inkstitch](https://github.com/inkstitch/inkstitch),
-Commit `e7108fdbb4a8b4175717678593d17dbd218284ed` (main, Stand des Vendorings) — mit **einer** Ausnahme:
+Commit `e7108fdbb4a8b4175717678593d17dbd218284ed` (main, Stand des Vendorings) — mit **zwei** Ausnahmen:
 
 ## `lib/tartan/palette.py`
 
@@ -20,6 +20,13 @@ anzufassen. Alle anderen `wx`/`flask`/`trimesh`-Importe im Baum liegen ausschlie
 `lib/stitches/contour_fill.py` importiert `trimesh` (für `contour_fill`, von SimplStitch nicht
 genutzt) — unverändert gelassen, `trimesh` ist ein reines `pip install`-Paket ohne native Build-
 Abhängigkeiten (nur `numpy`), daher kein zweiter Patch nötig, einfach mitinstalliert.
+
+## `lib/utils/paths.py`
+
+`get_user_dir` prüfte erst `os.path.exists` und rief dann `os.makedirs` — laufen zwei Bridge-
+Prozesse gleichzeitig zum ersten Mal (Tests parallel, oder Vorschau und Export zugleich), legt der
+eine den Ordner `~/Library/Application Support/inkstitch` zwischen Prüfung und Anlegen an und der
+andere bricht mit `FileExistsError` ab. Jetzt `os.makedirs(path, exist_ok=True)`.
 
 ## Lizenz
 

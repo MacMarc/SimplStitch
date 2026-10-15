@@ -46,8 +46,8 @@ def get_user_dir(name=None, create=True):
         path = platformdirs.user_config_dir('inkstitch')
     except ImportError:
         path = os.path.expanduser('~/.inkstitch')
-    if create and not os.path.exists(path):
-        os.makedirs(path)
+    if create:
+        os.makedirs(path, exist_ok=True)
 
     if name is not None:
         path = os.path.join(path, name)

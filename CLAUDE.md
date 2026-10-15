@@ -44,7 +44,9 @@ Services (Business Logic, hinter Protocols)
   ├── FileExportService        — VP3, PES, JEF, EXP, DST, SVG (kein VIP, siehe Phase 7)
   ├── FileImportService        — alle Stickdatei-Formate (pyembroidery), kein separater SVG-Import
   ├── GPLPaletteImporter        — .gpl-Garnlisten, reines Swift
-  └── ImageTraceService        — KI: Vision + Foundation Models
+  ├── ImageTraceService        — Bild → Flächen (Vision), siehe KI-Funktion
+  ├── StitchAdvisor            — Stichwahl: Apple Intelligence oder Regeln
+  └── EmbroideryKnowledge      — Stickregeln nach Ink/Stitch
 
 SwiftData Models (@Model)
   └── Reine Persistenz, kein Logic
@@ -131,9 +133,14 @@ Text bleibt als `<text>`-Element im SVG erhalten (editierbar). Konvertierung zu 
 
 ## KI-Funktion: Bild → Stichdatei
 
-1. `VNDetectContoursRequest` (Vision Framework) → `CGPath` aus Foto
-2. Foundation Models Framework (multimodal, WWDC26) → Stichtyp-Vorschläge pro Bereich
-3. Vollständig on-device, kein Internet, keine API
+1. Farbreduktion (k-means) + `VNDetectContoursRequest` (Vision Framework) → Flächen aus dem Bild (`ImageTraceService`), läuft ohne Apple Intelligence
+2. `StitchAdvising` (`StitchAdvisor.swift`) wählt pro Fläche Stichart/Winkel/Dichte/Unterlage:
+   - `AppleIntelligenceStitchAdvisor`: Foundation Models (Text, On-Device-Systemmodell) mit den Stickregeln als Leitplanken; Antworten werden gegen die Regeln geprüft, Dichte und Unterlage kommen immer aus den Regeln
+   - `RuleBasedStitchAdvisor`: nur die Regeln — Fallback, wenn Apple Intelligence in den Einstellungen aus (`AppSettings.usesAppleIntelligence`, Standard an) oder auf dem Mac nicht verfügbar ist, oder das Modell scheitert
+3. Jede Fläche bekommt das nächstliegende Garn der Standard-Garnliste (`ThreadCandidate`)
+4. Vollständig on-device, kein Internet, keine API. Ein Claude-Plugin wäre ein weiterer `StitchAdvising` (bewusst noch nicht gebaut: braucht API-Schlüssel und schickt Daten ins Internet — Entscheidung bei Marc)
+
+**Stickwissen (`EmbroideryKnowledge`):** Regeln nach den Ink/Stitch-Anleitungen (inkstitch.org, GPL-3.0; Unterlage-Tutorial, Satin/Tatami/Laufstich-Seiten, Standardwerte aus `Vendor/inkstitch_lib`), in eigenen Worten. Wirken immer: Vorbelegung neuer Objekte, Hinweise mit "Übernehmen" im Objekt-Inspektor, Bild nachzeichnen. Satin-Unterlage nach Breite (≤ 2 mm Mittelsteg, ≤ 4 mm Randsteg, darüber Randsteg + Zickzack), Füllung immer mit Unterlage (ausser sehr locker), Laufstich 2,5 mm ohne Unterlage, Satin 1,5–8 mm.
 
 ---
 
@@ -149,6 +156,6 @@ Text bleibt als `<text>`-Element im SVG erhalten (editierbar). Konvertierung zu 
 
 ## Aktueller Stand
 
-Kurzstatus: Canvas-Engine, Stichgenerierung, Import/Export und die grundlegende UI (Toolbar, Menüleiste, Inspector, Einstellungen) sind funktionsfähig und aktiv weiterentwickelt. Offene grössere Themen: Apple-Intelligence-Bildimport. Releases baut Marc bewusst von Hand in Xcode (Archive → Direct Distribution → `Scripts/build_dmg.sh`), keine CI-Automatisierung — Ablauf in `docs/RELEASE.md`.
+Kurzstatus: Canvas-Engine, Stichgenerierung, Import/Export und die grundlegende UI (Toolbar, Menüleiste, Inspector, Einstellungen) sind funktionsfähig und aktiv weiterentwickelt. Offene grössere Themen: Claude-Plugin als zweite KI-Option (Entscheidung offen). Releases baut Marc bewusst von Hand in Xcode (Archive → Direct Distribution → `Scripts/build_dmg.sh`), keine CI-Automatisierung — Ablauf in `docs/RELEASE.md`.
 
 Die vollständige, phasenweise Entwicklungshistorie (jede abgeschlossene Phase/jedes Issue mit Bug-Ursachen, bewussten Vereinfachungen und Verifikationsdetails) ist in den Skill `project-history` ausgelagert (`.claude/skills/project-history/SKILL.md`) — lädt bei Bedarf, nicht bei jeder Session. Frag danach oder lies die Datei direkt, wenn du wissen musst, warum ein bestehender Teil der App so gebaut ist wie er ist.

@@ -19,6 +19,10 @@
 //  vertikal im Fenster statt oben zu beginnen. Fix: echte `NavigationSplitView` mit fest breiter
 //  `List`-Sidebar (nicht ausblendbar) statt `TabView`, jede Detail-Pane explizit oben ausgerichtet.
 //
+//  Neu gegliedert (Okt. 2026, Marcs Wunsch): "Allgemein" enthält nur noch Einheiten und den
+//  Apple-Intelligence-Schalter; die Standard-Garnliste ist erster Punkt unter "Garnlisten", wo
+//  auch die Listen selbst verwaltet werden.
+//
 
 import SwiftData
 import SwiftUI
@@ -65,6 +69,7 @@ struct SettingsView: View {
     private let paletteImporter: GPLPaletteImporting
 
     @State private var selectedSection: SettingsSection = .general
+    @State private var appleIntelligenceStatus = AppleIntelligenceStatus.current
 
     private var unit: MeasurementUnit {
         settingsList.measurementUnit
@@ -153,7 +158,44 @@ struct SettingsView: View {
                 )
             }
 
-            Section("settings.section.threads") {
+            Section {
+                Toggle(
+                    "settings.appleIntelligence.toggle",
+                    isOn: Binding(
+                        get: { settings.isAppleIntelligenceEnabled },
+                        set: { settings.isAppleIntelligenceEnabled = $0 }
+                    )
+                )
+                Text(appleIntelligenceFooter(isEnabled: settings.isAppleIntelligenceEnabled))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } header: {
+                Text("settings.section.appleIntelligence")
+            }
+        }
+        .inspectorForm()
+        .onAppear { appleIntelligenceStatus = AppleIntelligenceStatus.current }
+    }
+
+    /// Ohne Apple Intelligence (ausgeschaltet oder auf dem Mac nicht verfügbar) wählt SimplStitch
+    /// die Sticharten nach den eingebauten Stickregeln — die App funktioniert in jedem Fall.
+    private func appleIntelligenceFooter(isEnabled: Bool) -> String {
+        guard isEnabled else { return String(localized: "settings.appleIntelligence.footer.off") }
+        switch appleIntelligenceStatus {
+        case .available: return String(localized: "settings.appleIntelligence.footer.available")
+        case .notEnabled: return String(localized: "settings.appleIntelligence.footer.notEnabled")
+        case .deviceNotEligible: return String(localized: "settings.appleIntelligence.footer.deviceNotEligible")
+        case .modelNotReady: return String(localized: "settings.appleIntelligence.footer.modelNotReady")
+        case .unavailable: return String(localized: "settings.appleIntelligence.footer.unavailable")
+        }
+    }
+
+    /// Erster Punkt im Bereich Garnlisten: welche Liste neue Dokumente als Standard bekommen.
+    @ViewBuilder
+    private var defaultPalettePicker: some View {
+        if let settings = settingsList.first {
+            VStack(alignment: .leading, spacing: 4) {
                 Picker(
                     "settings.defaultPalette",
                     selection: Binding(
@@ -166,9 +208,15 @@ struct SettingsView: View {
                         Text(palette.name).tag(Optional(palette.id))
                     }
                 }
+                Text("settings.defaultPalette.footer")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .padding(12)
+
+            Divider()
         }
-        .inspectorForm()
     }
 
     /// Issue #20: Garnlisten aktivieren/deaktivieren (deaktivierte Paletten werden im
@@ -180,6 +228,8 @@ struct SettingsView: View {
     @ViewBuilder
     private var palettesPane: some View {
         VStack(spacing: 0) {
+            defaultPalettePicker
+
             if palettes.isEmpty {
                 ContentUnavailableView(
                     "settings.section.palettes",

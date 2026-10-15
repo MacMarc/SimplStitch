@@ -112,7 +112,7 @@ Beim Bauen in Xcode lädt eine Run-Script-Build-Phase automatisch eine passende 
 
 SimplStitch befindet sich in aktiver Entwicklung. Canvas-Engine, Stichgenerierung, Import/Export sowie die grundlegende UI (Toolbar, Menüleiste, Seitenleiste, Einstellungen) sind funktionsfähig. Offene grössere Themen:
 
-- Apple-Intelligence-Integration (Bild → Stichdatei per Vision/Foundation Models)
+- Optionale Claude-Integration für Bild → Stichdatei (zusätzlich zu Apple Intelligence)
 - Release-Pipeline (Notarisierung, automatisierte GitHub-Releases)
 
 Den detaillierten, laufend aktualisierten Fortschritt siehe Abschnitt „Aktueller Stand" in [`CLAUDE.md`](CLAUDE.md).

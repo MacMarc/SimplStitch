@@ -43,17 +43,43 @@ final class BuiltInThreadPaletteBootstrapper: BuiltInThreadPaletteBootstrapping 
     func bootstrapIfNeeded(context: ModelContext) {
         let descriptor = FetchDescriptor<ThreadPalette>(predicate: #Predicate { $0.isBuiltIn })
         let alreadyBootstrapped = (try? context.fetchCount(descriptor)).map { $0 > 0 } ?? false
-        guard !alreadyBootstrapped else { return }
 
-        for url in vendoredPaletteURLs() {
-            guard let palette = try? importer.importPalette(at: url) else { continue }
-            palette.isBuiltIn = true
-            context.insert(palette)
+        if !alreadyBootstrapped {
+            for url in vendoredPaletteURLs() {
+                guard let palette = try? importer.importPalette(at: url) else { continue }
+                palette.isBuiltIn = true
+                context.insert(palette)
+            }
+            context.insert(Self.makeBasicColorsPalette())
         }
-        context.insert(Self.makeBasicColorsPalette())
+        Self.seedDefaultThreadPaletteIfNeeded(context: context)
 
         try? context.save()
     }
+
+    /// Grundfarben als Standard-Garnliste (Einstellungen > Garnlisten), damit neue Dokumente sofort
+    /// Farben anbieten. Genau einmal pro Installation — auch für bestehende Installationen, die
+    /// noch "Keine" hatten —, danach bleibt jede eigene Wahl des Nutzers (auch "Keine") erhalten.
+    static func seedDefaultThreadPaletteIfNeeded(context: ModelContext) {
+        let settings: AppSettings
+        if let existing = try? context.fetch(FetchDescriptor<AppSettings>()).first {
+            settings = existing
+        } else {
+            settings = AppSettings()
+            context.insert(settings)
+        }
+        guard settings.didSeedDefaultThreadPalette != true else { return }
+
+        let basicName = basicColorsPaletteName
+        let basicDescriptor = FetchDescriptor<ThreadPalette>(predicate: #Predicate { $0.isBuiltIn && $0.name == basicName })
+        guard let basics = try? context.fetch(basicDescriptor).first else { return }
+        if settings.defaultThreadPaletteID == nil {
+            settings.defaultThreadPaletteID = basics.id
+        }
+        settings.didSeedDefaultThreadPalette = true
+    }
+
+    static let basicColorsPaletteName = "Grundfarben"
 
     private func vendoredPaletteURLs() -> [URL] {
         guard let directory = paletteDirectory,
@@ -67,7 +93,7 @@ final class BuiltInThreadPaletteBootstrapper: BuiltInThreadPaletteBootstrapping 
     /// vendorten Hersteller-Garnlisten — reines Swift statt einer manuell erstellten `.gpl`-Datei,
     /// da die Farbwerte ohnehin fest im Code stehen müssten.
     static func makeBasicColorsPalette() -> ThreadPalette {
-        let palette = ThreadPalette(name: "Grundfarben", isBuiltIn: true)
+        let palette = ThreadPalette(name: basicColorsPaletteName, isBuiltIn: true)
         palette.colors = basicColors.map { name, red, green, blue in
             let color = ThreadColor(name: name, red: red, green: green, blue: blue)
             color.palette = palette

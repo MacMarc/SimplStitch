@@ -304,7 +304,11 @@ final class CanvasStore {
         }
         // Issue #11: Stichtyp wird anhand der Geometrie vorgeschlagen (schmal+länglich -> Satin,
         // sonst Tatami-Füllung), statt immer fest Tatami zu setzen — im Inspector überschreibbar.
-        assignDefaultStitchSettings(to: object, stitchType: StitchType.suggested(forShapeWidth: rect.width, height: rect.height))
+        assignDefaultStitchSettings(
+            to: object,
+            stitchType: StitchType.suggested(forShapeWidth: rect.width, height: rect.height),
+            width: min(rect.width, rect.height)
+        )
         return object
     }
 
@@ -312,11 +316,15 @@ final class CanvasStore {
     /// (`FileExportService.stitchableObjects` filtert auf `stitchSettings != nil`) — ohne einen
     /// Besuch im Objekt-Inspektor blieb eine frisch gezeichnete Form dauerhaft unstickbar. Neue
     /// Objekte bekommen daher sofort sinnvolle Default-Einstellungen (überschreibbar im Inspector).
-    private func assignDefaultStitchSettings(to object: DesignObject, stitchType: StitchType) {
+    private func assignDefaultStitchSettings(to object: DesignObject, stitchType: StitchType, width: Double? = nil) {
         // Issue #18: Unterlage wird ebenfalls vorgeschlagen statt immer fest centerWalk zu setzen
         // (StitchSettings()-Default) — Laufstich bekommt keine, Tatami/Satin eine Center-Walk-
         // Unterlage. Im Inspector jederzeit überschreibbar.
-        let settings = StitchSettings(stitchType: stitchType, underlayType: UnderlayType.suggested(for: stitchType))
+        let settings = StitchSettings(
+            stitchType: stitchType,
+            density: EmbroideryKnowledge.recommendedDensity(for: stitchType),
+            underlayType: UnderlayType.suggested(for: stitchType, width: width)
+        )
         settings.designObject = object
         object.stitchSettings = settings
     }

@@ -342,6 +342,9 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             case .edgeWalk:
                 attrs.append("inkstitch:contour_underlay=\"true\"")
             case .zigzagNet:
+                // Ink/Stitch-Unterlage-Tutorial: Zickzack-Unterlage auf breiten Säulen (> 4 mm)
+                // immer zusammen mit einer Kontur-Unterlage ("deutsche Unterlage").
+                attrs.append("inkstitch:contour_underlay=\"true\"")
                 attrs.append("inkstitch:zigzag_underlay=\"true\"")
             }
             return attrs
@@ -627,12 +630,13 @@ final class SVGDesignSerializer: SVGDesignSerializing {
             }
             if attrs["inkstitch:zigzag_spacing_mm"] != nil {
                 let underlayType: UnderlayType
+                // Zickzack vor Kontur prüfen: `.zigzagNet` schreibt beide (siehe stitchAttributes).
                 if attrs["inkstitch:center_walk_underlay"] == "true" {
                     underlayType = .centerWalk
-                } else if attrs["inkstitch:contour_underlay"] == "true" {
-                    underlayType = .edgeWalk
                 } else if attrs["inkstitch:zigzag_underlay"] == "true" {
                     underlayType = .zigzagNet
+                } else if attrs["inkstitch:contour_underlay"] == "true" {
+                    underlayType = .edgeWalk
                 } else {
                     underlayType = .none
                 }

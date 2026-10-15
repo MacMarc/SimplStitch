@@ -10,6 +10,9 @@ import SwiftData
 
 @main
 struct SimplStitchApp: App {
+    /// Zentriert das Startfenster (Öffnen/Neues Dokument) und die Einstellungen, siehe `WindowCentering`.
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     // Nur noch projektübergreifende Modelle — StitchProject/DesignObject/StitchSettings leben
     // seit Phase 8a in einem eigenen, in-memory-only ModelContainer pro offenem Dokument
     // (StitchDesignDocument), da ihre echte Persistenz über content.svg läuft, nicht SwiftData.

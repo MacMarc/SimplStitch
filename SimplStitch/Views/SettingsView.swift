@@ -107,6 +107,8 @@ struct SettingsView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .frame(width: 560, height: 420)
+        // Erscheint bei jedem Öffnen in der Bildschirmmitte (siehe `WindowCentering`).
+        .background(CenteredWindowRegistration())
         .onAppear(perform: ensureSettingsExist)
         .fileImporter(
             isPresented: $isImporterPresented,

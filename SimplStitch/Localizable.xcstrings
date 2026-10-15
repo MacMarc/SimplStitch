@@ -11,7 +11,13 @@
       "localizations" : {
         "de" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
+            "value" : "%1$lld × %2$lld mm"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
             "value" : "%1$lld × %2$lld mm"
           }
         }
@@ -114,7 +120,20 @@
       }
     },
     "canvas.tool.picker" : {
-
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Werkzeug"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tool"
+          }
+        }
+      }
     },
     "canvas.tool.rectangle" : {
       "localizations" : {
@@ -453,7 +472,199 @@
       }
     },
     "H" : {
-
+      "shouldTranslate" : false
+    },
+    "hint.fillNeedsUnderlay" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Füllungen brauchen eine Unterlage: Sie verbindet Stoff und Vlies und verhindert, dass die Stiche einsinken oder sich der Stoff verzieht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fills need an underlay: it binds fabric and stabilizer and keeps stitches from sinking in or distorting the fabric."
+          }
+        }
+      }
+    },
+    "hint.fillTooDense" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "So dicht wird die Fläche steif und das Garn kann reissen. Üblich sind 0,25 bis 0,5 mm."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This dense the area gets stiff and the thread may break. 0.25 to 0.5 mm is usual."
+          }
+        }
+      }
+    },
+    "hint.fillTooSmall" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sehr schmale Flächen werden mit Füllung unruhig. Satin passt besser."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Very narrow areas look messy as a fill. Satin works better."
+          }
+        }
+      }
+    },
+    "hint.fillTooSparse" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bei so grossem Reihenabstand scheint der Stoff durch."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With rows this far apart the fabric shows through."
+          }
+        }
+      }
+    },
+    "hint.fillUnderlayOptional" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bei so lockerer Füllung ist keine Unterlage nötig."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A fill this open does not need an underlay."
+          }
+        }
+      }
+    },
+    "hint.runningStitchTooLong" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lange Stiche runden Kurven ab und können hängen bleiben. Üblich sind etwa 2,5 mm."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Long stitches flatten curves and can snag. About 2.5 mm is usual."
+          }
+        }
+      }
+    },
+    "hint.runningStitchTooShort" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sehr kurze Stiche perforieren den Stoff und lassen das Garn reissen. Üblich sind etwa 2,5 mm."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Very short stitches perforate the fabric and break the thread. About 2.5 mm is usual."
+          }
+        }
+      }
+    },
+    "hint.satinTooDense" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "So dichter Satin wird steif und das Garn kann reissen. Üblich sind etwa 0,4 mm."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Satin this dense gets stiff and the thread may break. About 0.4 mm is usual."
+          }
+        }
+      }
+    },
+    "hint.satinTooNarrow" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unter 1,5 mm Breite wird Satin kaum mehr als ein Strich. Ein Laufstich passt besser."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Satin narrower than 1.5 mm barely shows. A running stitch works better."
+          }
+        }
+      }
+    },
+    "hint.satinTooSparse" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bei so grossem Abstand deckt der Satin nicht mehr."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With this spacing the satin no longer covers."
+          }
+        }
+      }
+    },
+    "hint.satinTooWide" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Satin über 8 mm liegt lose auf und verhakt sich leicht. Eine Füllung (Tatami) hält besser."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Satin wider than 8 mm lies loose and snags easily. A fill (tatami) holds better."
+          }
+        }
+      }
+    },
+    "hint.satinUnderlay" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Für diese Breite empfiehlt Ink/Stitch eine andere Unterlage: bis 2 mm Mittelsteg, bis 4 mm Randsteg, darüber Randsteg mit Zickzack."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ink/Stitch recommends a different underlay for this width: center walk up to 2 mm, edge walk up to 4 mm, edge walk plus zigzag above that."
+          }
+        }
+      }
     },
     "imageTrace.error.noShapes" : {
       "localizations" : {
@@ -499,6 +710,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Traced Shape"
+          }
+        }
+      }
+    },
+    "imageTrace.sheet.advising" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sticharten werden gewählt…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choosing stitches…"
+          }
+        }
+      }
+    },
+    "imageTrace.sheet.advisor.ai" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence wählt pro Fläche Stichart und Stichrichtung. Unterlage, Dichte und Garn kommen aus den Stickregeln."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence picks stitch type and direction for each area. Underlay, density and thread come from the embroidery rules."
+          }
+        }
+      }
+    },
+    "imageTrace.sheet.advisor.rules" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stichart, Unterlage, Dichte und Garn kommen aus den eingebauten Stickregeln."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stitch type, underlay, density and thread come from the built-in embroidery rules."
           }
         }
       }
@@ -727,38 +986,6 @@
         }
       }
     },
-    "inspector.border.enabled" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rand"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Border"
-          }
-        }
-      }
-    },
-    "inspector.border.width" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Randdicke"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Border Width"
-          }
-        }
-      }
-    },
     "inspector.border.alignment" : {
       "localizations" : {
         "de" : {
@@ -819,6 +1046,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Outside Only"
+          }
+        }
+      }
+    },
+    "inspector.border.enabled" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rand"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Border"
+          }
+        }
+      }
+    },
+    "inspector.border.width" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Randdicke"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Border Width"
           }
         }
       }
@@ -947,6 +1206,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ungroup"
+          }
+        }
+      }
+    },
+    "inspector.hint.apply" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Übernehmen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apply"
           }
         }
       }
@@ -1219,6 +1494,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Density"
+          }
+        }
+      }
+    },
+    "inspector.stitch.length" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stichlänge"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stitch Length"
           }
         }
       }
@@ -2247,6 +2538,118 @@
         }
       }
     },
+    "settings.appleIntelligence.footer.available" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hilft beim Bild nachzeichnen, die passende Stichart pro Fläche zu wählen. Läuft vollständig auf diesem Mac."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Helps choose the right stitch for each area when tracing an image. Runs entirely on this Mac."
+          }
+        }
+      }
+    },
+    "settings.appleIntelligence.footer.deviceNotEligible" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Mac unterstützt Apple Intelligence nicht. Es gelten die eingebauten Stickregeln."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Mac does not support Apple Intelligence. The built-in embroidery rules apply."
+          }
+        }
+      }
+    },
+    "settings.appleIntelligence.footer.modelNotReady" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence wird noch vorbereitet. Bis dahin gelten die eingebauten Stickregeln."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence is still getting ready. Until then, the built-in embroidery rules apply."
+          }
+        }
+      }
+    },
+    "settings.appleIntelligence.footer.notEnabled" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence ist in den Systemeinstellungen ausgeschaltet. Bis dahin gelten die eingebauten Stickregeln."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence is turned off in System Settings. Until then, the built-in embroidery rules apply."
+          }
+        }
+      }
+    },
+    "settings.appleIntelligence.footer.off" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aus. Beim Bild nachzeichnen wählen die eingebauten Stickregeln die Sticharten. Alles andere funktioniert unverändert."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off. When tracing an image, the built-in embroidery rules choose the stitches. Everything else works as usual."
+          }
+        }
+      }
+    },
+    "settings.appleIntelligence.footer.unavailable" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence ist gerade nicht verfügbar. Es gelten die eingebauten Stickregeln."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence is not available right now. The built-in embroidery rules apply."
+          }
+        }
+      }
+    },
+    "settings.appleIntelligence.toggle" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence verwenden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use Apple Intelligence"
+          }
+        }
+      }
+    },
     "settings.defaultPalette" : {
       "localizations" : {
         "de" : {
@@ -2259,6 +2662,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Default Thread Palette"
+          }
+        }
+      }
+    },
+    "settings.defaultPalette.footer" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neue Dokumente und nachgezeichnete Bilder verwenden die Garne aus dieser Liste."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New documents and traced images use the threads from this palette."
           }
         }
       }
@@ -2375,38 +2794,6 @@
         }
       }
     },
-    "settings.ruler.originXCentered" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lineal-Nullpunkt X-Achse mittig"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ruler Origin X-Axis Centered"
-          }
-        }
-      }
-    },
-    "settings.ruler.originYCentered" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lineal-Nullpunkt Y-Achse mittig"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ruler Origin Y-Axis Centered"
-          }
-        }
-      }
-    },
     "settings.palettes.disableAll" : {
       "localizations" : {
         "de" : {
@@ -2455,6 +2842,54 @@
         }
       }
     },
+    "settings.ruler.originXCentered" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lineal-Nullpunkt X-Achse mittig"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ruler Origin X-Axis Centered"
+          }
+        }
+      }
+    },
+    "settings.ruler.originYCentered" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lineal-Nullpunkt Y-Achse mittig"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ruler Origin Y-Axis Centered"
+          }
+        }
+      }
+    },
+    "settings.section.appleIntelligence" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence"
+          }
+        }
+      }
+    },
     "settings.section.palettes" : {
       "localizations" : {
         "de" : {
@@ -2467,22 +2902,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Manage Thread Palettes"
-          }
-        }
-      }
-    },
-    "settings.section.threads" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Garnlisten"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Thread Palettes"
           }
         }
       }
@@ -2808,429 +3227,13 @@
       }
     },
     "W" : {
-
+      "shouldTranslate" : false
     },
     "X" : {
-
+      "shouldTranslate" : false
     },
     "Y" : {
-
-    },
-    "hint.fillNeedsUnderlay" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Füllungen brauchen eine Unterlage: Sie verbindet Stoff und Vlies und verhindert, dass die Stiche einsinken oder sich der Stoff verzieht."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fills need an underlay: it binds fabric and stabilizer and keeps stitches from sinking in or distorting the fabric."
-          }
-        }
-      }
-    },
-    "hint.fillTooDense" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "So dicht wird die Fläche steif und das Garn kann reissen. Üblich sind 0,25 bis 0,5 mm."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This dense the area gets stiff and the thread may break. 0.25 to 0.5 mm is usual."
-          }
-        }
-      }
-    },
-    "hint.fillTooSmall" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sehr schmale Flächen werden mit Füllung unruhig. Satin passt besser."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Very narrow areas look messy as a fill. Satin works better."
-          }
-        }
-      }
-    },
-    "hint.fillTooSparse" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bei so grossem Reihenabstand scheint der Stoff durch."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "With rows this far apart the fabric shows through."
-          }
-        }
-      }
-    },
-    "hint.fillUnderlayOptional" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bei so lockerer Füllung ist keine Unterlage nötig."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A fill this open does not need an underlay."
-          }
-        }
-      }
-    },
-    "hint.runningStitchTooLong" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lange Stiche runden Kurven ab und können hängen bleiben. Üblich sind etwa 2,5 mm."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Long stitches flatten curves and can snag. About 2.5 mm is usual."
-          }
-        }
-      }
-    },
-    "hint.runningStitchTooShort" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sehr kurze Stiche perforieren den Stoff und lassen das Garn reissen. Üblich sind etwa 2,5 mm."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Very short stitches perforate the fabric and break the thread. About 2.5 mm is usual."
-          }
-        }
-      }
-    },
-    "hint.satinTooDense" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "So dichter Satin wird steif und das Garn kann reissen. Üblich sind etwa 0,4 mm."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Satin this dense gets stiff and the thread may break. About 0.4 mm is usual."
-          }
-        }
-      }
-    },
-    "hint.satinTooNarrow" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unter 1,5 mm Breite wird Satin kaum mehr als ein Strich. Ein Laufstich passt besser."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Satin narrower than 1.5 mm barely shows. A running stitch works better."
-          }
-        }
-      }
-    },
-    "hint.satinTooSparse" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bei so grossem Abstand deckt der Satin nicht mehr."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "With this spacing the satin no longer covers."
-          }
-        }
-      }
-    },
-    "hint.satinTooWide" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Satin über 8 mm liegt lose auf und verhakt sich leicht. Eine Füllung (Tatami) hält besser."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Satin wider than 8 mm lies loose and snags easily. A fill (tatami) holds better."
-          }
-        }
-      }
-    },
-    "hint.satinUnderlay" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Für diese Breite empfiehlt Ink/Stitch eine andere Unterlage: bis 2 mm Mittelsteg, bis 4 mm Randsteg, darüber Randsteg mit Zickzack."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ink/Stitch recommends a different underlay for this width: center walk up to 2 mm, edge walk up to 4 mm, edge walk plus zigzag above that."
-          }
-        }
-      }
-    },
-    "imageTrace.sheet.advising" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sticharten werden gewählt…"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choosing stitches…"
-          }
-        }
-      }
-    },
-    "imageTrace.sheet.advisor.ai" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Intelligence wählt pro Fläche Stichart und Stichrichtung. Unterlage, Dichte und Garn kommen aus den Stickregeln."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Intelligence picks stitch type and direction for each area. Underlay, density and thread come from the embroidery rules."
-          }
-        }
-      }
-    },
-    "imageTrace.sheet.advisor.rules" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stichart, Unterlage, Dichte und Garn kommen aus den eingebauten Stickregeln."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stitch type, underlay, density and thread come from the built-in embroidery rules."
-          }
-        }
-      }
-    },
-    "inspector.hint.apply" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Übernehmen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apply"
-          }
-        }
-      }
-    },
-    "inspector.stitch.length" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stichlänge"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stitch Length"
-          }
-        }
-      }
-    },
-    "settings.appleIntelligence.footer.available" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hilft beim Bild nachzeichnen, die passende Stichart pro Fläche zu wählen. Läuft vollständig auf diesem Mac."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Helps choose the right stitch for each area when tracing an image. Runs entirely on this Mac."
-          }
-        }
-      }
-    },
-    "settings.appleIntelligence.footer.deviceNotEligible" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dieser Mac unterstützt Apple Intelligence nicht. Es gelten die eingebauten Stickregeln."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This Mac does not support Apple Intelligence. The built-in embroidery rules apply."
-          }
-        }
-      }
-    },
-    "settings.appleIntelligence.footer.modelNotReady" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Intelligence wird noch vorbereitet. Bis dahin gelten die eingebauten Stickregeln."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Intelligence is still getting ready. Until then, the built-in embroidery rules apply."
-          }
-        }
-      }
-    },
-    "settings.appleIntelligence.footer.notEnabled" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Intelligence ist in den Systemeinstellungen ausgeschaltet. Bis dahin gelten die eingebauten Stickregeln."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Intelligence is turned off in System Settings. Until then, the built-in embroidery rules apply."
-          }
-        }
-      }
-    },
-    "settings.appleIntelligence.footer.off" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aus. Beim Bild nachzeichnen wählen die eingebauten Stickregeln die Sticharten. Alles andere funktioniert unverändert."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Off. When tracing an image, the built-in embroidery rules choose the stitches. Everything else works as usual."
-          }
-        }
-      }
-    },
-    "settings.appleIntelligence.footer.unavailable" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Intelligence ist gerade nicht verfügbar. Es gelten die eingebauten Stickregeln."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Intelligence is not available right now. The built-in embroidery rules apply."
-          }
-        }
-      }
-    },
-    "settings.appleIntelligence.toggle" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Intelligence verwenden"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Use Apple Intelligence"
-          }
-        }
-      }
-    },
-    "settings.defaultPalette.footer" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Neue Dokumente und nachgezeichnete Bilder verwenden die Garne aus dieser Liste."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New documents and traced images use the threads from this palette."
-          }
-        }
-      }
-    },
-    "settings.section.appleIntelligence" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Intelligence"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Intelligence"
-          }
-        }
-      }
+      "shouldTranslate" : false
     }
   },
   "version" : "1.0"

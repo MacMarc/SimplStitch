@@ -4,8 +4,8 @@
     "" : {
 
     },
-    " (%@)" : {
-
+    "%@ (%@)" : {
+      "shouldTranslate" : false
     },
     "%lld × %lld mm" : {
       "localizations" : {

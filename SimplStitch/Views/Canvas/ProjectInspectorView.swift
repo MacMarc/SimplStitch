@@ -119,7 +119,7 @@ struct ProjectInspectorView: View {
                         AxisField("inspector.object.size.height", binding: canvasHeightBinding())
                     }
                 } label: {
-                    Text("project.hoopSize.manual") + Text(" (\(unit.symbol))")
+                    Text("\(Text("project.hoopSize.manual")) (\(unit.symbol))")
                 }
             } header: {
                 SectionHeader("project.hoopSize.section")

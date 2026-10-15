@@ -216,7 +216,7 @@ struct ObjectInspectorView: View {
     /// in den lokalisierten Strings verdrahtet, obwohl `AppSettings.preferredMeasurementUnit`
     /// längst existierte).
     private func unitLabel(_ key: LocalizedStringKey) -> some View {
-        Text(key) + Text(" (\(unit.symbol))")
+        Text("\(Text(key)) (\(unit.symbol))")
     }
 
     private func numberField(_ binding: Binding<Double>) -> some View {

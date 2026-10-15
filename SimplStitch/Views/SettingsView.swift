@@ -208,12 +208,17 @@ struct SettingsView: View {
                         Text(palette.name).tag(Optional(palette.id))
                     }
                 }
+                // Ausserhalb eines `Form` ist das Aufklappmenü so breit wie der längste der über
+                // 70 Garnlisten-Namen und sprengte die Detailspalte (Sidebar leer, Inhalt
+                // verschoben). Begrenzen; lange Namen werden im Menüknopf gekürzt.
+                .frame(minWidth: 0, maxWidth: DesignSystem.settingsPalettePickerMaxWidth, alignment: .leading)
                 Text("settings.defaultPalette.footer")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Divider()
         }

@@ -2114,7 +2114,9 @@ final class CanvasStore {
     /// auf einer für Satin ungeeigneten Geometrie, siehe 6f) — nil solange keine vorliegt.
     private(set) var stitchPreviewError: String?
 
-    private var stitchPreviewTask: Task<Void, Never>?
+    /// `private(set)` statt `private`: Tests warten direkt auf diesen Task statt auf eine feste
+    /// Zeit — in CI (alle Suites parallel auf dem Main Actor) kam er sonst nicht zuverlässig dran.
+    private(set) var stitchPreviewTask: Task<Void, Never>?
 
     /// Stösst eine debouncte, abbrechbare Neugenerierung der Stichvorschau für das aktuell
     /// selektierte Objekt an. Aufgerufen bei Selektionswechsel, nach Transform-Drags (Geometrie

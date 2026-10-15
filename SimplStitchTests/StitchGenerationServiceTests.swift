@@ -24,6 +24,7 @@ private actor StubBridge: PythonBridging {
     }
 }
 
+@MainActor
 struct StitchGenerationServiceTests {
 
     private func makeRectangle(stitchSettings: StitchSettings? = StitchSettings(stitchType: .tatami, density: 0.4, angleDegrees: 45, underlayType: .centerWalk)) -> DesignObject {

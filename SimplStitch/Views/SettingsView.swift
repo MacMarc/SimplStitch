@@ -107,6 +107,8 @@ struct SettingsView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .frame(width: 560, height: 420)
+        // Erscheint bei jedem Öffnen in der Bildschirmmitte (siehe `WindowCentering`).
+        .background(CenteredWindowRegistration())
         .onAppear(perform: ensureSettingsExist)
         .fileImporter(
             isPresented: $isImporterPresented,
@@ -173,9 +175,22 @@ struct SettingsView: View {
             } header: {
                 Text("settings.section.appleIntelligence")
             }
+
+            Section("settings.section.about") {
+                LabeledContent("settings.about.version", value: Self.versionDescription)
+            }
         }
         .inspectorForm()
         .onAppear { appleIntelligenceStatus = AppleIntelligenceStatus.current }
+    }
+
+    /// "0.1-alpha (76)": Version von Hand gesetzt, Build-Nummer zählt automatisch (Build-Phase
+    /// "Set Build Number", Anzahl Git-Commits).
+    private static var versionDescription: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "\(version) (\(build))"
     }
 
     /// Ohne Apple Intelligence (ausgeschaltet oder auf dem Mac nicht verfügbar) wählt SimplStitch
@@ -208,12 +223,17 @@ struct SettingsView: View {
                         Text(palette.name).tag(Optional(palette.id))
                     }
                 }
+                // Ausserhalb eines `Form` ist das Aufklappmenü so breit wie der längste der über
+                // 70 Garnlisten-Namen und sprengte die Detailspalte (Sidebar leer, Inhalt
+                // verschoben). Begrenzen; lange Namen werden im Menüknopf gekürzt.
+                .frame(minWidth: 0, maxWidth: DesignSystem.settingsPalettePickerMaxWidth, alignment: .leading)
                 Text("settings.defaultPalette.footer")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Divider()
         }

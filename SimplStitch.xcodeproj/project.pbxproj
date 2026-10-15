@@ -116,6 +116,7 @@
 				A0F252813019E3D200837D40 /* Frameworks */,
 				5C50E0ED8E5050C26E384F0C /* Bundle Python Runtime */,
 				A0F252823019E3D200837D40 /* Resources */,
+				8E2B6C41F3A94D7B9C0E1A52 /* Set Build Number */,
 				7D3A41C2E9B04F5A8C1D2E3F /* Sign Embedded Python */,
 			);
 			buildRules = (
@@ -250,6 +251,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		5C50E0ED8E5050C26E384F0C /* Bundle Python Runtime */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -285,6 +287,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${SRCROOT}/Scripts/sign_embedded_binaries.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		8E2B6C41F3A94D7B9C0E1A52 /* Set Build Number */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Set Build Number";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Scripts/set_build_number.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */

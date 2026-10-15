@@ -250,6 +250,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		5C50E0ED8E5050C26E384F0C /* Bundle Python Runtime */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);

@@ -116,6 +116,7 @@
 				A0F252813019E3D200837D40 /* Frameworks */,
 				5C50E0ED8E5050C26E384F0C /* Bundle Python Runtime */,
 				A0F252823019E3D200837D40 /* Resources */,
+				7D3A41C2E9B04F5A8C1D2E3F /* Sign Embedded Python */,
 			);
 			buildRules = (
 			);
@@ -264,6 +265,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${SRCROOT}/Scripts/bundle_python.sh\" \"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/python\"\n";
+			showEnvVarsInLog = 0;
+		};
+		7D3A41C2E9B04F5A8C1D2E3F /* Sign Embedded Python */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Sign Embedded Python";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Scripts/sign_embedded_binaries.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */

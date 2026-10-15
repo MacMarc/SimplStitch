@@ -149,6 +149,6 @@ Text bleibt als `<text>`-Element im SVG erhalten (editierbar). Konvertierung zu 
 
 ## Aktueller Stand
 
-Kurzstatus: Canvas-Engine, Stichgenerierung, Import/Export und die grundlegende UI (Toolbar, Menüleiste, Inspector, Einstellungen) sind funktionsfähig und aktiv weiterentwickelt. Offene grössere Themen: Apple-Intelligence-Bildimport, Release-Pipeline (Notarisierung/automatisierte Releases).
+Kurzstatus: Canvas-Engine, Stichgenerierung, Import/Export und die grundlegende UI (Toolbar, Menüleiste, Inspector, Einstellungen) sind funktionsfähig und aktiv weiterentwickelt. Offene grössere Themen: Apple-Intelligence-Bildimport. Releases baut Marc bewusst von Hand in Xcode (Archive → Direct Distribution → `Scripts/build_dmg.sh`), keine CI-Automatisierung — Ablauf in `docs/RELEASE.md`.
 
 Die vollständige, phasenweise Entwicklungshistorie (jede abgeschlossene Phase/jedes Issue mit Bug-Ursachen, bewussten Vereinfachungen und Verifikationsdetails) ist in den Skill `project-history` ausgelagert (`.claude/skills/project-history/SKILL.md`) — lädt bei Bedarf, nicht bei jeder Session. Frag danach oder lies die Datei direkt, wenn du wissen musst, warum ein bestehender Teil der App so gebaut ist wie er ist.

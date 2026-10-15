@@ -1,45 +1,44 @@
-# Release erstellen
+# Release erstellen (von Hand, mit Xcode)
 
-Ein Release entsteht automatisch über GitHub Actions (`.github/workflows/release.yml`), sobald ein Tag `v*` gepusht wird:
+SimplStitch wird von Hand gebaut, notarisiert und als DMG auf GitHub veröffentlicht. Es gibt bewusst keine CI-Automatisierung dafür; der GitHub-Workflow `build.yml` baut und testet nur.
 
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
+## Warum es ein Zusatzskript braucht
 
-Der Workflow testet, archiviert, signiert die App samt Python-Runtime mit der Developer ID, lässt App und DMG von Apple notarisieren und legt einen **Entwurf** eines GitHub Releases mit dem DMG an. Den Entwurf prüfen, Höhepunkte in den Release-Notes ergänzen und veröffentlichen.
+Xcode signiert nur die App selbst, nicht die rund 67 Binärdateien der gebündelten Python-Runtime unter `Contents/Resources/python` (`python3.12`, `libpython`, die `.so`-Module von numpy, lxml, Pillow …). Apple lehnt die Notarisierung dann ab, z.B. mit:
 
-Alternativ lässt sich der Workflow unter *Actions → Release → Run workflow* für einen bereits existierenden Tag starten.
+> Hardened Runtime is Not Enabled — "python3.12" must be rebuilt with support for the Hardened Runtime.
 
-Die Notarisierung kann lange dauern (beim manuellen Testlauf über 2 Stunden). Der Job hat deshalb ein Zeitlimit von 4 Stunden.
+Hardened Runtime ist für die App selbst schon eingeschaltet (*Signing & Capabilities → Hardened Runtime*). Für die Python-Dateien erledigt das die Build-Phase **Sign Embedded Python** (`Scripts/sign_embedded_binaries.sh`): Beim Archivieren signiert sie jede dieser Dateien mit der Developer ID, Hardened Runtime (`--options runtime`) und Zeitstempel (`--timestamp`). Bei normalen Builds (Run, Test) tut sie nichts.
 
-## Einmalige Einrichtung: Repository-Secrets
+## Einmalige Einrichtung
 
-Unter *Settings → Secrets and variables → Actions → New repository secret* diese fünf Secrets anlegen:
+1. **Developer-ID-Zertifikat:** In *Xcode → Settings → Accounts → Manage Certificates* muss ein „Developer ID Application"-Zertifikat für das Team vorhanden sein (sonst mit „+" anlegen). Die Build-Phase sucht es automatisch im Schlüsselbund. Gibt es mehrere, kann man eines über die Umgebungsvariable `SIGNING_IDENTITY` festlegen.
+2. **Zugangsdaten für die Notarisierung** (nur für das DMG-Skript nötig). Unter [account.apple.com](https://account.apple.com) → *Anmelden und Sicherheit → App-spezifische Passwörter* ein Passwort erzeugen, dann im Terminal:
 
-| Secret | Inhalt |
-|---|---|
-| `DEVELOPER_ID_CERTIFICATE_P12_BASE64` | Das Developer-ID-Application-Zertifikat mit privatem Schlüssel als `.p12`, Base64-kodiert |
-| `DEVELOPER_ID_CERTIFICATE_PASSWORD` | Das Passwort, das beim Export der `.p12` vergeben wurde |
-| `NOTARY_API_KEY_P8_BASE64` | App-Store-Connect-API-Key (`.p8`), Base64-kodiert |
-| `NOTARY_API_KEY_ID` | Key-ID dieses API-Keys |
-| `NOTARY_API_ISSUER_ID` | Issuer-ID (steht über der Key-Liste in App Store Connect) |
+   ```bash
+   xcrun notarytool store-credentials SimplStitch-Notary \
+     --apple-id DEINE-APPLE-ID --team-id 6B76PB9TQW
+   ```
 
-### Zertifikat exportieren
+   notarytool fragt nach dem app-spezifischen Passwort und legt es im Schlüsselbund ab. Ein anderer Profilname geht auch, dann beim Skript `NOTARY_PROFILE=…` setzen.
 
-1. *Schlüsselbundverwaltung* öffnen, unter *Meine Zertifikate* „Developer ID Application: …" suchen.
-2. Rechtsklick → *Exportieren…* → Format `.p12`, Passwort vergeben.
-3. Base64 in die Zwischenablage: `base64 -i Zertifikat.p12 | pbcopy`
+## Ablauf pro Release
 
-### API-Key für die Notarisierung
+1. **Version setzen:** Target *SimplStitch → General → Identity*: *Version* (z.B. `0.1.0`) und *Build* (hochzählen).
+2. **Archivieren:** Oben als Ziel *Any Mac* wählen, dann *Product → Archive*. Im Build-Log (Report-Navigator) sollte bei „Sign Embedded Python" etwa „67 eingebettete Binärdateien mit Hardened Runtime signiert" stehen. Erscheint dort eine gelbe Warnung „Keine eindeutige Developer ID Application-Identität", fehlt das Zertifikat aus der Einrichtung.
+3. **Notarisieren lassen:** Im Organizer das Archiv wählen → *Distribute App* → *Direct Distribution* → *Distribute*. Xcode lädt die App zu Apple hoch und wartet auf die Notarisierung (meist Minuten, ausnahmsweise Stunden). Danach *Export* und die App z.B. in einen Ordner `~/Desktop/SimplStitch-Export` legen.
+4. **DMG bauen:** Im Terminal im Repo-Ordner:
 
-1. [App Store Connect → Benutzer und Zugriff → Integrationen → App Store Connect API](https://appstoreconnect.apple.com/access/integrations/api) öffnen.
-2. Neuen Team-Key mit der Rolle *Developer* anlegen und die `.p8` herunterladen (geht nur einmal).
-3. Base64 in die Zwischenablage: `base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy`
-4. Key-ID und Issuer-ID von derselben Seite übernehmen.
+   ```bash
+   Scripts/build_dmg.sh ~/Desktop/SimplStitch-Export/SimplStitch.app
+   ```
 
-## Was das Signier-Skript zusätzlich macht
+   Das Skript packt die App in `dist/SimplStitch-<Version>.dmg`, signiert und notarisiert auch das DMG, stapelt das Ticket und prüft das Ergebnis mit Gatekeeper. Am Ende sollte `accepted` und `source=Notarized Developer ID` stehen.
+5. **Kurz testen:** DMG auf einem Mac öffnen, App in *Programme* ziehen, starten, eine Form zeichnen und die Stichvorschau prüfen. Erst dann ist sicher, dass die signierte Python-Runtime in der Sandbox läuft.
+6. **Veröffentlichen:** Auf GitHub *Releases → Draft a new release*, Tag `v<Version>` anlegen, das DMG anhängen. Als Text eignet sich `.github/release-notes-template.md` (`{{VERSION}}` ersetzen, Höhepunkte ergänzen).
 
-Xcode signiert beim Export nur die äussere App. Die gebündelte Python-Runtime (rund 67 Binärdateien unter `Contents/Resources/python`) würde Apple bei der Notarisierung ablehnen. `Scripts/sign_and_notarize.sh` signiert deshalb jede Binärdatei einzeln mit Hardened Runtime und Zeitstempel und versiegelt die App danach neu. Die Python-Programme selbst bekommen die Entitlements aus `Scripts/PythonHelper.entitlements`, damit sie die Sandbox der App erben.
+## Wenn etwas schiefgeht
 
-Nach dem ersten Release lohnt sich ein kurzer Test des heruntergeladenen DMG auf einem Mac: App starten, eine Form zeichnen und die Stichvorschau prüfen. Erst dann ist sicher, dass die signierte Python-Runtime in der Sandbox läuft.
+- **Notarisierung abgelehnt:** Im Organizer unter *Show Status Log* bzw. in der Ausgabe von `build_dmg.sh` steht Apples Protokoll mit der betroffenen Datei. Meist fehlte beim Archivieren das Developer-ID-Zertifikat (Schritt 2 im Ablauf).
+- **Ohne Xcodes Notarisierung:** Im Organizer stattdessen *Distribute App → Custom → Direct Distribution → Export* wählen. `build_dmg.sh` erkennt die nicht notarisierte App, signiert die Python-Binärdateien selbst nach, versiegelt die App neu und notarisiert sie, bevor es das DMG baut.
+- **App aus DerivedData:** Eine mit *Product → Build* gebaute App trägt das Debug-Entitlement `get-task-allow`, das Apple immer ablehnt. Das Skript bricht dann mit einem Hinweis ab; immer über *Product → Archive* gehen.

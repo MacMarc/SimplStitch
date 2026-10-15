@@ -498,7 +498,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = "0.1-alpha";
+				MARKETING_VERSION = "0.2-alpha";
 				PRODUCT_BUNDLE_IDENTIFIER = de.daslama.SimplStitch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -545,7 +545,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = "0.1-alpha";
+				MARKETING_VERSION = "0.2-alpha";
 				PRODUCT_BUNDLE_IDENTIFIER = de.daslama.SimplStitch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;

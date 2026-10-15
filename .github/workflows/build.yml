@@ -1,10 +1,9 @@
 name: Build
 
+# Läuft nicht mehr automatisch (Marcs Wunsch, Okt. 2026: keine Fehlermails bei jedem Push).
+# Nur noch von Hand startbar: GitHub > Actions > Build > "Run workflow".
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:

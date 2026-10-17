@@ -298,4 +298,21 @@ struct ImageTraceServiceTests {
         #expect(components.count == 2)
         #expect(Set(components.map(\.pixels.count)) == [16, 1])
     }
+
+    @Test func recommendedColorCountMatchesDistinctColors() {
+        // Einfarbig (wie der GIANTS-Schriftzug) auf transparentem Hintergrund → 1.
+        let single = bitmap(width: 20, height: 20) { x, _ in x < 10 ? [0, 0, 0, 0] : [11, 34, 101, 255] }
+        #expect(ColorQuantizer.recommendedColorCount(single) == 1)
+
+        // Drei klar verschiedene Farben plus wenige Kantenpixel einer Mischfarbe → 3.
+        let three = bitmap(width: 30, height: 30) { x, y in
+            if x == 15 && y < 2 { return [120, 120, 180, 255] }
+            switch x {
+            case ..<10: return [0, 59, 125, 255]
+            case ..<20: return [255, 255, 255, 255]
+            default: return [200, 30, 60, 255]
+            }
+        }
+        #expect(ColorQuantizer.recommendedColorCount(three) == 3)
+    }
 }

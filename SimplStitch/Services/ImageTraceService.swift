@@ -201,7 +201,8 @@ nonisolated struct ImageTraceService: ImageTracing {
                 let request = VNDetectContoursRequest()
                 request.detectsDarkOnLight = true
                 request.contrastAdjustment = 1
-                request.maximumImageDimension = max(cropped.width, cropped.height)
+                // Vision verlangt mindestens 64; der Wert begrenzt nur, kleine Masken bleiben 1:1.
+                request.maximumImageDimension = max(64, cropped.width, cropped.height)
                 try VNImageRequestHandler(cgImage: cropped.image, options: [:]).perform([request])
                 guard let outer = request.results?.first?.topLevelContours.max(by: { $0.pointCount < $1.pointCount }) else { continue }
 

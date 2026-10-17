@@ -266,7 +266,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${SRCROOT}/Scripts/bundle_python.sh\" \"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/python\"\n";
+			shellScript = "\"${SRCROOT}/Scripts/bundle_python.sh\" \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/python\"\n";
 			showEnvVarsInLog = 0;
 		};
 		7D3A41C2E9B04F5A8C1D2E3F /* Sign Embedded Python */ = {

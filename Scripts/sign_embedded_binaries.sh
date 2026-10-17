@@ -18,7 +18,9 @@ fi
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/signing_common.sh"
 
-RESOURCES="${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}"
+# TARGET_BUILD_DIR, nicht BUILT_PRODUCTS_DIR: beim Archivieren (DEPLOYMENT_LOCATION=YES) liegt die
+# App, die ins Archiv kommt, unter TARGET_BUILD_DIR; BUILT_PRODUCTS_DIR zeigt dann woandershin.
+RESOURCES="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}"
 IDENTITY="$(resolve_developer_id)"
 
 if [ -z "${IDENTITY}" ]; then

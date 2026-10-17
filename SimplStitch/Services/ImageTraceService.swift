@@ -186,47 +186,45 @@ nonisolated struct ImageTraceService: ImageTracing {
             imageWidthMillimeters * imageHeightMillimeters * minimumRegionAreaFraction
         )
 
-        func millimeterPoints(of contour: VNContour) -> [CGPoint] {
-            let simplified = (try? contour.polygonApproximation(epsilon: simplificationEpsilon)) ?? contour
-            // Vision: normalisiert 0…1, Ursprung unten links → Design: mm, Ursprung oben links.
-            return simplified.normalizedPoints.map { point in
-                CGPoint(
-                    x: Double(point.x) * imageWidthMillimeters,
-                    y: (1 - Double(point.y)) * imageHeightMillimeters
-                )
-            }
-        }
-
+        let millimeterArea = millimetersPerPixel * millimetersPerPixel
         var regions: [TracedRegion] = []
-        /// Vision-Hierarchie: Kinder einer Fläche sind ihre Löcher, Kinder eines Lochs wieder
-        /// Flächen (Inseln im Loch) — die werden eigene Regionen.
-        func appendRegions(from contour: VNContour, color: TraceColor) {
-            var holes: [[CGPoint]] = []
-            for hole in contour.childContours {
-                let holePoints = millimeterPoints(of: hole)
-                if holePoints.count >= 3, abs(TracedRegion.signedArea(of: holePoints)) >= minimumArea {
-                    holes.append(holePoints)
-                }
-                for island in hole.childContours {
-                    appendRegions(from: island, color: color)
-                }
-            }
-            let region = TracedRegion(points: millimeterPoints(of: contour), color: color, holes: holes)
-            guard region.points.count >= 3, region.area >= minimumArea else { return }
-            regions.append(region)
-        }
-
+        // Issue #53: jede zusammenhängende Fläche einzeln an Vision geben (zugeschnittene Maske nur
+        // mit dieser Fläche). So ist ihre äussere Kontur sicher die einzige oberste Kontur und alle
+        // Kinder sind ihre Löcher — Flächen in Löchern einer gleichfarbigen Fläche (weisses "ny" im
+        // weissen Helm-Rand) sind eigene Komponenten und gehen nicht mehr verloren. Auf Visions
+        // Verschachtelung über mehrere Ebenen verlassen wir uns bewusst nicht.
         for cluster in quantized.palette.indices {
-            guard let mask = makeMask(labels: labels, cluster: cluster, width: bitmap.width, height: bitmap.height) else { continue }
-            let request = VNDetectContoursRequest()
-            request.detectsDarkOnLight = true
-            request.contrastAdjustment = 1
-            request.maximumImageDimension = max(bitmap.width, bitmap.height)
-            try VNImageRequestHandler(cgImage: mask, options: [:]).perform([request])
-            guard let observation = request.results?.first else { continue }
+            let color = quantized.palette[cluster]
+            for component in ConnectedComponents.find(label: cluster, in: labels, width: bitmap.width, height: bitmap.height) {
+                guard Double(component.pixels.count) * millimeterArea >= minimumArea,
+                      let cropped = component.mask() else { continue }
+                let request = VNDetectContoursRequest()
+                request.detectsDarkOnLight = true
+                request.contrastAdjustment = 1
+                request.maximumImageDimension = max(cropped.width, cropped.height)
+                try VNImageRequestHandler(cgImage: cropped.image, options: [:]).perform([request])
+                guard let outer = request.results?.first?.topLevelContours.max(by: { $0.pointCount < $1.pointCount }) else { continue }
 
-            for contour in observation.topLevelContours {
-                appendRegions(from: contour, color: quantized.palette[cluster])
+                // Gleiche Vereinfachungs-Toleranz in Pixeln wie auf dem ganzen Bild.
+                let epsilon = simplificationEpsilon * Float(max(bitmap.width, bitmap.height)) / Float(max(cropped.width, cropped.height))
+                func millimeterPoints(of contour: VNContour) -> [CGPoint] {
+                    let simplified = (try? contour.polygonApproximation(epsilon: epsilon)) ?? contour
+                    // Vision: normalisiert 0…1 in der Maske, Ursprung unten links → Design: mm,
+                    // Ursprung oben links.
+                    return simplified.normalizedPoints.map { point in
+                        CGPoint(
+                            x: (Double(cropped.originX) + Double(point.x) * Double(cropped.width)) * millimetersPerPixel,
+                            y: (Double(cropped.originY) + (1 - Double(point.y)) * Double(cropped.height)) * millimetersPerPixel
+                        )
+                    }
+                }
+
+                let holes = outer.childContours
+                    .map(millimeterPoints(of:))
+                    .filter { $0.count >= 3 && abs(TracedRegion.signedArea(of: $0)) >= minimumArea }
+                let region = TracedRegion(points: millimeterPoints(of: outer), color: color, holes: holes)
+                guard region.points.count >= 3, region.area >= minimumArea else { continue }
+                regions.append(region)
             }
         }
 
@@ -234,31 +232,83 @@ nonisolated struct ImageTraceService: ImageTracing {
         guard !regions.isEmpty else { throw ImageTraceError.noShapesFound }
         return Array(regions.prefix(maximumRegionCount))
     }
+}
 
-    /// Graustufen-Maske: Pixel des Clusters schwarz, alles andere weiss.
-    static func makeMask(labels: [Int], cluster: Int, width: Int, height: Int) -> CGImage? {
-        var pixels = [UInt8](repeating: 255, count: width * height)
-        var hasPixels = false
-        for index in labels.indices where labels[index] == cluster {
-            pixels[index] = 0
-            hasPixels = true
+/// Zusammenhängende Flächen eines Labels (8er-Nachbarschaft, wie Vision Konturen verfolgt).
+nonisolated enum ConnectedComponents {
+    nonisolated struct Component {
+        /// Pixel-Indizes im ganzen Bild.
+        var pixels: [Int]
+        var minX: Int
+        var minY: Int
+        var maxX: Int
+        var maxY: Int
+        let imageWidth: Int
+
+        /// Maske nur dieser Fläche, auf ihr Rechteck zugeschnitten plus 1 Pixel weisser Rand, damit
+        /// Vision den Umriss auch am Bildrand geschlossen findet. `origin` = Lage der Maske im Bild.
+        func mask() -> (image: CGImage, originX: Int, originY: Int, width: Int, height: Int)? {
+            let originX = minX - 1
+            let originY = minY - 1
+            let width = maxX - minX + 3
+            let height = maxY - minY + 3
+            var bytes = [UInt8](repeating: 255, count: width * height)
+            for index in pixels {
+                let x = index % imageWidth - originX
+                let y = index / imageWidth - originY
+                bytes[y * width + x] = 0
+            }
+            guard let provider = CGDataProvider(data: Data(bytes) as CFData),
+                  let image = CGImage(
+                    width: width,
+                    height: height,
+                    bitsPerComponent: 8,
+                    bitsPerPixel: 8,
+                    bytesPerRow: width,
+                    space: CGColorSpaceCreateDeviceGray(),
+                    bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+                    provider: provider,
+                    decode: nil,
+                    shouldInterpolate: false,
+                    intent: .defaultIntent
+                  ) else { return nil }
+            return (image, originX, originY, width, height)
         }
-        guard hasPixels else { return nil }
-        let data = Data(pixels) as CFData
-        guard let provider = CGDataProvider(data: data) else { return nil }
-        return CGImage(
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bitsPerPixel: 8,
-            bytesPerRow: width,
-            space: CGColorSpaceCreateDeviceGray(),
-            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
-            provider: provider,
-            decode: nil,
-            shouldInterpolate: false,
-            intent: .defaultIntent
-        )
+    }
+
+    static func find(label: Int, in labels: [Int], width: Int, height: Int) -> [Component] {
+        var visited = [Bool](repeating: false, count: labels.count)
+        var components: [Component] = []
+        var stack: [Int] = []
+        for seed in labels.indices where labels[seed] == label && !visited[seed] {
+            visited[seed] = true
+            stack.append(seed)
+            var component = Component(pixels: [], minX: width, minY: height, maxX: 0, maxY: 0, imageWidth: width)
+            while let index = stack.popLast() {
+                component.pixels.append(index)
+                let x = index % width
+                let y = index / width
+                component.minX = min(component.minX, x)
+                component.minY = min(component.minY, y)
+                component.maxX = max(component.maxX, x)
+                component.maxY = max(component.maxY, y)
+                for dy in -1...1 {
+                    let ny = y + dy
+                    guard ny >= 0, ny < height else { continue }
+                    for dx in -1...1 {
+                        let nx = x + dx
+                        guard nx >= 0, nx < width else { continue }
+                        let neighbor = ny * width + nx
+                        if !visited[neighbor] && labels[neighbor] == label {
+                            visited[neighbor] = true
+                            stack.append(neighbor)
+                        }
+                    }
+                }
+            }
+            components.append(component)
+        }
+        return components
     }
 }
 

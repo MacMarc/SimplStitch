@@ -271,4 +271,18 @@ struct ImageTraceServiceTests {
         let whiteRegion = try #require(regions.first { $0.color.red > 200 })
         #expect(abs(whiteRegion.bounds.width - 10) < 3)
     }
+
+    @Test func enclosedBackgroundColorSurvivesForAnyColor() throws {
+        // Wie oben, aber mit rotem Hintergrund und roter Fläche im Blau: die Farbe spielt keine Rolle.
+        let red = CGColor(srgbRed: 0.85, green: 0.1, blue: 0.15, alpha: 1)
+        let picture = image(size: 200, squares: [(0, 0, 200, red), (50, 50, 100, blue), (90, 90, 20, red)])
+        let options = ImageTraceOptions(colorCount: 2, removesBackground: true, targetSizeMillimeters: CGSize(width: 100, height: 100))
+        let regions = try ImageTraceService.trace(picture, options: options)
+
+        #expect(regions.count == 2)
+        let blueRegion = try #require(regions.first { $0.color.blue > 100 })
+        #expect(blueRegion.holes.count == 1)
+        let redRegion = try #require(regions.first { $0.color.red > 180 })
+        #expect(abs(redRegion.bounds.width - 10) < 3)
+    }
 }

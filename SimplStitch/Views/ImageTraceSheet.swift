@@ -2,7 +2,8 @@
 //  ImageTraceSheet.swift
 //  SimplStitch
 //
-//  Issue #3: Optionen fürs Nachzeichnen eines Bilds (Anzahl Garnfarben, Hintergrund weglassen)
+//  Issue #3: Optionen fürs Nachzeichnen eines Bilds (Anzahl Garnfarben — vorbelegt mit der aus dem
+//  Bild ermittelten Empfehlung —, Hintergrund weglassen)
 //  und Fortschritt, solange `ImageTraceService` rechnet. Das Ergebnis geht über `onTraced` als
 //  fertige DesignObjects zurück an ContentView → `CanvasStore.importObjects`.
 //
@@ -29,6 +30,9 @@ struct ImageTraceSheet: View {
         }
     }
     @State private var colorCount = ImageTraceOptions.defaultColorCount
+    /// Beim Öffnen aus dem Bild ermittelt und als Startwert gesetzt (Marc, Issue #53: Anfänger
+    /// sollen die Farbanzahl nicht raten müssen).
+    @State private var recommendedColorCount: Int?
     @State private var removesBackground = true
     @State private var isTracing = false
     @State private var isAdvising = false
@@ -57,8 +61,19 @@ struct ImageTraceSheet: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
-                Stepper(value: $colorCount, in: ImageTraceOptions.colorCountRange) {
-                    Text(String(format: String(localized: "imageTrace.sheet.colorCount"), colorCount))
+                VStack(alignment: .leading, spacing: 4) {
+                    Stepper(value: $colorCount, in: ImageTraceOptions.colorCountRange) {
+                        Text(String(format: String(localized: "imageTrace.sheet.colorCount"), colorCount))
+                    }
+                    if let recommendedColorCount {
+                        Text(String(format: String(localized: "imageTrace.sheet.colorCount.recommended"), recommendedColorCount))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text("imageTrace.sheet.colorCount.help")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Toggle("imageTrace.sheet.removeBackground", isOn: $removesBackground)
             }
@@ -96,6 +111,17 @@ struct ImageTraceSheet: View {
         }
         .padding(20)
         .frame(width: 420)
+        .task { await recommendColorCount() }
+    }
+
+    private func recommendColorCount() async {
+        let url = imageURL
+        let didAccess = url.startAccessingSecurityScopedResource()
+        defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
+        guard let count = await traceService.recommendedColorCount(at: url) else { return }
+        recommendedColorCount = count
+        // Hat der Nutzer schon selbst gewählt, nicht überschreiben.
+        if colorCount == ImageTraceOptions.defaultColorCount { colorCount = count }
     }
 
     private func trace() {

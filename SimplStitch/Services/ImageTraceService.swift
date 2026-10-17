@@ -30,7 +30,8 @@ import Vision
 import simd
 
 nonisolated struct ImageTraceOptions: Equatable, Sendable {
-    static let colorCountRange = 2...8
+    /// 1 für einfarbige Logos (Schriftzug), 8 als Obergrenze — mehr Garnwechsel lohnen sich kaum.
+    static let colorCountRange = 1...8
     static let defaultColorCount = 4
 
     var colorCount: Int = defaultColorCount
@@ -123,6 +124,8 @@ nonisolated enum ImageTraceError: LocalizedError {
 
 protocol ImageTracing {
     func traceImage(at url: URL, options: ImageTraceOptions) async throws -> [TracedRegion]
+    /// Empfohlene Anzahl Garnfarben für das Bild (`nil`, wenn es sich nicht lesen lässt).
+    func recommendedColorCount(at url: URL) async -> Int?
 }
 
 /// Schlägt pro nachgezeichneter Fläche einen Stichtyp vor (Grundregel für `RuleBasedStitchAdvisor`).
@@ -154,6 +157,13 @@ nonisolated struct ImageTraceService: ImageTracing {
         try await Task.detached(priority: .userInitiated) {
             guard let image = Self.loadImage(at: url) else { throw ImageTraceError.unreadableImage }
             return try Self.trace(image, options: options)
+        }.value
+    }
+
+    func recommendedColorCount(at url: URL) async -> Int? {
+        await Task.detached(priority: .userInitiated) {
+            guard let image = Self.loadImage(at: url), let bitmap = RGBABitmap(image: image) else { return nil }
+            return ColorQuantizer.recommendedColorCount(bitmap)
         }.value
     }
 
@@ -571,6 +581,56 @@ nonisolated enum ColorQuantizer {
             )
         }
         return Result(palette: palette, labels: labels)
+    }
+
+    /// Bins des Farbhistogramms: 16 Stufen pro Kanal.
+    static let histogramLevels = 16
+    /// Ein Histogramm-Bin zählt erst ab diesem Anteil der deckenden Pixel — Kantenpixel (Übergänge
+    /// zwischen zwei Farben) verteilen sich auf viele Bins und bleiben so darunter.
+    static let recommendationBinShare = 0.004
+    /// Farben, die näher beieinander liegen (RGB-Abstand), gelten als dieselbe Garnfarbe.
+    static let recommendationMergeDistance = 48.0
+    /// Eine Farbe muss so viel vom Bild ausmachen, damit sie ein eigenes Garn bekommt.
+    static let recommendationMinimumShare = 0.01
+
+    /// Empfohlene Anzahl Garnfarben: zählt die deutlich verschiedenen Farben, die einen nennenswerten
+    /// Teil des Bilds ausmachen (Transparenz zählt nicht). Ein einfarbiger Schriftzug ergibt 1, das
+    /// Giants-Helm-Logo 5 (Blau, Weiss, Grau, Schwarz, Rot); Fotos landen bei der Obergrenze.
+    static func recommendedColorCount(_ bitmap: RGBABitmap) -> Int {
+        let levels = histogramLevels
+        var counts = [Int](repeating: 0, count: levels * levels * levels)
+        var sums = [SIMD3<Double>](repeating: .zero, count: counts.count)
+        var opaqueCount = 0
+        for index in 0..<(bitmap.width * bitmap.height) {
+            let offset = index * 4
+            let alpha = bitmap.pixels[offset + 3]
+            guard alpha >= opaqueAlphaThreshold else { continue }
+            let scale = 255 / Double(alpha)
+            let color = SIMD3(
+                min(Double(bitmap.pixels[offset]) * scale, 255),
+                min(Double(bitmap.pixels[offset + 1]) * scale, 255),
+                min(Double(bitmap.pixels[offset + 2]) * scale, 255)
+            )
+            let step = 256.0 / Double(levels)
+            let bin = (Int(color.x / step) * levels + Int(color.y / step)) * levels + Int(color.z / step)
+            counts[min(bin, counts.count - 1)] += 1
+            sums[min(bin, counts.count - 1)] += color
+            opaqueCount += 1
+        }
+        guard opaqueCount > 0 else { return ImageTraceOptions.colorCountRange.lowerBound }
+
+        var colors: [(mean: SIMD3<Double>, count: Int)] = []
+        for bin in counts.indices.sorted(by: { counts[$0] > counts[$1] }) {
+            guard Double(counts[bin]) / Double(opaqueCount) >= recommendationBinShare else { break }
+            let mean = sums[bin] / Double(counts[bin])
+            if let near = colors.firstIndex(where: { simd_distance($0.mean, mean) < recommendationMergeDistance }) {
+                colors[near].count += counts[bin]
+            } else {
+                colors.append((mean, counts[bin]))
+            }
+        }
+        let significant = colors.filter { Double($0.count) / Double(opaqueCount) >= recommendationMinimumShare }.count
+        return min(max(significant, ImageTraceOptions.colorCountRange.lowerBound), ImageTraceOptions.colorCountRange.upperBound)
     }
 
     /// Ein Durchgang 3×3-Mehrheitsfilter: entfernt Einzelpixel-Rauschen, das sonst zu unzähligen

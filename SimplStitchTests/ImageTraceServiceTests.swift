@@ -286,4 +286,16 @@ struct ImageTraceServiceTests {
         let redRegion = try #require(regions.first { $0.color.red > 180 })
         #expect(abs(redRegion.bounds.width - 10) < 3)
     }
+
+    @Test func componentsSeparateRingAndIslandOfSameLabel() {
+        // Ring aus Label 1 mit einer Label-1-Insel in der Mitte, getrennt durch Label 0.
+        let labels = [1, 1, 1, 1, 1,
+                      1, 0, 0, 0, 1,
+                      1, 0, 1, 0, 1,
+                      1, 0, 0, 0, 1,
+                      1, 1, 1, 1, 1]
+        let components = ConnectedComponents.find(label: 1, in: labels, width: 5, height: 5)
+        #expect(components.count == 2)
+        #expect(Set(components.map(\.pixels.count)) == [16, 1])
+    }
 }

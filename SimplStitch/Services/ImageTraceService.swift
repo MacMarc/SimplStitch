@@ -348,8 +348,9 @@ extension ImageTraceService {
             let incomingLength = hypot(incoming.dx, incoming.dy)
             let outgoingLength = hypot(outgoing.dx, outgoing.dy)
             guard incomingLength > 0, outgoingLength > 0 else { return nil }
-            let cosine = (incoming.dx * outgoing.dx + incoming.dy * outgoing.dy) / (incomingLength * outgoingLength)
-            guard acos(min(max(cosine, -1), 1)) * 180 / .pi <= cornerAngleDegrees else { return nil }
+            let cosine = Double((incoming.dx * outgoing.dx + incoming.dy * outgoing.dy) / (incomingLength * outgoingLength))
+            // Knickwinkel ≤ Grenze ⇔ Kosinus ≥ Kosinus der Grenze.
+            guard cosine >= Foundation.cos(cornerAngleDegrees * Double.pi / 180) else { return nil }
             let direction = CGVector(dx: next.x - previous.x, dy: next.y - previous.y)
             let length = hypot(direction.dx, direction.dy)
             return length > 0 ? CGVector(dx: direction.dx / length, dy: direction.dy / length) : nil

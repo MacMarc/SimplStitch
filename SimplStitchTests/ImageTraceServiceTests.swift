@@ -186,7 +186,8 @@ struct ImageTraceServiceTests {
         #expect(subpaths.count == 2)
 
         let parsed = EditablePath(pathData: data)
-        let holeStart = try #require(parsed.anchors.firstIndex(where: \.startsSubpath))
+        let firstHoleAnchor = parsed.anchors.firstIndex { $0.startsSubpath }
+        let holeStart = try #require(firstHoleAnchor)
         let parsedOuter = parsed.anchors[..<holeStart].map(\.point)
         let parsedHole = parsed.anchors[holeStart...].map(\.point)
         #expect(TracedRegion.signedArea(of: Array(parsedOuter)) > 0)

@@ -26,11 +26,11 @@ Hardened Runtime ist für die App selbst schon eingeschaltet (*Signing & Capabil
 
 1. **Version setzen:** Target *SimplStitch → General → Identity*: *Version* (z.B. `0.1.0`). Die *Build*-Nummer zählt sich selbst hoch: die Build-Phase **Set Build Number** (`Scripts/set_build_number.sh`) setzt sie beim Bauen auf die Anzahl Git-Commits.
 2. **Archivieren:** Oben als Ziel *Any Mac* wählen, dann *Product → Archive*. Im Build-Log (Report-Navigator) sollte bei „Sign Embedded Python" etwa „67 eingebettete Binärdateien mit Hardened Runtime signiert" stehen. Erscheint dort eine gelbe Warnung „Keine eindeutige Developer ID Application-Identität", fehlt das Zertifikat aus der Einrichtung.
-3. **Notarisieren lassen:** Im Organizer das Archiv wählen → *Distribute App* → *Direct Distribution* → *Distribute*. Xcode lädt die App zu Apple hoch und wartet auf die Notarisierung (meist Minuten, ausnahmsweise Stunden). Danach *Export* und die App z.B. in einen Ordner `~/Desktop/SimplStitch-Export` legen.
+3. **Notarisieren lassen:** Im Organizer das Archiv wählen → *Distribute App* → *Direct Distribution* → *Distribute*. Xcode lädt die App zu Apple hoch und wartet auf die Notarisierung (meist Minuten, ausnahmsweise Stunden). Danach *Export* und die App z.B. in einen Ordner `~/SimplStitch-Export` legen — nicht in iCloud Drive oder einen mit iCloud synchronisierten Schreibtisch: iCloud hängt Attribute an, die die Signatur ungültig machen.
 4. **DMG bauen:** Im Terminal im Repo-Ordner:
 
    ```bash
-   Scripts/build_dmg.sh ~/Desktop/SimplStitch-Export/SimplStitch.app
+   Scripts/build_dmg.sh ~/SimplStitch-Export/SimplStitch.app
    ```
 
    Das Skript packt die App in `dist/SimplStitch-<Version>.dmg`, signiert und notarisiert auch das DMG, stapelt das Ticket und prüft das Ergebnis mit Gatekeeper. Am Ende sollte `accepted` und `source=Notarized Developer ID` stehen.

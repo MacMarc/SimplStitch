@@ -83,7 +83,17 @@ mkdir -p "${OUT_DIR}"
 
 echo "build_dmg.sh: baue ${DMG} ..."
 DMG_ROOT="$(mktemp -d)"
-ditto "${APP}" "${DMG_ROOT}/SimplStitch.app"
+# Ohne erweiterte Attribute/Resource-Forks kopieren: iCloud Drive (auch ein synchronisierter
+# Schreibtisch) und der Finder hängen sie an Dateien an, und die versiegelte Signatur zählt sie als
+# Änderung — Apple lehnt das DMG dann mit "The signature of the binary is invalid" ab.
+ditto --norsrc --noextattr --noqtn "${APP}" "${DMG_ROOT}/SimplStitch.app"
+if ! codesign --verify --deep --strict --verbose=2 "${DMG_ROOT}/SimplStitch.app"; then
+	echo "build_dmg.sh: Die Signatur der App ist ungültig — sie wurde nach dem Export verändert." >&2
+	echo "Die App neu aus dem Organizer exportieren, und zwar in einen Ordner ausserhalb von" >&2
+	echo "iCloud Drive (z.B. ~/SimplStitch-Export statt Schreibtisch/Dokumente, falls diese" >&2
+	echo "mit iCloud synchronisiert werden)." >&2
+	exit 1
+fi
 ln -s /Applications "${DMG_ROOT}/Applications"
 rm -f "${DMG}"
 hdiutil create -volname "SimplStitch ${VERSION}" -srcfolder "${DMG_ROOT}" -ov -format UDZO "${DMG}"

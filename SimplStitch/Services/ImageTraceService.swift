@@ -9,10 +9,16 @@
 //  `StitchAdvising` (StitchAdvisor.swift): immer die Stickregeln nach Ink/Stitch, auf Wunsch
 //  zusätzlich Apple Intelligence.
 //
-//  Bewusste Vereinfachungen (v1):
-//  - Löcher (innere Konturen) werden nicht ausgespart: kleinere Flächen liegen in der Z-Order
-//    über grösseren (nach Fläche absteigend sortiert), wie bei einfachen Auto-Digitizern.
-//    `EditablePath` kennt ohnehin nur ein `isClosed` für den letzten Teilpfad.
+//  Issue #53: Löcher werden ausgespart (weitere Teilpfade im `d`, Ink/Stitch zieht alle
+//  kleineren Teilpfade vom grössten ab), und Flächen IN Löchern (z.B. weisse Schrift auf einem
+//  Helm, der selbst in einem weissen Rand liegt) werden ebenfalls nachgezeichnet — vorher kamen
+//  nur Vision-`topLevelContours` an, verschachtelte Flächen fielen weg. Der Hintergrund fällt nur
+//  dort weg, wo er mit dem Bildrand verbunden ist: weisse Schrift auf weissem Hintergrund bleibt.
+//  Umrisse werden geglättet (Bézier-Kurven), Ecken bleiben spitz.
+//
+//  Bewusste Vereinfachungen:
+//  - Kleinere Flächen liegen in der Z-Order über grösseren (nach Fläche absteigend sortiert),
+//    wie bei einfachen Auto-Digitizern.
 //  - Gearbeitet wird auf einer auf `workingMaxDimension` verkleinerten Kopie — schneller und
 //    glattere Umrisse; für Stickerei ist feineres Detail ohnehin nicht stickbar.
 //
@@ -43,28 +49,41 @@ nonisolated struct TraceColor: Equatable, Sendable {
 }
 
 /// Eine nachgezeichnete Farbfläche: geschlossenes Polygon (erster Punkt wird nicht wiederholt)
-/// in Design-Millimetern, Ursprung oben links wie im restlichen Canvas.
+/// in Design-Millimetern, Ursprung oben links wie im restlichen Canvas. `holes`: ausgesparte
+/// Löcher, ebenfalls geschlossene Polygone innerhalb von `points`.
 nonisolated struct TracedRegion: Equatable, Sendable {
     var points: [CGPoint]
     var color: TraceColor
+    var holes: [[CGPoint]] = []
 
+    /// Fläche ohne Löcher.
     var area: Double {
-        guard points.count >= 3 else { return 0 }
-        var sum = 0.0
-        for index in points.indices {
-            let a = points[index]
-            let b = points[(index + 1) % points.count]
-            sum += a.x * b.y - b.x * a.y
-        }
-        return abs(sum) / 2
+        holes.reduce(abs(Self.signedArea(of: points))) { $0 - abs(Self.signedArea(of: $1)) }
     }
 
+    /// Umfang samt Lochrändern.
     var perimeter: Double {
-        guard points.count >= 2 else { return 0 }
+        holes.reduce(Self.perimeter(of: points)) { $0 + Self.perimeter(of: $1) }
+    }
+
+    /// Shoelace-Formel; das Vorzeichen gibt den Umlaufsinn an.
+    static func signedArea(of polygon: [CGPoint]) -> Double {
+        guard polygon.count >= 3 else { return 0 }
         var sum = 0.0
-        for index in points.indices {
-            let a = points[index]
-            let b = points[(index + 1) % points.count]
+        for index in polygon.indices {
+            let a = polygon[index]
+            let b = polygon[(index + 1) % polygon.count]
+            sum += a.x * b.y - b.x * a.y
+        }
+        return sum / 2
+    }
+
+    static func perimeter(of polygon: [CGPoint]) -> Double {
+        guard polygon.count >= 2 else { return 0 }
+        var sum = 0.0
+        for index in polygon.indices {
+            let a = polygon[index]
+            let b = polygon[(index + 1) % polygon.count]
             sum += hypot(b.x - a.x, b.y - a.y)
         }
         return sum
@@ -123,7 +142,7 @@ nonisolated struct RuleBasedStitchTypeSuggester: StitchTypeSuggesting {
 }
 
 nonisolated struct ImageTraceService: ImageTracing {
-    static let workingMaxDimension = 512
+    static let workingMaxDimension = 1024
     /// Toleranz der Polygon-Vereinfachung, relativ zur Bildgrösse (Vision-Normalkoordinaten).
     static let simplificationEpsilon: Float = 0.0015
     /// Flächen unter diesem Anteil der Zielfläche (oder unter 1 mm²) sind Rauschen.
@@ -152,10 +171,11 @@ nonisolated struct ImageTraceService: ImageTracing {
         guard let bitmap = RGBABitmap(image: image) else { throw ImageTraceError.unreadableImage }
         let colorCount = min(max(options.colorCount, ImageTraceOptions.colorCountRange.lowerBound), ImageTraceOptions.colorCountRange.upperBound)
         let quantized = ColorQuantizer.quantize(bitmap, colorCount: colorCount)
-        let labels = ColorQuantizer.majorityFiltered(quantized.labels, width: bitmap.width, height: bitmap.height)
-        let background = options.removesBackground
-            ? ColorQuantizer.backgroundCluster(labels: labels, width: bitmap.width, height: bitmap.height)
-            : nil
+        var labels = ColorQuantizer.majorityFiltered(quantized.labels, width: bitmap.width, height: bitmap.height)
+        if options.removesBackground,
+           let background = ColorQuantizer.backgroundCluster(labels: labels, width: bitmap.width, height: bitmap.height) {
+            labels = ColorQuantizer.removingBorderConnected(cluster: background, labels: labels, width: bitmap.width, height: bitmap.height)
+        }
 
         let target = options.targetSizeMillimeters
         let millimetersPerPixel = min(target.width / Double(bitmap.width), target.height / Double(bitmap.height))
@@ -166,8 +186,37 @@ nonisolated struct ImageTraceService: ImageTracing {
             imageWidthMillimeters * imageHeightMillimeters * minimumRegionAreaFraction
         )
 
+        func millimeterPoints(of contour: VNContour) -> [CGPoint] {
+            let simplified = (try? contour.polygonApproximation(epsilon: simplificationEpsilon)) ?? contour
+            // Vision: normalisiert 0…1, Ursprung unten links → Design: mm, Ursprung oben links.
+            return simplified.normalizedPoints.map { point in
+                CGPoint(
+                    x: Double(point.x) * imageWidthMillimeters,
+                    y: (1 - Double(point.y)) * imageHeightMillimeters
+                )
+            }
+        }
+
         var regions: [TracedRegion] = []
-        for cluster in quantized.palette.indices where cluster != background {
+        /// Vision-Hierarchie: Kinder einer Fläche sind ihre Löcher, Kinder eines Lochs wieder
+        /// Flächen (Inseln im Loch) — die werden eigene Regionen.
+        func appendRegions(from contour: VNContour, color: TraceColor) {
+            var holes: [[CGPoint]] = []
+            for hole in contour.childContours {
+                let holePoints = millimeterPoints(of: hole)
+                if holePoints.count >= 3, abs(TracedRegion.signedArea(of: holePoints)) >= minimumArea {
+                    holes.append(holePoints)
+                }
+                for island in hole.childContours {
+                    appendRegions(from: island, color: color)
+                }
+            }
+            let region = TracedRegion(points: millimeterPoints(of: contour), color: color, holes: holes)
+            guard region.points.count >= 3, region.area >= minimumArea else { return }
+            regions.append(region)
+        }
+
+        for cluster in quantized.palette.indices {
             guard let mask = makeMask(labels: labels, cluster: cluster, width: bitmap.width, height: bitmap.height) else { continue }
             let request = VNDetectContoursRequest()
             request.detectsDarkOnLight = true
@@ -177,17 +226,7 @@ nonisolated struct ImageTraceService: ImageTracing {
             guard let observation = request.results?.first else { continue }
 
             for contour in observation.topLevelContours {
-                let simplified = (try? contour.polygonApproximation(epsilon: simplificationEpsilon)) ?? contour
-                // Vision: normalisiert 0…1, Ursprung unten links → Design: mm, Ursprung oben links.
-                let points = simplified.normalizedPoints.map { point in
-                    CGPoint(
-                        x: Double(point.x) * imageWidthMillimeters,
-                        y: (1 - Double(point.y)) * imageHeightMillimeters
-                    )
-                }
-                let region = TracedRegion(points: points, color: quantized.palette[cluster])
-                guard points.count >= 3, region.area >= minimumArea else { continue }
-                regions.append(region)
+                appendRegions(from: contour, color: quantized.palette[cluster])
             }
         }
 
@@ -250,7 +289,7 @@ extension ImageTraceService {
                 width: max(bounds.width, 0.01),
                 height: max(bounds.height, 0.01)
             )
-            object.pathData = pathData(for: region.points)
+            object.pathData = pathData(for: region.points, holes: region.holes)
             if let thread = ThreadCandidate.nearest(to: region.color, in: threads) {
                 object.fillColorHex = thread.hex
                 object.threadColor = ThreadColor(
@@ -277,11 +316,61 @@ extension ImageTraceService {
         }
     }
 
-    static func pathData(for points: [CGPoint]) -> String {
-        guard let first = points.first else { return "" }
-        var parts = ["M\(format(first.x)),\(format(first.y))"]
-        for point in points.dropFirst() {
-            parts.append("L\(format(point.x)),\(format(point.y))")
+    /// Knickt der Umriss an einem Punkt stärker ab, bleibt dort eine Ecke; sonst wird geglättet.
+    static let cornerAngleDegrees = 50.0
+
+    /// Ein geschlossener Teilpfad pro Polygon: zuerst der Umriss, danach die Löcher — gegenläufig
+    /// zum Umriss, damit sie auch beim Canvas-Füllen (Nonzero-Regel) frei bleiben. Ink/Stitch zieht
+    /// alle kleineren Teilpfade vom grössten ab (FillStitch.original_shape).
+    static func pathData(for points: [CGPoint], holes: [[CGPoint]] = []) -> String {
+        guard points.count >= 3 else { return "" }
+        let outerIsPositive = TracedRegion.signedArea(of: points) >= 0
+        var subpaths = [smoothSubpath(points)]
+        for hole in holes where hole.count >= 3 {
+            let holeIsPositive = TracedRegion.signedArea(of: hole) >= 0
+            subpaths.append(smoothSubpath(holeIsPositive == outerIsPositive ? Array(hole.reversed()) : hole))
+        }
+        return subpaths.joined(separator: " ")
+    }
+
+    /// Geschlossener Teilpfad durch alle Punkte. An Ecken (Knick über `cornerAngleDegrees`) gerade
+    /// Linien, sonst kubische Bézier-Kurven mit Tangente parallel zur Verbindung der Nachbarpunkte —
+    /// so werden Rundungen aus der Pixeltreppe wieder rund, Ecken bleiben spitz. Ein geschlossenes
+    /// Kurvenende wird ausgeschrieben, weil `Z` nur eine Gerade zurück zum Start zieht.
+    static func smoothSubpath(_ points: [CGPoint]) -> String {
+        let count = points.count
+        let tangents: [CGVector?] = points.indices.map { index in
+            let previous = points[(index + count - 1) % count]
+            let current = points[index]
+            let next = points[(index + 1) % count]
+            let incoming = CGVector(dx: current.x - previous.x, dy: current.y - previous.y)
+            let outgoing = CGVector(dx: next.x - current.x, dy: next.y - current.y)
+            let incomingLength = hypot(incoming.dx, incoming.dy)
+            let outgoingLength = hypot(outgoing.dx, outgoing.dy)
+            guard incomingLength > 0, outgoingLength > 0 else { return nil }
+            let cosine = (incoming.dx * outgoing.dx + incoming.dy * outgoing.dy) / (incomingLength * outgoingLength)
+            guard acos(min(max(cosine, -1), 1)) * 180 / .pi <= cornerAngleDegrees else { return nil }
+            let direction = CGVector(dx: next.x - previous.x, dy: next.y - previous.y)
+            let length = hypot(direction.dx, direction.dy)
+            return length > 0 ? CGVector(dx: direction.dx / length, dy: direction.dy / length) : nil
+        }
+
+        var parts = ["M\(format(points[0].x)),\(format(points[0].y))"]
+        for index in points.indices {
+            let start = points[index]
+            let endIndex = (index + 1) % count
+            let end = points[endIndex]
+            let isClosingSegment = endIndex == 0
+            guard tangents[index] != nil || tangents[endIndex] != nil else {
+                if !isClosingSegment { parts.append("L\(format(end.x)),\(format(end.y))") }
+                continue
+            }
+            let handle = hypot(end.x - start.x, end.y - start.y) / 3
+            let tangentStart = tangents[index] ?? CGVector(dx: 0, dy: 0)
+            let tangentEnd = tangents[endIndex] ?? CGVector(dx: 0, dy: 0)
+            let control1 = CGPoint(x: start.x + tangentStart.dx * handle, y: start.y + tangentStart.dy * handle)
+            let control2 = CGPoint(x: end.x - tangentEnd.dx * handle, y: end.y - tangentEnd.dy * handle)
+            parts.append("C\(format(control1.x)),\(format(control1.y)) \(format(control2.x)),\(format(control2.y)) \(format(end.x)),\(format(end.y))")
         }
         parts.append("Z")
         return parts.joined(separator: " ")
@@ -433,24 +522,70 @@ nonisolated enum ColorQuantizer {
     }
 
     /// Ein Durchgang 3×3-Mehrheitsfilter: entfernt Einzelpixel-Rauschen, das sonst zu unzähligen
-    /// winzigen Konturen würde. Bei Gleichstand bleibt das eigene Label.
+    /// winzigen Konturen würde. Bei Gleichstand bleibt das eigene Label — ausser das Pixel gehört zu
+    /// einer höchstens 1 Pixel breiten Linie (höchstens 3 gleiche in der 3×3-Nachbarschaft): solche
+    /// Säume entstehen an geglätteten Kanten zwischen zwei Farben (Issue #53, z.B. rötliche Ränder
+    /// um graue Gitterstäbe) und wären ohnehin nicht stickbar.
     static func majorityFiltered(_ labels: [Int], width: Int, height: Int) -> [Int] {
-        guard width > 2, height > 2 else { return labels }
+        guard width > 2, height > 2, let maxLabel = labels.max() else { return labels }
         var result = labels
-        var counts: [Int: Int] = [:]
+        // Labels reichen von -1 (transparent) bis `maxLabel`; Zähler-Index = Label + 1.
+        var counts = [Int](repeating: 0, count: maxLabel + 2)
         for y in 1..<(height - 1) {
             for x in 1..<(width - 1) {
-                counts.removeAll(keepingCapacity: true)
+                for slot in counts.indices { counts[slot] = 0 }
                 for dy in -1...1 {
+                    let row = (y + dy) * width + x
                     for dx in -1...1 {
-                        counts[labels[(y + dy) * width + x + dx], default: 0] += 1
+                        counts[labels[row + dx] + 1] += 1
                     }
                 }
                 let own = labels[y * width + x]
-                if let best = counts.max(by: { $0.value < $1.value }), best.value > counts[own, default: 0] {
-                    result[y * width + x] = best.key
+                let ownCount = counts[own + 1]
+                var bestLabel = own
+                var bestCount = 0
+                for slot in counts.indices where slot != own + 1 && counts[slot] > bestCount {
+                    bestLabel = slot - 1
+                    bestCount = counts[slot]
+                }
+                if bestCount > ownCount || (ownCount <= 3 && bestCount > 0) {
+                    result[y * width + x] = bestLabel
                 }
             }
+        }
+        return result
+    }
+
+    /// Issue #53: Nur der mit dem Bildrand verbundene Teil des Hintergrund-Clusters wird entfernt
+    /// (Label -1). Gleichfarbige Flächen, die ganz von anderen Farben umschlossen sind — weisse
+    /// Schrift auf einem Logo vor weissem Hintergrund — bleiben erhalten. Transparente Pixel
+    /// verbinden mit, sie sind ohnehin Hintergrund.
+    static func removingBorderConnected(cluster: Int, labels: [Int], width: Int, height: Int) -> [Int] {
+        guard width > 0, height > 0 else { return labels }
+        var result = labels
+        var visited = [Bool](repeating: false, count: labels.count)
+        var stack: [Int] = []
+        func visit(_ index: Int) {
+            guard !visited[index], labels[index] == cluster || labels[index] == -1 else { return }
+            visited[index] = true
+            stack.append(index)
+        }
+        for x in 0..<width {
+            visit(x)
+            visit((height - 1) * width + x)
+        }
+        for y in 0..<height {
+            visit(y * width)
+            visit(y * width + width - 1)
+        }
+        while let index = stack.popLast() {
+            result[index] = -1
+            let x = index % width
+            let y = index / width
+            if x > 0 { visit(index - 1) }
+            if x < width - 1 { visit(index + 1) }
+            if y > 0 { visit(index - width) }
+            if y < height - 1 { visit(index + width) }
         }
         return result
     }
